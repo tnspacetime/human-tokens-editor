@@ -6,10 +6,11 @@ import SwiftUI
 /// mode) and which line the cursor is on (current-paragraph mode).
 struct SourceEditor: NSViewRepresentable {
     @Binding var text: String
-    let bridge: PreviewBridge
+    let sheet: PreviewBridge
+    let page: PreviewBridge
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(text: $text, bridge: bridge)
+        Coordinator(text: $text, sheet: sheet, page: page)
     }
 
     func makeNSView(context: Context) -> NSScrollView {
@@ -57,7 +58,8 @@ struct SourceEditor: NSViewRepresentable {
     @MainActor
     final class Coordinator: NSObject, NSTextViewDelegate {
         var text: Binding<String>
-        let bridge: PreviewBridge
+        let sheet: PreviewBridge
+        let page: PreviewBridge
 
         private weak var textView: SurfaceTextView?
         private weak var scrollView: NSScrollView?
@@ -65,9 +67,10 @@ struct SourceEditor: NSViewRepresentable {
         /// UTF-16 offset where each source line starts (line 0 is index 0).
         private var lineStarts: [Int] = [0]
 
-        init(text: Binding<String>, bridge: PreviewBridge) {
+        init(text: Binding<String>, sheet: PreviewBridge, page: PreviewBridge) {
             self.text = text
-            self.bridge = bridge
+            self.sheet = sheet
+            self.page = page
         }
 
         func attach(textView: SurfaceTextView, scrollView: NSScrollView) {
@@ -86,7 +89,8 @@ struct SourceEditor: NSViewRepresentable {
                 self, selector: #selector(scrollFrameChanged(_:)),
                 name: NSView.frameDidChangeNotification, object: scrollView)
 
-            bridge.onJump = { [weak self] line in self?.jump(toLine: line) }
+            sheet.onJump = { [weak self] line in self?.jump(toLine: line) }
+            page.onJump = { [weak self] line in self?.jump(toLine: line) }
         }
 
         /// Puts text from the document into the view (first load, revert).
@@ -136,12 +140,18 @@ struct SourceEditor: NSViewRepresentable {
         }
 
         private func reportScroll() {
-            bridge.scroll(topLine: topLine())
+            let line = topLine()
+            if let textView, let scrollView {
+                // Padding still showing above the first line (near the top).
+                page.setTopGap(max(0, textView.textContainerOrigin.y - scrollView.contentView.bounds.minY))
+            }
+            sheet.scroll(topLine: line)
+            page.scroll(topLine: line)
         }
 
         private func reportCursor() {
             guard let textView else { return }
-            bridge.focus(line: line(atUTF16: textView.selectedRange().location))
+            sheet.focus(line: line(atUTF16: textView.selectedRange().location))
         }
 
         /// The source line at the top edge of the editor, with a fraction for
@@ -179,7 +189,7 @@ struct SourceEditor: NSViewRepresentable {
         /// paragraphs are then under the sheet, rendered. A paragraph too tall
         /// to fit keeps the cursor line in view instead.
         func pinTypingParagraph() {
-            guard bridge.mode == .under, bridge.isSheetVisible,
+            guard sheet.mode == .under, sheet.isActive,
                   UserDefaults.standard.object(forKey: TypewriterScrollingToggle.key) as? Bool ?? true,
                   let textView, let scrollView,
                   let layout = textView.layoutManager,

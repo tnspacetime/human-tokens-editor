@@ -3,6 +3,7 @@
 :root {
   color-scheme: light dark;
   --bg: #f4f3ef;
+  --page-bg: #ffffff;
   --fg: #1d1d1f;
   --muted: #86868b;
   --rule: rgba(0, 0, 0, 0.09);
@@ -19,6 +20,7 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #19191b;
+    --page-bg: #1f1f21;
     --fg: #e8e8ea;
     --muted: #8e8e93;
     --rule: rgba(255, 255, 255, 0.09);
@@ -80,6 +82,11 @@ body.focus #spacer { display: none; }
 body.focus #content { padding-top: 45vh; padding-bottom: 45vh; }
 body.focus .blk { opacity: 0.28; }
 body.focus .blk.current { opacity: 1; }
+
+/* The side panel: the document as a published page. */
+body.page { background: var(--page-bg); }
+body.page #spacer { display: none; }
+body.page #content { padding-top: var(--page-top, 36px); padding-bottom: 70vh; }
 
 h1, h2, h3, h4, h5, h6 { line-height: 1.25; margin: 1em 0 0.4em; }
 h1 { font-size: 1.75em; }

@@ -11,6 +11,8 @@ struct SurfaceApp: App {
         .commands {
             CommandGroup(after: .toolbar) {
                 TypewriterScrollingToggle()
+                Divider()
+                AppearanceMenu()
             }
         }
     }

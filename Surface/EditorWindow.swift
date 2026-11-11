@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import WebKit
 
@@ -11,74 +12,309 @@ enum DrawerMode: String, CaseIterable {
 struct EditorWindow: View {
     @Binding var document: MarkdownDocument
 
-    @State private var bridge = PreviewBridge()
+    @State private var sheet = PreviewBridge(role: .sheet)
+    @State private var page = PreviewBridge(role: .page)
+    @State private var window = WindowReference()
+
+    /// The publishing surface: a second half that slides out of the writing
+    /// surface's right edge (the window grows to make room) and back in.
+    @State private var pageOpen = false
+    /// The writing half's width while the page is out. It doesn't change.
+    @State private var writingWidth: CGFloat = 0
+    /// The page's width when fully out.
+    @State private var pageWidth: CGFloat = 0
+    @State private var isSliding = false
+    /// Where the window was before it had to shift left to make room, and
+    /// where it ended up; it goes back on close unless you moved it.
+    @State private var shiftedFromX: CGFloat?
+    @State private var shiftedToX: CGFloat?
+
     @AppStorage("sheet.open") private var sheetOpen = true
     @AppStorage("sheet.height") private var sheetHeight = 220.0
     @AppStorage("sheet.mode") private var mode: DrawerMode = .under
+    @AppStorage(AppearanceMode.key) private var appearance: AppearanceMode = .system
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         GeometryReader { geometry in
-            let maxHeight = max(80, geometry.size.height - 60)
-            let height = min(max(sheetHeight, 60), maxHeight)
-            VStack(spacing: 0) {
-                // Kept alive while hidden so reopening is instant.
-                SheetView(bridge: bridge)
-                    .frame(height: sheetOpen ? height : 0)
-                    .clipped()
-                if sheetOpen {
-                    SheetHandle(height: $sheetHeight, range: 60...maxHeight)
-                        .zIndex(1)
-                }
-                SourceEditor(text: $document.text, bridge: bridge)
+            let total = geometry.size.width
+            let writing = pageOpen ? min(writingWidth, total) : total
+            let revealed = max(0, total - writing - 1)
+            HStack(spacing: 0) {
+                editorColumn(height: geometry.size.height)
+                    .frame(width: writing)
+
+                // The hinge between the two halves.
+                Rectangle()
+                    .fill(Color(nsColor: .separatorColor))
+                    .frame(width: pageOpen ? 1 : 0)
+
+                // Pinned to the window's right edge, so as the window grows
+                // the page slides out from behind the hinge (and back in).
+                // Always present so it's loaded before it's needed.
+                PageSurface(bridge: page, contentWidth: pageOpen ? pageWidth : 0)
+                    .frame(width: pageOpen ? revealed : 0)
             }
         }
         .frame(minWidth: 520, minHeight: 360)
-        .toolbar {
-            ToolbarItem {
-                Picker("Sheet mode", selection: $mode) {
-                    Label("Scroll under", systemImage: "arrow.up.to.line").tag(DrawerMode.under)
-                    Label("Current paragraph", systemImage: "scope").tag(DrawerMode.focus)
-                }
-                .pickerStyle(.segmented)
-                .labelStyle(.iconOnly)
-                .disabled(!sheetOpen)
-                .help("Scroll under: text you scroll past appears rendered. Current paragraph: renders what you're editing.")
-            }
-            ToolbarItem {
-                Button {
-                    withAnimation(.snappy(duration: 0.25)) { sheetOpen.toggle() }
-                } label: {
-                    Label(sheetOpen ? "Hide Sheet" : "Show Sheet", systemImage: "rectangle.tophalf.inset.filled")
-                }
-                .keyboardShortcut("\\", modifiers: .command)
-                .help("Show or hide the rendered sheet (⌘\\)")
+        .background(WindowReader(reference: window))
+        .toolbar { toolbar }
+        .onChange(of: document.text, initial: true) { _, text in
+            sheet.setText(text)
+            page.setText(text)
+        }
+        .onChange(of: mode, initial: true) { _, mode in sheet.setMode(mode) }
+        .onChange(of: pageAnchor, initial: true) { _, y in page.setAnchor(y) }
+        .onChange(of: sheetOpen, initial: true) { _, open in sheet.isActive = open }
+        .onChange(of: pageOpen, initial: true) { _, open in page.isActive = open }
+        .onChange(of: appearance, initial: true) { _, appearance in appearance.apply() }
+        #if DEBUG
+        // Lets tests toggle the publishing surface without keystrokes:
+        // a distributed notification named "dev.surface.editor.togglePage".
+        .onReceive(DistributedNotificationCenter.default().publisher(for: .init("dev.surface.editor.togglePage"))) { _ in
+            togglePage()
+        }
+        // Logs which view would receive a click/scroll in the middle of the
+        // writing surface ("dev.surface.editor.probe").
+        .onReceive(DistributedNotificationCenter.default().publisher(for: .init("dev.surface.editor.probe"))) { _ in
+            guard let content = window.window?.contentView else { return }
+            let x = (pageOpen ? min(writingWidth, content.bounds.width) : content.bounds.width) * 0.5
+            // hitTest takes the superview's (window) coordinates, origin at
+            // the bottom: 15pt up is inside the editor, below the sheet.
+            let hit = content.hitTest(NSPoint(x: x, y: 15))
+            let chain = sequence(first: hit, next: { $0?.superview }).prefix(3)
+                .map { $0.map { String(describing: type(of: $0)) } ?? "nil" }
+                .joined(separator: " < ")
+            let line = "pageOpen=\(pageOpen) hit=\(chain)\n"
+            let url = FileManager.default.temporaryDirectory.appending(path: "surface-probe.log")
+            if let handle = try? FileHandle(forWritingTo: url) {
+                handle.seekToEndOfFile()
+                handle.write(Data(line.utf8))
+                try? handle.close()
+            } else {
+                try? Data(line.utf8).write(to: url)
             }
         }
-        .onChange(of: document.text, initial: true) { _, text in bridge.setText(text) }
-        .onChange(of: mode, initial: true) { _, mode in bridge.setMode(mode) }
-        .onChange(of: sheetOpen, initial: true) { _, open in bridge.isSheetVisible = open }
+        #endif
+    }
+
+    /// Where the editor's top edge sits in the window: below the sheet and
+    /// its handle. (The editor adds its own top padding when scrolled to 0.)
+    private var pageAnchor: Double {
+        sheetOpen ? max(sheetHeight, 60) + 12 : 0
+    }
+
+    // MARK: Sliding the publishing surface
+
+    private static let slideDuration = 0.36
+
+    private func togglePage() {
+        guard !isSliding else { return }
+        guard let window = window.window, !window.styleMask.contains(.fullScreen) else {
+            // Full screen: the window can't grow, so split it in half instead.
+            let width = window.window?.frame.width ?? 1000
+            writingWidth = width / 2
+            pageWidth = width / 2
+            pageOpen.toggle()
+            return
+        }
+
+        var frame = window.frame
+        if !pageOpen {
+            // Grow to the right by the writing surface's width (two equal
+            // halves), within the screen. If there isn't room, shift left;
+            // if the screen is too narrow even then, share it.
+            let screen = (window.screen ?? NSScreen.main)?.visibleFrame ?? frame
+            let current = frame.width
+            let target = min(current * 2, screen.width)
+            pageWidth = max(target - current, target / 2)
+            writingWidth = target - pageWidth
+            frame.size.width = target
+            shiftedFromX = nil
+            if frame.maxX > screen.maxX {
+                shiftedFromX = frame.origin.x
+                frame.origin.x = max(screen.minX, screen.maxX - target)
+                shiftedToX = frame.origin.x
+            }
+            pageOpen = true
+            slide(window, to: frame) {}
+        } else {
+            frame.size.width = min(writingWidth, frame.width)
+            if let from = shiftedFromX, let to = shiftedToX, abs(frame.origin.x - to) < 1 {
+                frame.origin.x = from
+            }
+            shiftedFromX = nil
+            slide(window, to: frame) { pageOpen = false }
+        }
+    }
+
+    private func slide(_ window: NSWindow, to frame: NSRect, completion: @escaping @MainActor () -> Void) {
+        isSliding = true
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = Self.slideDuration
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            window.animator().setFrame(frame, display: true)
+        } completionHandler: {
+            Task { @MainActor in
+                completion()
+                isSliding = false
+            }
+        }
+    }
+
+    // MARK: Layout
+
+    private func editorColumn(height: CGFloat) -> some View {
+        let maxHeight = max(80, height - 60)
+        let sheetHeight = min(max(self.sheetHeight, 60), maxHeight)
+        return VStack(spacing: 0) {
+            // Kept alive while hidden so reopening is instant.
+            PreviewView(bridge: sheet)
+                .frame(height: sheetOpen ? sheetHeight : 0)
+                .clipped()
+            if sheetOpen {
+                SheetHandle(height: $sheetHeight, range: 60...maxHeight)
+                    .zIndex(1)
+            }
+            SourceEditor(text: $document.text, sheet: sheet, page: page)
+        }
+    }
+
+    @ToolbarContentBuilder private var toolbar: some ToolbarContent {
+        ToolbarItem {
+            Picker("Sheet mode", selection: $mode) {
+                Label("Scroll under", systemImage: "arrow.up.to.line").tag(DrawerMode.under)
+                Label("Current paragraph", systemImage: "scope").tag(DrawerMode.focus)
+            }
+            .pickerStyle(.segmented)
+            .labelStyle(.iconOnly)
+            .disabled(!sheetOpen)
+            .help("Scroll under: text you scroll past appears rendered. Current paragraph: renders what you're editing.")
+        }
+        ToolbarItem {
+            Button {
+                withAnimation(.snappy(duration: 0.25)) { sheetOpen.toggle() }
+            } label: {
+                Label(sheetOpen ? "Hide Sheet" : "Show Sheet",
+                      systemImage: sheetOpen ? "rectangle.tophalf.inset.filled" : "rectangle.tophalf.inset")
+            }
+            .keyboardShortcut("\\", modifiers: .command)
+            .help("Show or hide the rendered sheet (⌘\\)")
+        }
+        ToolbarItem {
+            Button {
+                togglePage()
+            } label: {
+                Label(pageOpen ? "Hide Publishing Surface" : "Show Publishing Surface",
+                      systemImage: pageOpen ? "rectangle.righthalf.inset.filled" : "rectangle.split.2x1")
+            }
+            .keyboardShortcut("p", modifiers: [.command, .option])
+            .help("Slide the publishing surface out to the right, or back in (⌥⌘P)")
+        }
+        ToolbarItem {
+            Menu {
+                Picker("Appearance", selection: $appearance) {
+                    ForEach(AppearanceMode.allCases) { Text($0.title).tag($0) }
+                }
+                .pickerStyle(.inline)
+            } label: {
+                Label("Appearance", systemImage: colorScheme == .dark ? "moon.fill" : "sun.max.fill")
+            } primaryAction: {
+                appearance = colorScheme == .dark ? .light : .dark
+            }
+            .help("Click to switch light/dark (⇧⌘L). Hold for System, Light or Dark.")
+        }
     }
 }
 
-/// View ▸ Typewriter Scrolling. While typing in scroll-under mode, keeps the
-/// paragraph you're writing just below the sheet, so everything before it is
-/// rendered above.
-struct TypewriterScrollingToggle: View {
-    static let key = "typing.pin"
-    @AppStorage(key) private var enabled = true
+// MARK: - Window access
 
-    var body: some View {
-        Toggle("Typewriter Scrolling", isOn: $enabled)
-            .keyboardShortcut("t", modifiers: [.command, .option])
+/// Holds the NSWindow a SwiftUI view lives in.
+@MainActor
+final class WindowReference {
+    weak var window: NSWindow?
+}
+
+/// An invisible view that reports which window it's in.
+struct WindowReader: NSViewRepresentable {
+    let reference: WindowReference
+
+    func makeNSView(context: Context) -> ReaderView { ReaderView(reference: reference) }
+    func updateNSView(_ view: ReaderView, context: Context) {}
+
+    final class ReaderView: NSView {
+        let reference: WindowReference
+
+        init(reference: WindowReference) {
+            self.reference = reference
+            super.init(frame: .zero)
+        }
+
+        required init?(coder: NSCoder) { fatalError("not used") }
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            reference.window = window
+        }
     }
 }
 
-/// The rendered sheet at the top of the window.
-struct SheetView: NSViewRepresentable {
+// MARK: - Previews and the sheet handle
+
+/// A rendered preview: the top sheet or the publishing surface.
+struct PreviewView: NSViewRepresentable {
     let bridge: PreviewBridge
 
     func makeNSView(context: Context) -> WKWebView { bridge.makeWebView() }
     func updateNSView(_ view: WKWebView, context: Context) {}
+}
+
+/// The publishing surface. The page keeps its full width while only part of
+/// it is showing (so text doesn't re-wrap on every frame of the slide), and is
+/// pinned to the right edge. It sits in an AppKit view that clips it: SwiftUI's
+/// `.clipped()` only hides drawing, so an oversized web view would still catch
+/// clicks and scrolling meant for the editor next to it.
+struct PageSurface: NSViewRepresentable {
+    let bridge: PreviewBridge
+    let contentWidth: CGFloat
+
+    func makeNSView(context: Context) -> ContainerView {
+        ContainerView(content: bridge.makeWebView())
+    }
+
+    func updateNSView(_ view: ContainerView, context: Context) {
+        view.contentWidth = contentWidth
+    }
+
+    final class ContainerView: NSView {
+        private let content: NSView
+        var contentWidth: CGFloat = 0 {
+            didSet { if contentWidth != oldValue { positionContent() } }
+        }
+
+        init(content: NSView) {
+            self.content = content
+            super.init(frame: .zero)
+            clipsToBounds = true
+            addSubview(content)
+        }
+
+        required init?(coder: NSCoder) { fatalError("not used") }
+
+        override func resizeSubviews(withOldSize oldSize: NSSize) {
+            positionContent()
+        }
+
+        override func layout() {
+            super.layout()
+            positionContent()
+        }
+
+        private func positionContent() {
+            let width = max(contentWidth, bounds.width)
+            content.frame = NSRect(x: bounds.width - width, y: 0, width: width, height: bounds.height)
+        }
+    }
 }
 
 /// The sheet's bottom edge: drag to pull it down or push it up.
@@ -111,5 +347,18 @@ struct SheetHandle: View {
                 .onEnded { _ in dragStart = nil }
         )
         .accessibilityLabel("Sheet height")
+    }
+}
+
+/// View ▸ Typewriter Scrolling. While typing in scroll-under mode, keeps the
+/// paragraph you're writing just below the sheet, so everything before it is
+/// rendered above.
+struct TypewriterScrollingToggle: View {
+    static let key = "typing.pin"
+    @AppStorage(key) private var enabled = true
+
+    var body: some View {
+        Toggle("Typewriter Scrolling", isOn: $enabled)
+            .keyboardShortcut("t", modifiers: [.command, .option])
     }
 }

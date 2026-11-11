@@ -3,8 +3,8 @@
 //
 // API (called from Swift via callAsyncJavaScript):
 //   Surface.setDocument(text)   re-render (only changed blocks touch the DOM)
-//   Surface.setMode(mode)       "under" | "focus"
-//   Surface.scrollToLine(line)  fractional source line at the sheet's edge
+//   Surface.setMode(mode)       "under" | "focus" (the sheet) | "page" (side panel)
+//   Surface.scrollToLine(line)  fractional source line at the editor's top edge
 //   Surface.focusLine(line)     source line the cursor is on
 
 import MarkdownIt from "markdown-it";
@@ -142,7 +142,7 @@ function renderBlocks(src) {
 // ---------------------------------------------------------------- the sheet
 
 const content = document.getElementById("content");
-const state = { mode: "under", line: 0, cursor: 0, blocks: [], focusIndex: -1 };
+const state = { mode: "under", line: 0, cursor: 0, blocks: [], focusIndex: -1, anchor: 36 };
 
 function setDocument(text) {
   const rendered = renderBlocks(text);
@@ -207,8 +207,16 @@ function applyFocus(smooth) {
   window.scrollTo({ top: Math.max(0, target), behavior: smooth && moved ? "smooth" : "auto" });
 }
 
+// "Page": the whole document like the published page. The editor's top line
+// lands at `anchor` px from the top, which is where that line sat on screen
+// in the editor, so sliding the page in keeps everything in place.
+function applyPage() {
+  window.scrollTo(0, Math.max(0, content.offsetTop + yForLine(state.line) - state.anchor));
+}
+
 function reposition(smooth) {
   if (state.mode === "focus") applyFocus(smooth);
+  else if (state.mode === "page") applyPage();
   else applyUnder();
 }
 
@@ -224,14 +232,22 @@ window.addEventListener("resize", () => reposition(false));
 window.Surface = {
   setDocument,
   setMode(mode) {
-    state.mode = mode === "focus" ? "focus" : "under";
+    state.mode = ["focus", "page"].includes(mode) ? mode : "under";
     document.body.classList.toggle("focus", state.mode === "focus");
+    document.body.classList.toggle("page", state.mode === "page");
     state.focusIndex = -1;
     reposition(false);
   },
   scrollToLine(line) {
     state.line = Number(line) || 0;
     if (state.mode === "under") applyUnder();
+    else if (state.mode === "page") applyPage();
+  },
+  setAnchor(px) {
+    state.anchor = Number(px) || 0;
+    // Enough room above the first block for it to sit at the anchor too.
+    content.style.setProperty("--page-top", `${Math.max(36, state.anchor)}px`);
+    if (state.mode === "page") applyPage();
   },
   focusLine(line) {
     state.cursor = Number(line) || 0;

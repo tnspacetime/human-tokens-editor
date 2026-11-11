@@ -1,25 +1,53 @@
 import AppKit
 import WebKit
 
-/// Owns the sheet's web view and is the only thing that talks to it.
-/// Swift owns the text and the files; the web view only renders.
+/// Owns one preview web view (the top sheet or the side page) and is the
+/// only thing that talks to it. Swift owns the text and the files; the web
+/// view only renders.
 @MainActor
 final class PreviewBridge: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
+    enum Role {
+        /// The pull-down sheet above the editor (scroll-under / current paragraph).
+        case sheet
+        /// The publishing surface: the document as a published page, beside the editor.
+        case page
+    }
+
+    let role: Role
+
     private weak var webView: WKWebView?
     private var isReady = false
 
     private var text = ""
+    /// Sheet mode; ignored by the page.
     private(set) var mode: DrawerMode = .under
-    /// Whether the sheet is showing (the editor only pins typing when it is).
-    var isSheetVisible = true
     private var topLine: Double = 0
     private var cursorLine = 0
+    /// Page only: where the editor's top line sits on screen, as the editor's
+    /// top edge in the window plus any padding showing above its first line.
+    private var anchorBase: Double = 0
+    private var anchorGap: Double = 28
+    private var anchor: Double { anchorBase + anchorGap }
     private var pendingRender: Task<Void, Never>?
+
+    /// Whether this preview is on screen. A hidden preview keeps track of the
+    /// latest state but doesn't render until it's shown again.
+    var isActive = true {
+        didSet { if isActive, !oldValue { pushState() } }
+    }
 
     /// Called when a rendered block is clicked, with its first source line.
     var onJump: ((Int) -> Void)?
 
     private static let rendererURL = Bundle.main.url(forResource: "renderer", withExtension: "html")
+
+    init(role: Role) {
+        self.role = role
+    }
+
+    private var jsMode: String {
+        role == .page ? "page" : mode.rawValue
+    }
 
     func makeWebView() -> WKWebView {
         if let webView { return webView }
@@ -53,7 +81,7 @@ final class PreviewBridge: NSObject, WKNavigationDelegate, WKScriptMessageHandle
 
     func setMode(_ newMode: DrawerMode) {
         mode = newMode
-        call("Surface.setMode(mode)", ["mode": newMode.rawValue])
+        call("Surface.setMode(mode)", ["mode": jsMode])
     }
 
     func scroll(topLine line: Double) {
@@ -62,14 +90,35 @@ final class PreviewBridge: NSObject, WKNavigationDelegate, WKScriptMessageHandle
         call("Surface.scrollToLine(line)", ["line": line])
     }
 
+    func setAnchor(_ y: Double) {
+        guard y != anchorBase else { return }
+        anchorBase = y
+        call("Surface.setAnchor(y)", ["y": anchor])
+    }
+
+    func setTopGap(_ gap: Double) {
+        guard gap != anchorGap else { return }
+        anchorGap = gap
+        call("Surface.setAnchor(y)", ["y": anchor])
+    }
+
     func focus(line: Int) {
         guard line != cursorLine else { return }
         cursorLine = line
         call("Surface.focusLine(line)", ["line": line])
     }
 
+    /// Sends everything at once: after loading, or when shown again.
+    private func pushState() {
+        pendingRender?.cancel()
+        call(
+            "Surface.setDocument(text); Surface.setAnchor(anchor); Surface.scrollToLine(line); Surface.focusLine(cursor); Surface.setMode(mode);",
+            ["text": text, "anchor": anchor, "line": topLine, "cursor": cursorLine, "mode": jsMode]
+        )
+    }
+
     private func call(_ body: String, _ arguments: [String: Any]) {
-        guard isReady, let webView else { return }
+        guard isReady, isActive, let webView else { return }
         webView.callAsyncJavaScript(body, arguments: arguments, in: nil, in: .page, completionHandler: nil)
     }
 
@@ -77,10 +126,7 @@ final class PreviewBridge: NSObject, WKNavigationDelegate, WKScriptMessageHandle
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         isReady = true
-        call(
-            "Surface.setDocument(text); Surface.scrollToLine(line); Surface.focusLine(cursor); Surface.setMode(mode);",
-            ["text": text, "line": topLine, "cursor": cursorLine, "mode": mode.rawValue]
-        )
+        pushState()
     }
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
@@ -89,7 +135,7 @@ final class PreviewBridge: NSObject, WKNavigationDelegate, WKScriptMessageHandle
             return .allow
         }
         if url.isFileURL {
-            // A file dropped onto the sheet: open it as a document.
+            // A file dropped onto a preview: open it as a document.
             NSDocumentController.shared.openDocument(withContentsOf: url, display: true) { _, _, _ in }
         } else if navigationAction.navigationType == .linkActivated {
             NSWorkspace.shared.open(url)
