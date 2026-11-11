@@ -103,6 +103,7 @@ struct SourceEditor: NSViewRepresentable {
             guard let textView else { return }
             text.wrappedValue = textView.string
             textChanged()
+            pinTypingParagraph()
         }
 
         func textViewDidChangeSelection(_ notification: Notification) {
@@ -124,9 +125,10 @@ struct SourceEditor: NSViewRepresentable {
         }
 
         @objc private func scrollFrameChanged(_ notification: Notification) {
-            // Let the last lines scroll up under the sheet too.
+            // Let the last paragraph scroll all the way up to the sheet, so
+            // typing at the end of a document can be pinned there too.
             guard let scrollView else { return }
-            let bottom = (scrollView.frame.height * 0.45).rounded()
+            let bottom = max(0, scrollView.frame.height - 96).rounded()
             if scrollView.contentInsets.bottom != bottom {
                 scrollView.contentInsets = NSEdgeInsets(top: 0, left: 0, bottom: bottom, right: 0)
             }
@@ -170,6 +172,52 @@ struct SourceEditor: NSViewRepresentable {
             if start >= length { return layout.extraLineFragmentRect }
             let glyphs = layout.glyphRange(forCharacterRange: NSRange(location: start, length: max(1, end - start)), actualCharacterRange: nil)
             return layout.boundingRect(forGlyphRange: glyphs, in: container)
+        }
+
+        /// Typewriter scrolling for scroll-under mode: after each edit, scroll
+        /// so the paragraph being typed starts just below the sheet. Earlier
+        /// paragraphs are then under the sheet, rendered. A paragraph too tall
+        /// to fit keeps the cursor line in view instead.
+        func pinTypingParagraph() {
+            guard bridge.mode == .under, bridge.isSheetVisible,
+                  UserDefaults.standard.object(forKey: TypewriterScrollingToggle.key) as? Bool ?? true,
+                  let textView, let scrollView,
+                  let layout = textView.layoutManager,
+                  let container = textView.textContainer,
+                  let length = textView.textStorage?.length, length > 0
+            else { return }
+
+            let caretLine = line(atUTF16: textView.selectedRange().location)
+            var firstLine = caretLine
+            while firstLine > 0, !isBlank(line: firstLine - 1) { firstLine -= 1 }
+
+            layout.ensureLayout(forCharacterRange: NSRange(location: 0, length: min(length, textView.selectedRange().location + 1)))
+            let origin = textView.textContainerOrigin.y
+            let paragraphTop = paragraphRect(line: firstLine, layout: layout, container: container).minY + origin
+            let caretBottom = paragraphRect(line: caretLine, layout: layout, container: container).maxY + origin
+
+            let clip = scrollView.contentView
+            let topMargin: CGFloat = 14
+            var y = paragraphTop - topMargin
+            let room = clip.bounds.height * 0.7
+            if caretBottom - y > room { y = caretBottom - room }
+
+            let target = clip.constrainBoundsRect(NSRect(origin: NSPoint(x: 0, y: max(0, y)), size: clip.bounds.size)).origin
+            guard abs(target.y - clip.bounds.minY) >= 1 else { return }
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.18
+                context.allowsImplicitAnimation = true
+                clip.animator().setBoundsOrigin(target)
+            }
+            scrollView.reflectScrolledClipView(clip)
+        }
+
+        private func isBlank(line: Int) -> Bool {
+            guard let string = textView?.string as NSString?, line >= 0, line < lineStarts.count else { return true }
+            let start = lineStarts[line]
+            let end = line + 1 < lineStarts.count ? lineStarts[line + 1] : string.length
+            return string.substring(with: NSRange(location: start, length: end - start))
+                .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }
 
         /// Clicking a block in the sheet: put the cursor at its first line

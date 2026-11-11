@@ -8,5 +8,10 @@ struct SurfaceApp: App {
         DocumentGroup(newDocument: MarkdownDocument()) { file in
             EditorWindow(document: file.$document)
         }
+        .commands {
+            CommandGroup(after: .toolbar) {
+                TypewriterScrollingToggle()
+            }
+        }
     }
 }

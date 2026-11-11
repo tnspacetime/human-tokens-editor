@@ -56,6 +56,20 @@ struct EditorWindow: View {
         }
         .onChange(of: document.text, initial: true) { _, text in bridge.setText(text) }
         .onChange(of: mode, initial: true) { _, mode in bridge.setMode(mode) }
+        .onChange(of: sheetOpen, initial: true) { _, open in bridge.isSheetVisible = open }
+    }
+}
+
+/// View ▸ Typewriter Scrolling. While typing in scroll-under mode, keeps the
+/// paragraph you're writing just below the sheet, so everything before it is
+/// rendered above.
+struct TypewriterScrollingToggle: View {
+    static let key = "typing.pin"
+    @AppStorage(key) private var enabled = true
+
+    var body: some View {
+        Toggle("Typewriter Scrolling", isOn: $enabled)
+            .keyboardShortcut("t", modifiers: [.command, .option])
     }
 }
 

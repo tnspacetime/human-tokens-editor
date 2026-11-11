@@ -9,7 +9,9 @@ final class PreviewBridge: NSObject, WKNavigationDelegate, WKScriptMessageHandle
     private var isReady = false
 
     private var text = ""
-    private var mode: DrawerMode = .under
+    private(set) var mode: DrawerMode = .under
+    /// Whether the sheet is showing (the editor only pins typing when it is).
+    var isSheetVisible = true
     private var topLine: Double = 0
     private var cursorLine = 0
     private var pendingRender: Task<Void, Never>?
