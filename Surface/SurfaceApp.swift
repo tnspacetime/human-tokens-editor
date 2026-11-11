@@ -8,6 +8,8 @@ struct SurfaceApp: App {
         DocumentGroup(newDocument: MarkdownDocument()) { file in
             EditorWindow(document: file.$document)
         }
+        // New windows open compact: one reading column with some margin.
+        .defaultSize(width: 760, height: 680)
         .commands {
             CommandGroup(after: .toolbar) {
                 TypewriterScrollingToggle()

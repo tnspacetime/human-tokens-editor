@@ -27,7 +27,16 @@ final class PreviewBridge: NSObject, WKNavigationDelegate, WKScriptMessageHandle
     /// top edge in the window plus any padding showing above its first line.
     private var anchorBase: Double = 0
     private var anchorGap: Double = 28
-    private var anchor: Double { anchorBase + anchorGap }
+    /// Page only: how much the page is scaled down to fit its half. The
+    /// anchor is in screen points; the page measures in its own (zoomed) px.
+    private var zoom: Double = 1
+    private var anchor: Double { (anchorBase + anchorGap) / zoom }
+
+    func setZoom(_ newZoom: Double) {
+        guard abs(newZoom - zoom) > 0.001, newZoom > 0 else { return }
+        zoom = newZoom
+        call("Surface.setAnchor(y)", ["y": anchor])
+    }
     private var pendingRender: Task<Void, Never>?
 
     /// Whether this preview is on screen. A hidden preview keeps track of the

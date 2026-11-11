@@ -29,6 +29,8 @@ struct EditorWindow: View {
     @State private var shiftedFromX: CGFloat?
     @State private var shiftedToX: CGFloat?
 
+    /// How wide the publishing half slides out. Remembered when you resize it.
+    @AppStorage("page.width") private var preferredPageWidth = 620.0
     @AppStorage("sheet.open") private var sheetOpen = true
     @AppStorage("sheet.height") private var sheetHeight = 220.0
     @AppStorage("sheet.mode") private var mode: DrawerMode = .under
@@ -85,7 +87,12 @@ struct EditorWindow: View {
             let chain = sequence(first: hit, next: { $0?.superview }).prefix(3)
                 .map { $0.map { String(describing: type(of: $0)) } ?? "nil" }
                 .joined(separator: " < ")
-            let line = "pageOpen=\(pageOpen) hit=\(chain)\n"
+            @MainActor func webViews(in view: NSView) -> [WKWebView] {
+                view.subviews.flatMap { ($0 as? WKWebView).map { [$0] } ?? webViews(in: $0) }
+            }
+            let pages = webViews(in: content).filter { $0.frame.height > 0 && $0.superview is PageSurface.ContainerView }
+                .map { "page w=\(Int($0.frame.width)) zoom=\(String(format: "%.2f", $0.pageZoom))" }
+            let line = "pageOpen=\(pageOpen) window=\(Int(content.bounds.width)) hit=\(chain) \(pages.joined())\n"
             let url = FileManager.default.temporaryDirectory.appending(path: "surface-probe.log")
             if let handle = try? FileHandle(forWritingTo: url) {
                 handle.seekToEndOfFile()
@@ -107,6 +114,7 @@ struct EditorWindow: View {
     // MARK: Sliding the publishing surface
 
     private static let slideDuration = 0.36
+    private static let minPageWidth: CGFloat = 480
 
     private func togglePage() {
         guard !isSliding else { return }
@@ -121,13 +129,14 @@ struct EditorWindow: View {
 
         var frame = window.frame
         if !pageOpen {
-            // Grow to the right by the writing surface's width (two equal
-            // halves), within the screen. If there isn't room, shift left;
-            // if the screen is too narrow even then, share it.
+            // Grow to the right by the page's width, within the screen. If
+            // there isn't room, shift left; if the screen is too narrow even
+            // then, the writing surface gives up some width.
             let screen = (window.screen ?? NSScreen.main)?.visibleFrame ?? frame
             let current = frame.width
-            let target = min(current * 2, screen.width)
-            pageWidth = max(target - current, target / 2)
+            let desired = min(max(preferredPageWidth, Self.minPageWidth), 1400)
+            let target = min(current + desired, screen.width)
+            pageWidth = max(target - current, min(desired, target / 2))
             writingWidth = target - pageWidth
             frame.size.width = target
             shiftedFromX = nil
@@ -139,6 +148,9 @@ struct EditorWindow: View {
             pageOpen = true
             slide(window, to: frame) {}
         } else {
+            // Remember the page width you ended up with (you may have resized).
+            let shown = frame.width - min(writingWidth, frame.width) - 1
+            if shown >= Self.minPageWidth { preferredPageWidth = shown }
             frame.size.width = min(writingWidth, frame.width)
             if let from = shiftedFromX, let to = shiftedToX, abs(frame.origin.x - to) < 1 {
                 frame.origin.x = from
@@ -279,7 +291,9 @@ struct PageSurface: NSViewRepresentable {
     let contentWidth: CGFloat
 
     func makeNSView(context: Context) -> ContainerView {
-        ContainerView(content: bridge.makeWebView())
+        let view = ContainerView(content: bridge.makeWebView())
+        view.onZoom = { [bridge] zoom in bridge.setZoom(zoom) }
+        return view
     }
 
     func updateNSView(_ view: ContainerView, context: Context) {
@@ -287,7 +301,13 @@ struct PageSurface: NSViewRepresentable {
     }
 
     final class ContainerView: NSView {
+        /// The published column (680) plus its side padding (2 × 28), from
+        /// renderer.css. Narrower than this, the page is scaled down to fit,
+        /// so it always shows the real layout.
+        static let columnWidth: CGFloat = 736
+
         private let content: NSView
+        var onZoom: ((Double) -> Void)?
         var contentWidth: CGFloat = 0 {
             didSet { if contentWidth != oldValue { positionContent() } }
         }
@@ -313,6 +333,13 @@ struct PageSurface: NSViewRepresentable {
         private func positionContent() {
             let width = max(contentWidth, bounds.width)
             content.frame = NSRect(x: bounds.width - width, y: 0, width: width, height: bounds.height)
+            if let web = content as? WKWebView, width > 0 {
+                let zoom = min(1, width / Self.columnWidth)
+                if abs(web.pageZoom - zoom) > 0.005 {
+                    web.pageZoom = zoom
+                    onZoom?(zoom)
+                }
+            }
         }
     }
 }
