@@ -164,6 +164,25 @@ function setDocument(text) {
   state.blocks = rendered.map((b, i) => ({ start: b.start, end: b.end, el: content.children[i] }));
   state.focusIndex = -1;
   reposition(false);
+  announceFirstPaint();
+}
+
+// Tells the app once the first document has actually been painted, so it can
+// show the preview (and a part that replaces another) without a flash.
+let painted = false;
+function announceFirstPaint() {
+  if (painted) return;
+  painted = true;
+  let sent = false;
+  const send = () => {
+    if (sent) return;
+    sent = true;
+    window.webkit?.messageHandlers?.fold?.postMessage({ type: "painted" });
+  };
+  // Two frames: the content has been drawn. A view with no height may get no
+  // frames at all, so a short timer makes sure it's never left invisible.
+  requestAnimationFrame(() => requestAnimationFrame(send));
+  setTimeout(send, 150);
 }
 
 // Where (in px from the top of #content) a fractional source line lands.
@@ -223,7 +242,10 @@ function applyFocus(smooth) {
 // lands at `anchor` px from the top, which is where that line sat on screen
 // in the editor, so sliding the page in keeps everything in place.
 function applyPage() {
-  window.scrollTo(0, Math.max(0, content.offsetTop + yForLine(state.line) - state.anchor));
+  // At the top of the document, show the top of the page (series header
+  // included) rather than lining up the first line.
+  const target = state.line <= 0 ? 0 : content.offsetTop + yForLine(state.line) - state.anchor;
+  window.scrollTo(0, Math.max(0, target));
 }
 
 function reposition(smooth) {
@@ -231,6 +253,42 @@ function reposition(smooth) {
   else if (state.mode === "page") applyPage();
   else applyUnder();
 }
+
+// ---------------------------------------------------------------- series
+
+const seriesHead = document.getElementById("series-head");
+const seriesFoot = document.getElementById("series-foot");
+
+function escapeHTML(value) {
+  return String(value).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+}
+
+// Where this document sits in a series (shown on the publishing surface).
+function setSeries(info) {
+  if (!info) {
+    seriesHead.hidden = seriesFoot.hidden = true;
+    seriesHead.innerHTML = seriesFoot.innerHTML = "";
+  } else {
+    seriesHead.innerHTML =
+      `<span class="series-name">${escapeHTML(info.title)}</span>` +
+      `<span class="series-part">Part ${info.index} of ${info.count}</span>`;
+    const link = (part, label, side) =>
+      part
+        ? `<a class="series-link ${side}" href="#" data-path="${escapeHTML(part.path)}"><span>${label}</span><strong>${escapeHTML(part.title)}</strong></a>`
+        : `<span class="series-link ${side} empty"></span>`;
+    seriesFoot.innerHTML = link(info.previous, "Previous", "prev") + link(info.next, "Next", "next");
+    seriesHead.hidden = false;
+    seriesFoot.hidden = !(info.previous || info.next);
+  }
+  reposition(false);
+}
+
+seriesFoot.addEventListener("click", (event) => {
+  const link = event.target.closest("[data-path]");
+  if (!link) return;
+  event.preventDefault();
+  window.webkit?.messageHandlers?.fold?.postMessage({ type: "openPart", path: link.dataset.path });
+});
 
 content.addEventListener("click", (event) => {
   if (event.target.closest("a")) return;
@@ -243,6 +301,7 @@ window.addEventListener("resize", () => reposition(false));
 
 window.Fold = {
   setDocument,
+  setSeries,
   setMode(mode) {
     state.mode = ["focus", "page"].includes(mode) ? mode : "under";
     document.body.classList.toggle("focus", state.mode === "focus");

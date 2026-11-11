@@ -31,6 +31,14 @@ enum Theme {
         [.font: body, .foregroundColor: text, .paragraphStyle: paragraph]
     }
 
+    /// Background of the publishing surface (matches --page-bg in renderer.css).
+    static let page = NSColor(name: "FoldPage") { appearance in
+        if appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua {
+            return NSColor(srgbRed: 0.122, green: 0.122, blue: 0.129, alpha: 1)
+        }
+        return .white
+    }
+
     /// Background of the rendered sheet (matches --bg in renderer.css).
     static let sheet = NSColor(name: "FoldSheet") { appearance in
         if appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua {

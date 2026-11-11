@@ -130,13 +130,17 @@ struct SourceEditor: NSViewRepresentable {
         }
 
         @objc private func scrollFrameChanged(_ notification: Notification) {
-            // Let the last paragraph scroll all the way up to the sheet, so
-            // typing at the end of a document can be pinned there too.
+            // Let the whole document scroll up under the sheet, down to its
+            // last line, so the end of a document can be rendered there too
+            // (and typing at the end can be pinned below it). The text view
+            // already has its bottom padding; the room on top of that lets the
+            // last line pass the editor's top edge, plus a point for rounding.
             // The room comes from making the text view taller, not from the
             // scroll view's content insets: text drawn in an inset area can't
             // be clicked (clicks there land on the scroll view's background).
             guard let scrollView, let textView else { return }
-            textView.overscroll = max(0, scrollView.frame.height - 96).rounded()
+            let room = scrollView.frame.height - textView.textContainerInset.height + 1
+            textView.overscroll = max(0, room).rounded(.up)
             reportScroll()
         }
 

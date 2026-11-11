@@ -49,6 +49,15 @@ final class PreviewBridge: NSObject, WKNavigationDelegate, WKScriptMessageHandle
     var onJump: ((Int) -> Void)?
     /// Sheet only: how tall the rendered text above the editor is, in points.
     var onFill: ((CGFloat) -> Void)?
+    /// Whether this preview has painted its first document (it's invisible
+    /// until then, so it never flashes white or empty).
+    private(set) var hasPainted = false
+
+    /// Page only: a previous/next link was clicked.
+    var onOpenPart: ((URL) -> Void)?
+    /// Page only: where this document sits in a series.
+    private var series: SeriesNavigation?
+
     /// Sheet only: scrolls the editor by this many points, so when the sheet
     /// grows or shrinks the text stays still and the sheet's edge slides over
     /// it (covering lines, which then appear rendered, or uncovering them).
@@ -71,6 +80,10 @@ final class PreviewBridge: NSObject, WKNavigationDelegate, WKScriptMessageHandle
         let view = PreviewWebView(frame: .zero, configuration: configuration)
         view.navigationDelegate = self
         view.allowsMagnification = false
+        // Invisible, and transparent behind its content, until the first
+        // render has been painted; the app's own background shows instead.
+        view.alphaValue = 0
+        view.setValue(false, forKey: "drawsBackground")
         #if DEBUG
         view.isInspectable = true // Safari ▸ Develop ▸ Fold MD
         #endif
@@ -117,6 +130,22 @@ final class PreviewBridge: NSObject, WKNavigationDelegate, WKScriptMessageHandle
         call("Fold.setAnchor(y)", ["y": anchor])
     }
 
+    func setSeries(_ navigation: SeriesNavigation?) {
+        guard navigation != series else { return }
+        series = navigation
+        call("Fold.setSeries(info)", ["info": seriesInfo])
+    }
+
+    /// The series as plain JSON values for the page.
+    private var seriesInfo: Any {
+        guard let series else { return NSNull() }
+        func neighbour(_ n: SeriesNavigation.Neighbour?) -> Any {
+            n.map { ["title": $0.title, "path": $0.path] } ?? NSNull()
+        }
+        return ["title": series.title, "index": series.index, "count": series.count,
+                "previous": neighbour(series.previous), "next": neighbour(series.next)]
+    }
+
     func focus(line: Int) {
         guard line != cursorLine else { return }
         cursorLine = line
@@ -127,8 +156,8 @@ final class PreviewBridge: NSObject, WKNavigationDelegate, WKScriptMessageHandle
     private func pushState() {
         pendingRender?.cancel()
         call(
-            "Fold.setDocument(text); Fold.setAnchor(anchor); Fold.scrollToLine(line); Fold.focusLine(cursor); Fold.setMode(mode);",
-            ["text": text, "anchor": anchor, "line": topLine, "cursor": cursorLine, "mode": jsMode]
+            "Fold.setDocument(text); Fold.setSeries(series); Fold.setAnchor(anchor); Fold.scrollToLine(line); Fold.focusLine(cursor); Fold.setMode(mode);",
+            ["text": text, "series": seriesInfo, "anchor": anchor, "line": topLine, "cursor": cursorLine, "mode": jsMode]
         )
     }
 
@@ -165,6 +194,11 @@ final class PreviewBridge: NSObject, WKNavigationDelegate, WKScriptMessageHandle
         switch body["type"] as? String {
         case "jump":
             if let line = (body["line"] as? NSNumber)?.intValue { onJump?(line) }
+        case "painted":
+            hasPainted = true
+            webView?.alphaValue = 1
+        case "openPart":
+            if let path = body["path"] as? String { onOpenPart?(URL(fileURLWithPath: path)) }
         case "fill":
             if let height = (body["height"] as? NSNumber)?.doubleValue { onFill?(CGFloat(height)) }
         default:

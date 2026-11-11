@@ -12,7 +12,7 @@ struct FoldMDApp: App {
         // DocumentGroup gives New / Open / Save / Revert / Recents, autosave,
         // and opening files dropped on the Dock icon, all for free.
         DocumentGroup(newDocument: MarkdownDocument()) { file in
-            EditorWindow(document: file.$document)
+            EditorWindow(document: file.$document, fileURL: file.fileURL)
         }
         // New windows open compact: one reading column with some margin.
         .defaultSize(width: 760, height: 680)
