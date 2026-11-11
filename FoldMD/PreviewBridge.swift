@@ -47,6 +47,12 @@ final class PreviewBridge: NSObject, WKNavigationDelegate, WKScriptMessageHandle
 
     /// Called when a rendered block is clicked, with its first source line.
     var onJump: ((Int) -> Void)?
+    /// Sheet only: how tall the rendered text above the editor is, in points.
+    var onFill: ((CGFloat) -> Void)?
+    /// Sheet only: scrolls the editor by this many points, so when the sheet
+    /// grows or shrinks the text stays still and the sheet's edge slides over
+    /// it (covering lines, which then appear rendered, or uncovering them).
+    var shiftEditor: ((CGFloat) -> Void)?
 
     private static let rendererURL = Bundle.main.url(forResource: "renderer", withExtension: "html")
 
@@ -62,7 +68,7 @@ final class PreviewBridge: NSObject, WKNavigationDelegate, WKScriptMessageHandle
         if let webView { return webView }
         let configuration = WKWebViewConfiguration()
         configuration.userContentController.add(self, name: "fold")
-        let view = WKWebView(frame: .zero, configuration: configuration)
+        let view = PreviewWebView(frame: .zero, configuration: configuration)
         view.navigationDelegate = self
         view.allowsMagnification = false
         #if DEBUG
@@ -155,10 +161,24 @@ final class PreviewBridge: NSObject, WKNavigationDelegate, WKScriptMessageHandle
     // MARK: WKScriptMessageHandler
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-        guard let body = message.body as? [String: Any],
-              body["type"] as? String == "jump",
-              let line = (body["line"] as? NSNumber)?.intValue
-        else { return }
-        onJump?(line)
+        guard let body = message.body as? [String: Any] else { return }
+        switch body["type"] as? String {
+        case "jump":
+            if let line = (body["line"] as? NSNumber)?.intValue { onJump?(line) }
+        case "fill":
+            if let height = (body["height"] as? NSNumber)?.doubleValue { onFill?(CGFloat(height)) }
+        default:
+            break
+        }
+    }
+}
+
+/// A preview never takes keyboard focus on its own (so a new window's cursor
+/// lands in the text, and typing always goes to the editor). Clicking into a
+/// preview still focuses it, e.g. to select and copy rendered text.
+final class PreviewWebView: WKWebView {
+    override var acceptsFirstResponder: Bool {
+        guard let event = NSApp.currentEvent else { return false }
+        return [.leftMouseDown, .rightMouseDown, .otherMouseDown].contains(event.type)
     }
 }

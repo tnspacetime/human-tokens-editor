@@ -179,7 +179,19 @@ function yForLine(line) {
 // "Scroll under": everything above the editor's top line sits rendered,
 // flush against the bottom edge of the sheet.
 function applyUnder() {
-  window.scrollTo(0, Math.max(0, content.offsetTop + yForLine(state.line) - window.innerHeight));
+  const y = yForLine(state.line);
+  window.scrollTo(0, Math.max(0, content.offsetTop + y - window.innerHeight));
+  reportFill(y);
+}
+
+// Tells the app how much rendered text is above the editor, so the sheet
+// can be just that tall (collapsed at the top of a document).
+let lastFill = -1;
+function reportFill(px) {
+  const height = Math.round(px);
+  if (height === lastFill) return;
+  lastFill = height;
+  window.webkit?.messageHandlers?.fold?.postMessage({ type: "fill", height });
 }
 
 // "Current paragraph": centre the block holding the cursor, dim the rest.
@@ -236,6 +248,7 @@ window.Fold = {
     document.body.classList.toggle("focus", state.mode === "focus");
     document.body.classList.toggle("page", state.mode === "page");
     state.focusIndex = -1;
+    lastFill = -1;
     reposition(false);
   },
   scrollToLine(line) {
@@ -245,8 +258,6 @@ window.Fold = {
   },
   setAnchor(px) {
     state.anchor = Number(px) || 0;
-    // Enough room above the first block for it to sit at the anchor too.
-    content.style.setProperty("--page-top", `${Math.max(36, state.anchor)}px`);
     if (state.mode === "page") applyPage();
   },
   focusLine(line) {

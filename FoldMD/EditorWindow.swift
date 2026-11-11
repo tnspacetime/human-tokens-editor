@@ -29,6 +29,18 @@ struct EditorWindow: View {
     @State private var shiftedFromX: CGFloat?
     @State private var shiftedToX: CGFloat?
 
+    /// How much rendered text has gone under the sheet (scroll-under mode).
+    @State private var sheetFill: CGFloat = 0
+    /// Set when you pull the sheet with its handle: it then stays exactly
+    /// there. nil means automatic: the sheet is as tall as the text under it
+    /// (up to the height you last pulled it to), so there's no empty band
+    /// above your writing at the top of a document.
+    @State private var pulledHeight: CGFloat?
+    @State private var sheetDragging = false
+    /// The sheet's height on screen, eased frame by frame.
+    @State private var sheetMotion = HeightAnimator()
+    @State private var contentHeight: CGFloat = 600
+
     /// How wide the publishing half slides out. Remembered when you resize it.
     @AppStorage("page.width") private var preferredPageWidth = 620.0
     @AppStorage("sheet.open") private var sheetOpen = true
@@ -57,6 +69,13 @@ struct EditorWindow: View {
                 PageSurface(bridge: page, contentWidth: pageOpen ? pageWidth : 0)
                     .frame(width: pageOpen ? revealed : 0)
             }
+            .onChange(of: geometry.size.height, initial: true) { _, height in contentHeight = height }
+        }
+        .onAppear {
+            let fill = $sheetFill
+            sheet.onFill = { height in
+                if abs(fill.wrappedValue - height) >= 1 { fill.wrappedValue = height }
+            }
         }
         .frame(minWidth: 520, minHeight: 360)
         .background(WindowReader(reference: window))
@@ -68,6 +87,19 @@ struct EditorWindow: View {
         .onChange(of: mode, initial: true) { _, mode in sheet.setMode(mode) }
         .onChange(of: pageAnchor, initial: true) { _, y in page.setAnchor(y) }
         .onChange(of: sheetOpen, initial: true) { _, open in sheet.isActive = open }
+        .onChange(of: sheetMotion.value) { old, new in
+            // Once you've pulled the sheet, it covers the text rather than
+            // pushing it: the text stays still and the edge slides over it.
+            // (Automatic mode grows with what's already under it, so it
+            // mustn't do this, or it would keep covering more.)
+            if pulledHeight != nil || sheetDragging { sheet.shiftEditor?(new - old) }
+        }
+        .onChange(of: sheetTarget, initial: true) { old, new in
+            // Follow a finger or a scroll directly; glide for jumps (a
+            // paragraph going under, letting go of the handle, ⌘\).
+            let jump = abs(new - old) > 24
+            sheetMotion.move(to: new, animated: !sheetDragging && jump && old != new)
+        }
         .onChange(of: pageOpen, initial: true) { _, open in page.isActive = open }
         .onChange(of: appearance, initial: true) { _, appearance in appearance.apply() }
         #if DEBUG
@@ -75,6 +107,60 @@ struct EditorWindow: View {
         // a distributed notification named "md.fold.app.togglePage".
         .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.togglePage"))) { _ in
             togglePage()
+        }
+        // Sheet tests: drag the handle down 300pt from where it is and let
+        // go ("md.fold.app.pull"), push it all the way up ("…push"), and
+        // toggle it like ⌘\ ("…toggleSheet").
+        .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.pull"))) { _ in
+            let start = sheetMotion.value
+            Task { @MainActor in
+                for step in 1...10 {
+                    dragSheet(to: min(start + CGFloat(step) * 30, maxSheetHeight))
+                    try? await Task.sleep(for: .milliseconds(16))
+                }
+                releaseSheet(at: min(start + 300, maxSheetHeight))
+            }
+        }
+        .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.push"))) { _ in
+            let start = sheetMotion.value
+            Task { @MainActor in
+                for step in 1...10 {
+                    dragSheet(to: max(0, start - start * CGFloat(step) / 10))
+                    try? await Task.sleep(for: .milliseconds(16))
+                }
+                releaseSheet(at: 0)
+            }
+        }
+        .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.toggleSheet"))) { _ in
+            sheetOpen.toggle()
+        }
+        // Records the sheet's height every 16ms for a second ("…trace").
+        .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.trace"))) { _ in
+            Task { @MainActor in
+                var samples: [String] = []
+                for _ in 0..<60 {
+                    let pulled = pulledHeight.map { String(Int($0)) } ?? "auto"
+                    samples.append("\(Int(sheetMotion.value.rounded()))→\(Int(sheetTarget))[\(pulled)\(sheetDragging ? " drag" : "")] s\(editorScroll())")
+                    try? await Task.sleep(for: .milliseconds(16))
+                }
+                var compact: [String] = []
+                for sample in samples where compact.last != sample { compact.append(sample) }
+                let line = "trace:\n  " + compact.joined(separator: "\n  ") + "\n"
+                let url = FileManager.default.temporaryDirectory.appending(path: "foldmd-probe.log")
+                if let handle = try? FileHandle(forWritingTo: url) {
+                    handle.seekToEndOfFile(); handle.write(Data(line.utf8)); try? handle.close()
+                } else { try? Data(line.utf8).write(to: url) }
+            }
+        }
+        // Scrolls the editor down 400pt ("md.fold.app.scroll").
+        .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.scroll"))) { _ in
+            @MainActor func scrollViews(in view: NSView) -> [NSScrollView] {
+                view.subviews.flatMap { ($0 as? NSScrollView).map { [$0] } ?? scrollViews(in: $0) }
+            }
+            guard let content = window.window?.contentView,
+                  let scroll = scrollViews(in: content).first(where: { $0.documentView is FoldTextView }) else { return }
+            scroll.contentView.scroll(to: NSPoint(x: 0, y: scroll.contentView.bounds.minY + 400))
+            scroll.reflectScrolledClipView(scroll.contentView)
         }
         // Logs which view would receive a click/scroll in the middle of the
         // writing surface ("md.fold.app.probe").
@@ -92,7 +178,10 @@ struct EditorWindow: View {
             }
             let pages = webViews(in: content).filter { $0.frame.height > 0 && $0.superview is PageSurface.ContainerView }
                 .map { "page w=\(Int($0.frame.width)) zoom=\(String(format: "%.2f", $0.pageZoom))" }
-            let line = "pageOpen=\(pageOpen) window=\(Int(content.bounds.width)) hit=\(chain) \(pages.joined())\n"
+            let sheetView = webViews(in: content).first { !($0.superview is PageSurface.ContainerView) }
+            let focus = window.window?.firstResponder.map { String(describing: type(of: $0)) } ?? "nil"
+            let line = "pageOpen=\(pageOpen) window=\(Int(content.bounds.width)) docs=\(NSDocumentController.shared.documents.count) files=\(NSDocumentController.shared.documents.map { $0.fileURL?.lastPathComponent ?? "untitled" }) "
+                + "focus=\(focus) sheet=\(Int(sheetView?.frame.height ?? -1)) fill=\(Int(sheetFill)) scroll=\(editorScroll()) hit=\(chain) \(pages.joined())\n"
             let url = FileManager.default.temporaryDirectory.appending(path: "foldmd-probe.log")
             if let handle = try? FileHandle(forWritingTo: url) {
                 handle.seekToEndOfFile()
@@ -108,7 +197,18 @@ struct EditorWindow: View {
     /// Where the editor's top edge sits in the window: below the sheet and
     /// its handle. (The editor adds its own top padding when scrolled to 0.)
     private var pageAnchor: Double {
-        sheetOpen ? max(sheetHeight, 60) + 12 : 0
+        sheetOpen ? sheetMotion.value + 12 : 0
+    }
+
+    private var maxSheetHeight: CGFloat { max(80, contentHeight - 60) }
+
+    /// Where the sheet should be. Your pull wins; otherwise it's automatic.
+    private var sheetTarget: CGFloat {
+        guard sheetOpen else { return 0 }
+        if let pulledHeight { return min(pulledHeight, maxSheetHeight) }
+        let limit = min(max(sheetHeight, 60), maxSheetHeight)
+        guard mode == .under else { return limit }
+        return sheetFill < 24 ? 0 : min(limit, sheetFill + 10)
     }
 
     // MARK: Sliding the publishing surface
@@ -177,18 +277,45 @@ struct EditorWindow: View {
     // MARK: Layout
 
     private func editorColumn(height: CGFloat) -> some View {
-        let maxHeight = max(80, height - 60)
-        let sheetHeight = min(max(self.sheetHeight, 60), maxHeight)
-        return VStack(spacing: 0) {
+        VStack(spacing: 0) {
             // Kept alive while hidden so reopening is instant.
             PreviewView(bridge: sheet)
-                .frame(height: sheetOpen ? sheetHeight : 0)
+                .frame(height: sheetMotion.value)
                 .clipped()
             if sheetOpen {
-                SheetHandle(height: $sheetHeight, range: 60...maxHeight)
+                SheetHandle(currentHeight: sheetMotion.value, range: 0...maxSheetHeight,
+                            onDrag: dragSheet, onEnd: releaseSheet)
                     .zIndex(1)
             }
             SourceEditor(text: $document.text, sheet: sheet, page: page)
+        }
+    }
+
+    #if DEBUG
+    /// The editor's scroll offset, for tests.
+    private func editorScroll() -> Int {
+        @MainActor func find(_ view: NSView) -> NSScrollView? {
+            if let scroll = view as? NSScrollView, scroll.documentView is FoldTextView { return scroll }
+            return view.subviews.lazy.compactMap(find).first
+        }
+        guard let content = window.window?.contentView, let scroll = find(content) else { return -1 }
+        return Int(scroll.contentView.bounds.minY)
+    }
+    #endif
+
+    private func dragSheet(to height: CGFloat) {
+        sheetDragging = true
+        pulledHeight = height
+    }
+
+    private func releaseSheet(at height: CGFloat) {
+        sheetDragging = false
+        if height < 40 {
+            // Pushed (nearly) all the way up: back to automatic.
+            pulledHeight = nil
+        } else {
+            pulledHeight = height
+            sheetHeight = height // also the limit for automatic
         }
     }
 
@@ -205,7 +332,7 @@ struct EditorWindow: View {
         }
         ToolbarItem {
             Button {
-                withAnimation(.snappy(duration: 0.25)) { sheetOpen.toggle() }
+                sheetOpen.toggle()
             } label: {
                 Label(sheetOpen ? "Hide Sheet" : "Show Sheet",
                       systemImage: sheetOpen ? "rectangle.tophalf.inset.filled" : "rectangle.tophalf.inset")
@@ -346,10 +473,13 @@ struct PageSurface: NSViewRepresentable {
 
 /// The sheet's bottom edge: drag to pull it down or push it up.
 struct SheetHandle: View {
-    @Binding var height: Double
-    let range: ClosedRange<Double>
+    /// The sheet's height on screen right now; a drag starts from here.
+    let currentHeight: CGFloat
+    let range: ClosedRange<CGFloat>
+    let onDrag: (CGFloat) -> Void
+    let onEnd: (CGFloat) -> Void
 
-    @State private var dragStart: Double?
+    @State private var dragStart: CGFloat?
     @State private var hovering = false
 
     var body: some View {
@@ -367,13 +497,21 @@ struct SheetHandle: View {
         .gesture(
             DragGesture(minimumDistance: 0, coordinateSpace: .global)
                 .onChanged { value in
-                    let start = dragStart ?? height
+                    let start = dragStart ?? currentHeight
                     dragStart = start
-                    height = min(max(start + value.translation.height, range.lowerBound), range.upperBound)
+                    onDrag(clamp(start + value.translation.height))
                 }
-                .onEnded { _ in dragStart = nil }
+                .onEnded { value in
+                    let start = dragStart ?? currentHeight
+                    dragStart = nil
+                    onEnd(clamp(start + value.translation.height))
+                }
         )
         .accessibilityLabel("Sheet height")
+    }
+
+    private func clamp(_ height: CGFloat) -> CGFloat {
+        min(max(height, range.lowerBound), range.upperBound)
     }
 }
 

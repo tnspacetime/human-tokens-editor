@@ -86,7 +86,7 @@ body.focus .blk.current { opacity: 1; }
 /* The side panel: the document as a published page. */
 body.page { background: var(--page-bg); }
 body.page #spacer { display: none; }
-body.page #content { padding-top: var(--page-top, 36px); padding-bottom: 70vh; }
+body.page #content { padding-top: 36px; padding-bottom: 70vh; }
 
 h1, h2, h3, h4, h5, h6 { line-height: 1.25; margin: 1em 0 0.4em; }
 h1 { font-size: 1.75em; }

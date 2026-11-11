@@ -91,6 +91,7 @@ struct SourceEditor: NSViewRepresentable {
 
             sheet.onJump = { [weak self] line in self?.jump(toLine: line) }
             page.onJump = { [weak self] line in self?.jump(toLine: line) }
+            sheet.shiftEditor = { [weak self] dy in self?.shift(by: dy) }
         }
 
         /// Puts text from the document into the view (first load, revert).
@@ -131,11 +132,11 @@ struct SourceEditor: NSViewRepresentable {
         @objc private func scrollFrameChanged(_ notification: Notification) {
             // Let the last paragraph scroll all the way up to the sheet, so
             // typing at the end of a document can be pinned there too.
-            guard let scrollView else { return }
-            let bottom = max(0, scrollView.frame.height - 96).rounded()
-            if scrollView.contentInsets.bottom != bottom {
-                scrollView.contentInsets = NSEdgeInsets(top: 0, left: 0, bottom: bottom, right: 0)
-            }
+            // The room comes from making the text view taller, not from the
+            // scroll view's content insets: text drawn in an inset area can't
+            // be clicked (clicks there land on the scroll view's background).
+            guard let scrollView, let textView else { return }
+            textView.overscroll = max(0, scrollView.frame.height - 96).rounded()
             reportScroll()
         }
 
@@ -228,6 +229,16 @@ struct SourceEditor: NSViewRepresentable {
             let end = line + 1 < lineStarts.count ? lineStarts[line + 1] : string.length
             return string.substring(with: NSRange(location: start, length: end - start))
                 .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+
+        /// Scrolls by `dy` (positive moves the text up). Used to keep the text
+        /// still on screen while the sheet above it changes height.
+        func shift(by dy: CGFloat) {
+            guard let scrollView, dy != 0 else { return }
+            let clip = scrollView.contentView
+            let proposed = NSRect(origin: NSPoint(x: 0, y: clip.bounds.minY + dy), size: clip.bounds.size)
+            clip.setBoundsOrigin(clip.constrainBoundsRect(proposed).origin)
+            scrollView.reflectScrolledClipView(clip)
         }
 
         /// Clicking a block in the sheet: put the cursor at its first line
