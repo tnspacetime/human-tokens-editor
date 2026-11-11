@@ -6,6 +6,8 @@ import SwiftUI
 /// mode) and which line the cursor is on (current-paragraph mode).
 struct SourceEditor: NSViewRepresentable {
     @Binding var text: String
+    /// The document's file (nil while untitled), for images dropped in.
+    let fileURL: URL?
     let sheet: PreviewBridge
     let page: PreviewBridge
 
@@ -52,6 +54,7 @@ struct SourceEditor: NSViewRepresentable {
 
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
         context.coordinator.text = $text
+        (scrollView.documentView as? FoldTextView)?.documentURL = fileURL
         context.coordinator.load(text)
     }
 

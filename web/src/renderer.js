@@ -28,6 +28,56 @@ const md = new MarkdownIt({
 });
 md.use(mathPlugin);
 
+// Local files are fine to link (images next to the document, or anywhere on
+// disk); scripts never are, and only image data URLs.
+md.validateLink = (url) => {
+  const link = url.trim().toLowerCase();
+  if (/^(javascript|vbscript):/.test(link)) return false;
+  if (link.startsWith("data:")) return /^data:image\/(gif|png|jpeg|webp);/.test(link);
+  return true;
+};
+
+// Images: web links load as they are. Local ones (relative to the document's
+// folder, absolute, ~/ or file:) go through the app's fold-asset: handler.
+// A relative link in an untitled document has nowhere to point yet.
+const defaultImage = md.renderer.rules.image;
+md.renderer.rules.image = (tokens, idx, options, env, self) => {
+  const token = tokens[idx];
+  const src = token.attrGet("src") || "";
+  const resolved = resolveImage(src);
+  if (!resolved) {
+    return missingImage(src, "Save the document to show");
+  }
+  token.attrSet("src", resolved);
+  token.attrSet("data-src", src);
+  return defaultImage(tokens, idx, options, env, self);
+};
+
+const encodePath = (path) => path.split("/").map(encodeURIComponent).join("/");
+function safeDecode(text) {
+  try { return decodeURIComponent(text); } catch { return text; }
+}
+
+function resolveImage(src) {
+  if (/^(https?:|data:)/i.test(src)) return src;
+  let path;
+  try {
+    if (/^file:/i.test(src)) path = safeDecode(new URL(src).pathname);
+    else if (src.startsWith("/")) path = safeDecode(src);
+    else if (src.startsWith("~/")) path = state.home + safeDecode(src.slice(1));
+    else if (/^[a-z][a-z0-9+.-]*:/i.test(src)) return src;
+    else if (state.base) path = safeDecode(new URL(src, "file://" + encodePath(state.base)).pathname);
+    else return null;
+  } catch {
+    return null;
+  }
+  return "fold-asset://image" + encodePath(path);
+}
+
+function missingImage(src, reason) {
+  return `<span class="img-missing"><span>${reason}</span> <code>${escapeHTML(safeDecode(src))}</code></span>`;
+}
+
 const mathCache = new Map();
 function renderMath(tex, displayMode) {
   const key = (displayMode ? "D" : "I") + tex;
@@ -142,9 +192,32 @@ function renderBlocks(src) {
 // ---------------------------------------------------------------- the sheet
 
 const content = document.getElementById("content");
-const state = { mode: "under", line: 0, cursor: 0, blocks: [], focusIndex: -1, anchor: 36 };
+const state = { mode: "under", line: 0, cursor: 0, blocks: [], focusIndex: -1, anchor: 36, base: null, home: "", text: null };
+
+// The folder relative image links start from (the document's own folder).
+function setBase(base, home) {
+  state.base = base || null;
+  state.home = home || "";
+  if (state.text !== null) setDocument(state.text);
+}
+
+// An image that doesn't load becomes a note saying which link is broken.
+document.addEventListener("error", (event) => {
+  const img = event.target;
+  if (!(img instanceof HTMLImageElement) || !content.contains(img)) return;
+  const src = img.getAttribute("data-src") || img.getAttribute("src") || "";
+  const template = document.createElement("template");
+  template.innerHTML = missingImage(src, /^https?:/i.test(src) ? "Image couldn't load" : "Image not found");
+  img.replaceWith(template.content);
+  reposition(false);
+}, true);
+// A loaded image changes the height of its block.
+document.addEventListener("load", (event) => {
+  if (event.target instanceof HTMLImageElement) reposition(false);
+}, true);
 
 function setDocument(text) {
+  state.text = text;
   const rendered = renderBlocks(text);
   rendered.forEach((block, i) => {
     let el = content.children[i];
@@ -301,6 +374,7 @@ window.addEventListener("resize", () => reposition(false));
 
 window.Fold = {
   setDocument,
+  setBase,
   setSeries,
   setMode(mode) {
     state.mode = ["focus", "page"].includes(mode) ? mode : "under";

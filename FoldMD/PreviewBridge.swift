@@ -77,6 +77,7 @@ final class PreviewBridge: NSObject, WKNavigationDelegate, WKScriptMessageHandle
         if let webView { return webView }
         let configuration = WKWebViewConfiguration()
         configuration.userContentController.add(self, name: "fold")
+        configuration.setURLSchemeHandler(LocalImageScheme(), forURLScheme: LocalImageScheme.scheme)
         let view = PreviewWebView(frame: .zero, configuration: configuration)
         view.navigationDelegate = self
         view.allowsMagnification = false
@@ -130,6 +131,19 @@ final class PreviewBridge: NSObject, WKNavigationDelegate, WKScriptMessageHandle
         call("Fold.setAnchor(y)", ["y": anchor])
     }
 
+    /// The folder image links are relative to: the document's own folder
+    /// (nil while untitled).
+    private var baseDirectory: String?
+    private static let home = FileManager.default.homeDirectoryForCurrentUser.path(percentEncoded: false)
+
+    func setDocumentURL(_ url: URL?) {
+        let base = url.map { $0.deletingLastPathComponent().path(percentEncoded: false) }
+            .map { $0.hasSuffix("/") ? $0 : $0 + "/" }
+        guard base != baseDirectory else { return }
+        baseDirectory = base
+        call("Fold.setBase(base, home)", ["base": base ?? NSNull(), "home": Self.home])
+    }
+
     func setSeries(_ navigation: SeriesNavigation?) {
         guard navigation != series else { return }
         series = navigation
@@ -156,8 +170,8 @@ final class PreviewBridge: NSObject, WKNavigationDelegate, WKScriptMessageHandle
     private func pushState() {
         pendingRender?.cancel()
         call(
-            "Fold.setDocument(text); Fold.setSeries(series); Fold.setAnchor(anchor); Fold.scrollToLine(line); Fold.focusLine(cursor); Fold.setMode(mode);",
-            ["text": text, "series": seriesInfo, "anchor": anchor, "line": topLine, "cursor": cursorLine, "mode": jsMode]
+            "Fold.setBase(base, home); Fold.setDocument(text); Fold.setSeries(series); Fold.setAnchor(anchor); Fold.scrollToLine(line); Fold.focusLine(cursor); Fold.setMode(mode);",
+            ["base": baseDirectory ?? NSNull(), "home": Self.home, "text": text, "series": seriesInfo, "anchor": anchor, "line": topLine, "cursor": cursorLine, "mode": jsMode]
         )
     }
 

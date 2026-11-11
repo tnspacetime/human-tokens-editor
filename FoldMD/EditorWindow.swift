@@ -119,7 +119,11 @@ struct EditorWindow: View {
             page.setSeries(navigation)
             pageBar.model.seriesID = navigation?.seriesID
         }
-        .onChange(of: fileURL, initial: true) { _, url in pageBar.model.fileURL = url }
+        .onChange(of: fileURL, initial: true) { _, url in
+            pageBar.model.fileURL = url
+            sheet.setDocumentURL(url)
+            page.setDocumentURL(url)
+        }
         .onChange(of: currentTitle, initial: true) { _, title in pageBar.model.currentTitle = title }
         .frame(minWidth: 520, minHeight: 360)
         .background(WindowReader(reference: window, fileURL: fileURL))
@@ -256,7 +260,7 @@ struct EditorWindow: View {
     #if DEBUG
     /// More test hooks (split off so the compiler can type-check each chain).
     private func pageBarHooks(_ view: some View) -> some View {
-        view
+        imageHooks(view)
         // Opens or closes the Contents popover ("md.fold.app.contents"), or
         // goes to the heading on the line given as the object ("…heading").
         .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.contents"))) { _ in
@@ -512,7 +516,7 @@ struct EditorWindow: View {
                             onDrag: dragSheet, onEnd: releaseSheet)
                     .zIndex(1)
             }
-            SourceEditor(text: $document.text, sheet: sheet, page: page)
+            SourceEditor(text: $document.text, fileURL: fileURL, sheet: sheet, page: page)
         }
     }
 
@@ -545,6 +549,54 @@ struct EditorWindow: View {
             return "\(y):\(hit)"
         }
         return "scrollView=\(Int(inWindow.minY))-\(Int(inWindow.maxY)) textH=\(Int(text.frame.height)) clip=\(Int(scroll.contentView.bounds.minY))-\(Int(scroll.contentView.bounds.maxY)) hits=\(hits)"
+    }
+
+    /// Images: log what each preview shows ("md.fold.app.images"); bring in
+    /// the image file given as the object at the cursor, the way a drop does
+    /// ("…insertImage"); paste ("…paste").
+    private func imageHooks(_ view: some View) -> some View {
+        view
+        .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.images"))) { _ in
+            logImages()
+        }
+        .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.insertImage"))) { note in
+            guard let path = note.object as? String, let text = foldTextView() else { return }
+            text.insertImages(fromFiles: [URL(fileURLWithPath: path)], at: text.selectedRange())
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { logImages() }
+        }
+        .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.paste"))) { _ in
+            foldTextView()?.paste(nil)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { logImages() }
+        }
+    }
+
+    private func foldTextView() -> FoldTextView? {
+        @MainActor func find(_ view: NSView) -> FoldTextView? {
+            if let text = view as? FoldTextView { return text }
+            return view.subviews.lazy.compactMap(find).first
+        }
+        return window.window?.contentView.flatMap(find)
+    }
+
+    private func logImages() {
+        guard let content = window.window?.contentView else { return }
+        @MainActor func webViews(in view: NSView) -> [WKWebView] {
+            view.subviews.flatMap { ($0 as? WKWebView).map { [$0] } ?? webViews(in: $0) }
+        }
+        let script = """
+        JSON.stringify({
+          images: [...document.querySelectorAll('#content img')].map(i => (i.dataset.src || i.src) + (i.complete && i.naturalWidth > 0 ? ' ok ' + i.naturalWidth + 'px' : ' NOT LOADED')),
+          missing: [...document.querySelectorAll('.img-missing')].map(m => m.textContent)
+        })
+        """
+        let tail = String(document.text.suffix(160)).replacingOccurrences(of: "\n", with: "⏎")
+        testLog("text tail: \(tail)")
+        for web in webViews(in: content) {
+            let role = web.superview is PageSurface.ContainerView ? "page" : "sheet"
+            web.evaluateJavaScript(script) { value, error in
+                testLog("images[\(role)]: \(value ?? error.map { "\($0)" } ?? "?")")
+            }
+        }
     }
 
     private func logContents() {
