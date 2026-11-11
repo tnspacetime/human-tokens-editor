@@ -17,7 +17,7 @@ struct SourceEditor: NSViewRepresentable {
         // TextKit 1 on purpose: TextKit 2 estimates the height of off-screen
         // text, and restyling makes those estimates change, so the view jumped
         // while typing. TextKit 1 lays out exactly and stays put.
-        let textView = SurfaceTextView(usingTextLayoutManager: false)
+        let textView = FoldTextView(usingTextLayoutManager: false)
         textView.isRichText = false
         textView.importsGraphics = false
         textView.allowsUndo = true
@@ -61,7 +61,7 @@ struct SourceEditor: NSViewRepresentable {
         let sheet: PreviewBridge
         let page: PreviewBridge
 
-        private weak var textView: SurfaceTextView?
+        private weak var textView: FoldTextView?
         private weak var scrollView: NSScrollView?
         private let highlighter = MarkdownHighlighter()
         /// UTF-16 offset where each source line starts (line 0 is index 0).
@@ -73,7 +73,7 @@ struct SourceEditor: NSViewRepresentable {
             self.page = page
         }
 
-        func attach(textView: SurfaceTextView, scrollView: NSScrollView) {
+        func attach(textView: FoldTextView, scrollView: NSScrollView) {
             self.textView = textView
             self.scrollView = scrollView
             textView.delegate = self

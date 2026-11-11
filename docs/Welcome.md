@@ -1,6 +1,6 @@
-# Welcome to Surface
+# Welcome to Fold MD
 
-Surface is a quiet place to write **markdown**. The text you type stays plain source. Pull down the *sheet* at the top to see it rendered.
+Fold MD is a quiet place to write **markdown**. The text you type stays plain source. Pull down the *sheet* at the top to see it rendered.
 
 ## The sheet
 

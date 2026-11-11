@@ -32,7 +32,7 @@ enum Theme {
     }
 
     /// Background of the rendered sheet (matches --bg in renderer.css).
-    static let sheet = NSColor(name: "SurfaceSheet") { appearance in
+    static let sheet = NSColor(name: "FoldSheet") { appearance in
         if appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua {
             return NSColor(srgbRed: 0.098, green: 0.098, blue: 0.106, alpha: 1)
         }

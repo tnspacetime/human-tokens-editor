@@ -26,5 +26,5 @@ const html = template
   .replace("/*__CSS__*/", () => css.outputFiles[0].text)
   .replace("/*__JS__*/", () => js.outputFiles[0].text.replaceAll("</script", "<\\/script"));
 
-await writeFile("../Surface/renderer.html", html);
-console.log(`Surface/renderer.html  ${(html.length / 1024).toFixed(0)} KB`);
+await writeFile("../FoldMD/renderer.html", html);
+console.log(`FoldMD/renderer.html  ${(html.length / 1024).toFixed(0)} KB`);

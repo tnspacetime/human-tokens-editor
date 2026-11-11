@@ -65,7 +65,7 @@ body {
   letter-spacing: 0.02em;
 }
 
-/* Same column width as the native editor (SurfaceTextView.columnWidth). */
+/* Same column width as the native editor (FoldTextView.columnWidth). */
 #content {
   max-width: 680px;
   margin: 0 auto;

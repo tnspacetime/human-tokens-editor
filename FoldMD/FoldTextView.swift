@@ -3,7 +3,7 @@ import AppKit
 /// The native source editor. A plain NSTextView with two additions: a centred
 /// reading column, and dropped markdown files open as documents instead of
 /// inserting their path.
-final class SurfaceTextView: NSTextView {
+final class FoldTextView: NSTextView {
     /// Matches max-width in web/src/renderer.css.
     var columnWidth: CGFloat = 680
 

@@ -1,11 +1,11 @@
-// Surface renderer: markdown → HTML blocks that remember which source lines
+// Fold MD renderer: markdown → HTML blocks that remember which source lines
 // they came from, so the native editor can drive the sheet by line number.
 //
 // API (called from Swift via callAsyncJavaScript):
-//   Surface.setDocument(text)   re-render (only changed blocks touch the DOM)
-//   Surface.setMode(mode)       "under" | "focus" (the sheet) | "page" (side panel)
-//   Surface.scrollToLine(line)  fractional source line at the editor's top edge
-//   Surface.focusLine(line)     source line the cursor is on
+//   Fold.setDocument(text)   re-render (only changed blocks touch the DOM)
+//   Fold.setMode(mode)       "under" | "focus" (the sheet) | "page" (side panel)
+//   Fold.scrollToLine(line)  fractional source line at the editor's top edge
+//   Fold.focusLine(line)     source line the cursor is on
 
 import MarkdownIt from "markdown-it";
 import katex from "katex";
@@ -224,12 +224,12 @@ content.addEventListener("click", (event) => {
   if (event.target.closest("a")) return;
   const blk = event.target.closest(".blk");
   if (!blk) return;
-  window.webkit?.messageHandlers?.surface?.postMessage({ type: "jump", line: Number(blk.dataset.start) });
+  window.webkit?.messageHandlers?.fold?.postMessage({ type: "jump", line: Number(blk.dataset.start) });
 });
 
 window.addEventListener("resize", () => reposition(false));
 
-window.Surface = {
+window.Fold = {
   setDocument,
   setMode(mode) {
     state.mode = ["focus", "page"].includes(mode) ? mode : "under";

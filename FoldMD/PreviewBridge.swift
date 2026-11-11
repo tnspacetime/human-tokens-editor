@@ -35,7 +35,7 @@ final class PreviewBridge: NSObject, WKNavigationDelegate, WKScriptMessageHandle
     func setZoom(_ newZoom: Double) {
         guard abs(newZoom - zoom) > 0.001, newZoom > 0 else { return }
         zoom = newZoom
-        call("Surface.setAnchor(y)", ["y": anchor])
+        call("Fold.setAnchor(y)", ["y": anchor])
     }
     private var pendingRender: Task<Void, Never>?
 
@@ -61,12 +61,12 @@ final class PreviewBridge: NSObject, WKNavigationDelegate, WKScriptMessageHandle
     func makeWebView() -> WKWebView {
         if let webView { return webView }
         let configuration = WKWebViewConfiguration()
-        configuration.userContentController.add(self, name: "surface")
+        configuration.userContentController.add(self, name: "fold")
         let view = WKWebView(frame: .zero, configuration: configuration)
         view.navigationDelegate = self
         view.allowsMagnification = false
         #if DEBUG
-        view.isInspectable = true // Safari ▸ Develop ▸ Surface
+        view.isInspectable = true // Safari ▸ Develop ▸ Fold MD
         #endif
         if let url = Self.rendererURL {
             view.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
@@ -84,44 +84,44 @@ final class PreviewBridge: NSObject, WKNavigationDelegate, WKScriptMessageHandle
         pendingRender = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(90))
             guard !Task.isCancelled, let self else { return }
-            self.call("Surface.setDocument(text)", ["text": self.text])
+            self.call("Fold.setDocument(text)", ["text": self.text])
         }
     }
 
     func setMode(_ newMode: DrawerMode) {
         mode = newMode
-        call("Surface.setMode(mode)", ["mode": jsMode])
+        call("Fold.setMode(mode)", ["mode": jsMode])
     }
 
     func scroll(topLine line: Double) {
         guard line != topLine else { return }
         topLine = line
-        call("Surface.scrollToLine(line)", ["line": line])
+        call("Fold.scrollToLine(line)", ["line": line])
     }
 
     func setAnchor(_ y: Double) {
         guard y != anchorBase else { return }
         anchorBase = y
-        call("Surface.setAnchor(y)", ["y": anchor])
+        call("Fold.setAnchor(y)", ["y": anchor])
     }
 
     func setTopGap(_ gap: Double) {
         guard gap != anchorGap else { return }
         anchorGap = gap
-        call("Surface.setAnchor(y)", ["y": anchor])
+        call("Fold.setAnchor(y)", ["y": anchor])
     }
 
     func focus(line: Int) {
         guard line != cursorLine else { return }
         cursorLine = line
-        call("Surface.focusLine(line)", ["line": line])
+        call("Fold.focusLine(line)", ["line": line])
     }
 
     /// Sends everything at once: after loading, or when shown again.
     private func pushState() {
         pendingRender?.cancel()
         call(
-            "Surface.setDocument(text); Surface.setAnchor(anchor); Surface.scrollToLine(line); Surface.focusLine(cursor); Surface.setMode(mode);",
+            "Fold.setDocument(text); Fold.setAnchor(anchor); Fold.scrollToLine(line); Fold.focusLine(cursor); Fold.setMode(mode);",
             ["text": text, "anchor": anchor, "line": topLine, "cursor": cursorLine, "mode": jsMode]
         )
     }

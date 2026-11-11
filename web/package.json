@@ -1,8 +1,8 @@
 {
-  "name": "surface-renderer",
+  "name": "foldmd-renderer",
   "private": true,
   "type": "module",
-  "description": "Markdown renderer shared by the Surface editor sheet (and later the published site).",
+  "description": "Markdown renderer shared by the Fold MD editor (and later the published site).",
   "scripts": {
     "build": "node build.mjs"
   },

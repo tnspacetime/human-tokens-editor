@@ -72,13 +72,13 @@ struct EditorWindow: View {
         .onChange(of: appearance, initial: true) { _, appearance in appearance.apply() }
         #if DEBUG
         // Lets tests toggle the publishing surface without keystrokes:
-        // a distributed notification named "dev.surface.editor.togglePage".
-        .onReceive(DistributedNotificationCenter.default().publisher(for: .init("dev.surface.editor.togglePage"))) { _ in
+        // a distributed notification named "md.fold.app.togglePage".
+        .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.togglePage"))) { _ in
             togglePage()
         }
         // Logs which view would receive a click/scroll in the middle of the
-        // writing surface ("dev.surface.editor.probe").
-        .onReceive(DistributedNotificationCenter.default().publisher(for: .init("dev.surface.editor.probe"))) { _ in
+        // writing surface ("md.fold.app.probe").
+        .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.probe"))) { _ in
             guard let content = window.window?.contentView else { return }
             let x = (pageOpen ? min(writingWidth, content.bounds.width) : content.bounds.width) * 0.5
             // hitTest takes the superview's (window) coordinates, origin at
@@ -93,7 +93,7 @@ struct EditorWindow: View {
             let pages = webViews(in: content).filter { $0.frame.height > 0 && $0.superview is PageSurface.ContainerView }
                 .map { "page w=\(Int($0.frame.width)) zoom=\(String(format: "%.2f", $0.pageZoom))" }
             let line = "pageOpen=\(pageOpen) window=\(Int(content.bounds.width)) hit=\(chain) \(pages.joined())\n"
-            let url = FileManager.default.temporaryDirectory.appending(path: "surface-probe.log")
+            let url = FileManager.default.temporaryDirectory.appending(path: "foldmd-probe.log")
             if let handle = try? FileHandle(forWritingTo: url) {
                 handle.seekToEndOfFile()
                 handle.write(Data(line.utf8))
