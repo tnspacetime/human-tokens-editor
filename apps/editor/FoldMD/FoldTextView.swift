@@ -23,6 +23,13 @@ final class FoldTextView: NSTextView {
         if let layout = layoutManager, let container = textContainer {
             let content = layout.usedRect(for: container).height + textContainerInset.height * 2
             newSize.height = max(content + overscroll, minSize.height)
+            // Mid-edit, only part of the text may be laid out yet: don't
+            // shrink to that part, or the scroll position gets pulled up and
+            // the text jumps on every keystroke. Once layout is complete the
+            // real height applies (shorter too, after a deletion).
+            if layout.firstUnlaidCharacterIndex() < (textStorage?.length ?? 0) {
+                newSize.height = max(newSize.height, frame.height)
+            }
         }
         super.setFrameSize(newSize)
         layoutColumn()

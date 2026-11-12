@@ -185,6 +185,11 @@ struct SourceEditor: NSViewRepresentable {
 
             let y = scrollView.contentView.bounds.minY - textView.textContainerOrigin.y
             if y <= 0 { return 0 }
+            // Right after an edit the layout around it is redone lazily; lay
+            // out down to the top edge first, or for a moment it would look
+            // as if the editor had scrolled past the end (and the sheet would
+            // jump on every keystroke).
+            layout.ensureLayout(forBoundingRect: CGRect(x: 0, y: y, width: container.size.width, height: 1), in: container)
             if y >= layout.usedRect(for: container).maxY {
                 return Double(lineStarts.count) // scrolled past the end
             }
