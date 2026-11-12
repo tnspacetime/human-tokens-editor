@@ -1,0 +1,477 @@
+/* ---------------------------------------------------------------- feed */
+
+.feed {
+	margin: 0 auto;
+}
+
+.section-head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 6px 24px;
+	padding: 28px 0 24px;
+}
+
+.section-head h2 {
+	margin: 0;
+	font: 700 32px/1.125 var(--display);
+	letter-spacing: 0.004em;
+}
+
+.section-head p {
+	margin: 0;
+	color: var(--muted);
+	font-size: 14px;
+	font-weight: 500;
+}
+
+/* ---------------------------------------------------------------- tiles */
+
+.feed-empty {
+	color: var(--muted);
+}
+
+/* More pieces: a quiet pill under the last row. */
+.feed-more {
+	display: flex;
+	justify-content: center;
+	margin-top: 40px;
+}
+
+.feed-more button {
+	padding: 11px 22px;
+	background: var(--surface);
+	border: 0;
+	border-radius: 999px;
+	box-shadow: 0 1px 2px var(--shade-1);
+	color: var(--ink);
+	font: 600 15px/1.2 var(--sans);
+	cursor: pointer;
+	transition: box-shadow 0.4s var(--ease);
+}
+
+.feed-more button:hover {
+	box-shadow: 0 12px 28px -14px var(--shade-3);
+}
+
+.feed-more button:disabled {
+	color: var(--muted);
+	cursor: progress;
+}
+
+/* Six columns: the lead tile spans all six, a pair three each, the rest
+   two each. Tiles in a row share one height. */
+.tiles {
+	display: grid;
+	grid-template-columns: repeat(6, 1fr);
+	gap: 36px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.tiles-hero {
+	grid-column: span 6;
+}
+
+.tiles-half {
+	grid-column: span 3;
+}
+
+.tiles-third {
+	grid-column: span 2;
+}
+
+.tile {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	overflow: hidden;
+	background: var(--surface);
+	border-radius: 28px;
+	text-decoration: none;
+	transition: box-shadow 0.5s var(--ease);
+	isolation: isolate;
+	--open: 0;
+}
+
+/* Arriving as you scroll: waiting just below, then rising into place. */
+.tile[data-enter="wait"] {
+	opacity: 0;
+	transform: translateY(28px) scale(0.985);
+}
+
+.tile[data-enter="in"] {
+	transition:
+		opacity 0.7s ease var(--enter-delay, 0ms),
+		transform 1s var(--ease) var(--enter-delay, 0ms),
+		box-shadow 0.5s var(--ease);
+}
+
+/* ...and its page sketches itself in as it lands. */
+.tile[data-enter="in"] .marks > * {
+	animation-name: draw-in-again;
+	animation-delay: calc(var(--enter-delay, 0ms) + var(--i, 0) * 22ms + 180ms);
+}
+
+/* Unfolded: pointed at, focused, or (on a touch screen) resting in the
+   middle of the screen. */
+.tile:is(:focus-visible, [data-unfold]) {
+	--open: 1;
+}
+
+@media (hover: hover) {
+	.tile:hover {
+		--open: 1;
+	}
+}
+
+.tile:hover {
+	box-shadow: 0 20px 44px -20px var(--shade-3);
+}
+
+.tile:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 3px;
+}
+
+/* The cover: the piece drawn as its own shape, on a quiet panel. */
+.tile-cover {
+	aspect-ratio: 16 / 9;
+	background: linear-gradient(180deg, var(--cover-top), var(--cover-bottom));
+	overflow: hidden;
+}
+
+.shape {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+
+.shape-text,
+.shape-dot,
+.shape-code {
+	fill: var(--shape-ink);
+}
+
+.shape-text.soft {
+	fill: var(--shape-soft);
+}
+
+.shape-head,
+.shape-rule {
+	fill: var(--head);
+}
+
+.shape-block {
+	fill: var(--shape-fill);
+}
+
+.shape-image rect {
+	fill: var(--shape-fill);
+}
+
+.shape-image :is(rect, path, circle) {
+	stroke: var(--shape-ink);
+	stroke-width: 1.4;
+	stroke-linejoin: round;
+}
+
+.shape-image :is(path, circle) {
+	fill: none;
+}
+
+/* The marks draw in, bar by bar, when the page opens; pointing at the tile
+   dissolves them. */
+.marks > * {
+	transform-box: fill-box;
+	transform-origin: left center;
+	animation: draw-in 0.9s var(--ease) backwards;
+	animation-delay: calc(var(--i, 0) * 22ms + 80ms);
+	opacity: calc(1 - var(--open));
+	filter: blur(calc(var(--open) * 3px));
+	transform: scaleX(calc(1 - var(--open) * 0.06));
+	transition:
+		opacity 0.45s ease,
+		filter 0.45s ease,
+		transform 0.6s var(--ease);
+	transition-delay: calc(var(--i, 0) * 6ms);
+}
+
+@keyframes draw-in {
+	from {
+		transform: scaleX(0);
+		opacity: 0;
+	}
+}
+
+@keyframes draw-in-again {
+	from {
+		transform: scaleX(0);
+		opacity: 0;
+	}
+}
+
+/* The words underneath, in the drawing's place: blurred and hidden until
+   you point at the tile, then they come into focus, paragraph by paragraph. */
+.tile-cover {
+	position: relative;
+	container-type: inline-size;
+}
+
+.cover-text {
+	position: absolute;
+	inset: 0;
+	padding: 9.4% 14.4% 0;
+	overflow: hidden;
+	-webkit-mask-image: linear-gradient(180deg, #000 58%, transparent 84%);
+	mask-image: linear-gradient(180deg, #000 58%, transparent 84%);
+	pointer-events: none;
+}
+
+.cover-text p {
+	margin: 0 0 0.7em;
+	color: var(--ink);
+	font: 400 clamp(12px, 2.55cqi, 17px) / 1.5 var(--sans);
+	letter-spacing: -0.01em;
+	opacity: var(--open);
+	filter: blur(calc((1 - var(--open)) * 8px));
+	transform: translateY(calc((1 - var(--open)) * 6px));
+	transition:
+		opacity 0.6s ease,
+		filter 0.8s var(--ease),
+		transform 0.8s var(--ease);
+	/* coming in: one paragraph after another; going out: all at once */
+	transition-delay: calc(var(--open) * (var(--p, 0) * 110ms + 120ms));
+}
+
+.cover-cta {
+	position: absolute;
+	right: 14px;
+	bottom: 14px;
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	padding: 8px 11px 8px 14px;
+	background: var(--glass);
+	border: 1px solid var(--glass-edge);
+	border-radius: 999px;
+	box-shadow:
+		inset 0 1px 0 var(--glass-shine),
+		0 8px 20px -10px var(--shade-3);
+	-webkit-backdrop-filter: blur(16px) saturate(1.8);
+	backdrop-filter: blur(16px) saturate(1.8);
+	color: var(--ink);
+	font: 600 13px/1 var(--sans);
+	letter-spacing: -0.01em;
+	opacity: var(--open);
+	transform: translateY(calc((1 - var(--open)) * 10px)) scale(calc(0.96 + var(--open) * 0.04));
+	transition:
+		opacity 0.4s ease,
+		transform 0.6s var(--ease);
+	transition-delay: calc(var(--open) * 0.35s);
+}
+
+.cover-cta svg {
+	width: 14px;
+	height: 14px;
+	transition: transform 0.5s var(--ease);
+}
+
+@media (hover: hover) {
+	.tile:hover .cover-cta svg {
+		transform: translateX(2px);
+	}
+}
+
+.tile-body {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	padding: 28px 32px 30px;
+}
+
+.tile-eyebrow {
+	margin: 0 0 8px;
+	color: var(--muted);
+	font: 700 12px/1.33 var(--sans);
+	letter-spacing: 0.02em;
+	text-transform: uppercase;
+}
+
+.tile-headline {
+	margin: 0;
+	font: 700 24px/1.17 var(--display);
+	letter-spacing: 0.009em;
+	text-wrap: balance;
+}
+
+.tile-excerpt {
+	display: -webkit-box;
+	margin: 14px 0 0;
+	overflow: hidden;
+	color: var(--ink-soft);
+	font-size: 17px;
+	line-height: 1.47;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 4;
+}
+
+.tile-foot {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px 16px;
+	margin-top: auto;
+	padding-top: 22px;
+	color: var(--muted);
+	font: 600 14px/1.3 var(--sans);
+	letter-spacing: -0.016em;
+}
+
+.tile-stamp,
+.tile-signals {
+	display: flex;
+	align-items: center;
+	margin: 0;
+}
+
+.tile-stamp {
+	gap: 6px;
+}
+
+.tile-stamp svg {
+	width: 14px;
+	height: 14px;
+	flex: none;
+}
+
+.tile-signals {
+	gap: 12px;
+	font-variant-numeric: tabular-nums;
+}
+
+.signal {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.q-icon {
+	width: 15px;
+	height: 15px;
+	flex: none;
+}
+
+/* The lead: cover and words side by side, as on Newsroom. */
+.tile-hero {
+	display: grid;
+	grid-template-columns: 2fr 1fr;
+}
+
+.tile-hero .tile-cover {
+	aspect-ratio: 16 / 9;
+}
+
+.tile-hero .tile-body {
+	padding: 40px 36px 32px;
+}
+
+.tile-hero .tile-eyebrow {
+	font-size: 14px;
+}
+
+.tile-hero .tile-headline {
+	font-size: 32px;
+	line-height: 1.125;
+	letter-spacing: 0.004em;
+}
+
+.tile-hero .tile-foot {
+	font-size: 15px;
+}
+
+.tile-third .tile-body {
+	padding: 22px 24px 24px;
+}
+
+.tile-third .tile-headline {
+	font-size: 21px;
+	line-height: 1.19;
+	letter-spacing: 0.011em;
+}
+
+.tile-third .tile-foot {
+	padding-top: 18px;
+	font-size: 13px;
+}
+
+.tile-third .q-icon,
+.tile-third .tile-stamp svg {
+	width: 13px;
+	height: 13px;
+}
+
+/* Narrower windows: two to a row, then one. */
+@media (max-width: 1068px) {
+	.tiles {
+		gap: 24px;
+	}
+	.tiles-third {
+		grid-column: span 3;
+	}
+	.tile-hero {
+		grid-template-columns: 1fr;
+	}
+	.tile-hero .tile-body {
+		padding: 28px 32px 30px;
+	}
+}
+
+@media (max-width: 734px) {
+	.tiles {
+		grid-template-columns: 1fr;
+		gap: 20px;
+	}
+	.tiles-item {
+		grid-column: auto;
+	}
+	.tile {
+		border-radius: 24px;
+	}
+	.tile-body,
+	.tile-hero .tile-body,
+	.tile-third .tile-body {
+		padding: 22px 24px 24px;
+	}
+	.tile-hero .tile-headline {
+		font-size: 28px;
+	}
+	.tile-hero .tile-excerpt {
+		font-size: 17px;
+	}
+}
+
+@media (max-width: 734px) {
+	.section-head {
+		padding: 16px 0 18px;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.marks > * {
+		animation: none !important;
+	}
+	.tile[data-enter] {
+		opacity: 1;
+		transform: none;
+	}
+	.marks > *,
+	.cover-text p,
+	.cover-cta {
+		filter: none !important;
+		transform: none !important;
+	}
+}

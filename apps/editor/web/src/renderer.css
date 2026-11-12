@@ -1,0 +1,106 @@
+@import "@human-tokens/renderer/content.css";
+
+:root {
+  --bg: #f4f3ef;
+  --page-bg: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #19191b;
+    --page-bg: #1f1f21;
+  }
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+body {
+  font: 16px/1.6 -apple-system, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  -webkit-user-select: text;
+}
+
+/* Empty space above the content, so the first block can sit at the sheet's
+   bottom edge in "scroll under" mode. */
+#spacer {
+  height: 100vh;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.hint {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+
+/* Same column width as the native editor (FoldTextView.columnWidth). */
+#content {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 0 28px 1px;
+}
+
+.blk {
+  display: flow-root;
+  transition: opacity 0.18s ease;
+  cursor: default;
+}
+
+body.focus #spacer { display: none; }
+body.focus #content { padding-top: 45vh; padding-bottom: 45vh; }
+body.focus .blk { opacity: 0.28; }
+body.focus .blk.current { opacity: 1; }
+
+/* The side panel: the document as a published page. */
+body.page { background: var(--page-bg); }
+body.page #spacer { display: none; }
+body.page #content { padding-top: 36px; padding-bottom: 24px; }
+body.page { padding-bottom: 70vh; }
+
+/* Series: the name and part number above the page, previous/next below. */
+[hidden] { display: none !important; }
+body:not(.page) #series-head,
+body:not(.page) #series-foot { display: none; }
+#series-head,
+#series-foot { max-width: 680px; margin: 0 auto; padding: 0 28px; }
+#series-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding-top: 30px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+#series-head + #content { padding-top: 18px; }
+.series-name { font-weight: 600; color: var(--fg); opacity: 0.75; }
+#series-foot {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 16px;
+}
+.series-link {
+  display: block;
+  padding: 12px 14px;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  color: var(--fg);
+  text-decoration: none;
+}
+.series-link:hover { border-color: var(--accent); text-decoration: none; }
+.series-link span { display: block; font-size: 12px; color: var(--muted); margin-bottom: 2px; }
+.series-link strong { font-weight: 600; }
+.series-link.next { text-align: right; }
+.series-link.empty { border: 0; }

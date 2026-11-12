@@ -1,0 +1,210 @@
+/* ---------------------------------------------------------------- the island */
+
+.island-dock {
+	position: fixed;
+	inset: 14px 0 auto;
+	z-index: 20;
+	display: flex;
+	justify-content: center;
+	padding: 0 16px;
+	pointer-events: none;
+}
+
+.island {
+	position: relative;
+	display: flex;
+	align-items: center;
+	max-width: 100%;
+	height: 46px;
+	padding: 0 7px 0 18px;
+	background: var(--glass);
+	border: 1px solid var(--glass-edge);
+	border-radius: 999px;
+	box-shadow:
+		inset 0 1px 0 var(--glass-shine),
+		0 1px 2px var(--shade-1),
+		0 14px 36px -14px var(--shade-3);
+	-webkit-backdrop-filter: blur(24px) saturate(1.8);
+	backdrop-filter: blur(24px) saturate(1.8);
+	pointer-events: auto;
+	overflow: hidden;
+}
+
+.island-home {
+	display: flex;
+	align-items: center;
+	height: 100%;
+	text-decoration: none;
+}
+
+.island-name {
+	display: block;
+	padding: 0 4px 0 10px;
+	font: 600 17px/1 var(--display);
+	letter-spacing: -0.01em;
+}
+
+/* Folding pieces: a one-column grid whose column eases between nothing and
+   the content's own width. */
+.island-slot {
+	display: grid;
+	grid-template-columns: 0fr;
+	opacity: 0;
+	transition:
+		grid-template-columns 0.55s var(--ease),
+		opacity 0.3s ease;
+}
+
+.island-slot[data-open] {
+	grid-template-columns: 1fr;
+	opacity: 1;
+	transition:
+		grid-template-columns 0.55s var(--ease),
+		opacity 0.4s ease 0.12s;
+}
+
+.island-slot-inner {
+	min-width: 0;
+	overflow: hidden;
+	white-space: nowrap;
+}
+
+.island-title {
+	display: block;
+	max-width: min(44vw, 440px);
+	padding: 0 6px 0 12px;
+	overflow: hidden;
+	background: none;
+	border: 0;
+	font: 600 15px/46px var(--sans);
+	letter-spacing: -0.01em;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	cursor: pointer;
+}
+
+.island-divider {
+	width: 1px;
+	height: 18px;
+	margin: 0 6px 0 12px;
+	background: var(--line-strong);
+}
+
+.island-glyph {
+	display: grid;
+	place-items: center;
+	width: 32px;
+	height: 32px;
+	padding: 0;
+	background: none;
+	border: 0;
+	border-radius: 50%;
+	color: var(--ink-soft);
+	cursor: pointer;
+	transition:
+		background 0.3s ease,
+		color 0.3s ease;
+}
+
+.island-glyph svg {
+	width: 15px;
+	height: 15px;
+}
+
+.island-glyph:hover,
+.island-glyph[aria-expanded="true"] {
+	background: var(--glass-chip);
+	color: var(--ink);
+}
+
+.island-choices {
+	display: flex;
+	gap: 2px;
+	padding-left: 4px;
+}
+
+.island-choices button {
+	height: 32px;
+	padding: 0 12px;
+	background: none;
+	border: 0;
+	border-radius: 999px;
+	color: var(--muted);
+	font: 500 14px/1 var(--sans);
+	cursor: pointer;
+	transition:
+		background 0.3s ease,
+		color 0.3s ease;
+}
+
+.island-choices button:hover {
+	color: var(--ink);
+}
+
+.island-choices button:is([aria-checked="true"], [aria-pressed="true"]) {
+	background: var(--glass-chip);
+	color: var(--ink);
+}
+
+.island-who {
+	padding: 0 8px 0 6px;
+	color: var(--muted);
+	font: 500 14px/32px var(--sans);
+}
+
+/* You, while viewing as an author: a small amber point. */
+.island-you {
+	position: relative;
+}
+
+.island-you[data-author]::after {
+	content: "";
+	position: absolute;
+	top: 6px;
+	right: 6px;
+	width: 5px;
+	height: 5px;
+	border-radius: 50%;
+	background: linear-gradient(135deg, var(--brand-from), var(--brand-to));
+}
+
+.island :focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 1px;
+}
+
+/* How far through the piece you are: a hairline along the island's foot. */
+.island-progress {
+	position: absolute;
+	left: 22px;
+	right: 22px;
+	bottom: 0;
+	height: 1px;
+	background: linear-gradient(90deg, var(--brand-from), var(--brand-to));
+	transform: scaleX(var(--progress, 0));
+	transform-origin: left;
+	opacity: 0;
+	transition: opacity 0.4s ease;
+}
+
+.island[data-reading] .island-progress {
+	opacity: 0.75;
+}
+
+@media (max-width: 734px) {
+	/* No room for both: the name folds away while a panel is open. */
+	.island:has([aria-expanded="true"]) .island-home .island-slot {
+		grid-template-columns: 0fr;
+		opacity: 0;
+	}
+	.island-who {
+		display: none;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.island-slot,
+	.island-slot[data-open] {
+		transition: none;
+	}
+}

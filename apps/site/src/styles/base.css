@@ -1,0 +1,162 @@
+/* After Apple Newsroom: a light grey canvas, white tiles with large round
+   corners, near-black ink, one typeface (the system's: SF Pro on Apple
+   devices) set bold for headlines. In dark, black with raised greys. The
+   only colour of our own is the small amber mark. Each colour is written
+   once as light-dark(); html[data-theme] forces Light or Dark, and System
+   follows the device. */
+
+:root {
+	color-scheme: light dark;
+
+	--canvas: light-dark(#f5f5f7, #000000);
+	--surface: light-dark(#ffffff, #1c1c1e);
+	--sheet: light-dark(#ffffff, #000000); /* the page you read a piece on */
+	--fill: light-dark(#f5f5f7, #1c1c1e); /* controls on the sheet */
+	--ink: light-dark(#1d1d1f, #f5f5f7);
+	--ink-soft: light-dark(#424245, #d2d2d7);
+	--line: light-dark(rgba(0, 0, 0, 0.1), rgba(255, 255, 255, 0.12));
+	--line-strong: light-dark(rgba(0, 0, 0, 0.2), rgba(255, 255, 255, 0.26));
+	--shade-1: light-dark(rgba(0, 0, 0, 0.04), rgba(0, 0, 0, 0.4));
+	--shade-3: light-dark(rgba(0, 0, 0, 0.14), rgba(0, 0, 0, 0.8));
+	--glass: light-dark(rgba(255, 255, 255, 0.72), rgba(30, 30, 32, 0.7));
+	--glass-edge: light-dark(rgba(0, 0, 0, 0.07), rgba(255, 255, 255, 0.1));
+	--glass-shine: light-dark(rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.08));
+	--glass-chip: light-dark(rgba(0, 0, 0, 0.06), rgba(255, 255, 255, 0.12));
+	--selection: light-dark(rgba(0, 113, 227, 0.2), rgba(41, 151, 255, 0.35));
+	--cover-top: light-dark(#fafafc, #2a2a2d);
+	--cover-bottom: light-dark(#f0f0f3, #222224);
+	--shape-ink: light-dark(rgba(0, 0, 0, 0.15), rgba(255, 255, 255, 0.2));
+	--shape-soft: light-dark(rgba(0, 0, 0, 0.1), rgba(255, 255, 255, 0.13));
+	--shape-fill: light-dark(rgba(0, 0, 0, 0.045), rgba(255, 255, 255, 0.06));
+	--brand-from: light-dark(#f59e0b, #ffb547);
+	--brand-to: light-dark(#ea580c, #ff8a24);
+
+	/* the article (shared renderer) */
+	--fg: var(--ink);
+	--muted: light-dark(#6e6e73, #98989d);
+	--rule: var(--line);
+	--code-bg: light-dark(rgba(0, 0, 0, 0.045), rgba(255, 255, 255, 0.08));
+	--accent: light-dark(#0066cc, #2997ff);
+	--hl-keyword: light-dark(#ad3da4, #ff7ab2);
+	--hl-string: light-dark(#c41a16, #ff8170);
+	--hl-number: light-dark(#1c00cf, #d9c97c);
+	--hl-comment: light-dark(#8e8e93, #7f8c98);
+	--hl-title: light-dark(#326d74, #67b7a4);
+	--hl-type: light-dark(#3900a0, #dabaff);
+
+	--sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+	--display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif;
+	--ease: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+:root[data-theme="light"] {
+	color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+	color-scheme: dark;
+}
+
+::selection {
+	background: var(--selection);
+}
+
+/* Changing theme: the old colours fade slowly into the new. */
+::view-transition-old(root),
+::view-transition-new(root) {
+	animation-duration: 0.5s;
+	animation-timing-function: ease;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+html {
+	background: var(--canvas);
+	color: var(--ink);
+}
+
+body {
+	margin: 0;
+	padding: 92px 0 0; /* room for the island */
+	background: var(--canvas);
+	color: var(--ink);
+	font: 17px/1.47 var(--sans);
+	letter-spacing: -0.022em;
+	-webkit-font-smoothing: antialiased;
+}
+
+/* Reading a piece: a plain white sheet (black in dark). */
+html:has(main.post),
+html:has(main.post) body {
+	background: var(--sheet);
+}
+
+a {
+	color: inherit;
+}
+
+button {
+	font: inherit;
+	letter-spacing: inherit;
+	color: inherit;
+}
+
+.visually-hidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+}
+
+.brand-mark {
+	display: block;
+	width: 20px;
+	height: 16px;
+	flex: none;
+}
+
+/* ---------------------------------------------------------------- frame */
+
+.feed,
+.site-footer,
+.page-narrow {
+	width: min(980px, 100% - 48px);
+}
+
+.site-footer {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	margin: 80px auto 0;
+	padding: 22px 0 40px;
+	border-top: 1px solid var(--line);
+	color: var(--muted);
+	font-size: 12px;
+	letter-spacing: -0.01em;
+}
+
+.site-footer p {
+	margin: 0;
+}
+
+.site-footer .site-footer-domain {
+	margin-left: auto;
+}
+
+.page-narrow {
+	margin: 0 auto;
+	padding: 48px 0;
+}
+
+.empty-title {
+	font: 700 32px/1.125 var(--display);
+}
+
+@media (max-width: 734px) {
+	body {
+		padding-top: 80px;
+	}
+}

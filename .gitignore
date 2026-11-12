@@ -3,4 +3,8 @@ build/
 DerivedData/
 xcuserdata/
 *.xcuserstate
-web/node_modules/
+node_modules/
+.wrangler/
+.output/
+dist/
+.dev.vars

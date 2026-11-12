@@ -1,0 +1,98 @@
+/* Article styles shared by the Fold MD previews and human-tokens.dev.
+   Everything is scoped to .fold-content, with :where() so the scope adds no
+   specificity: pages can still restyle anything with a plain selector. */
+@import "katex/dist/katex.min.css";
+
+:root {
+  color-scheme: light dark;
+  --fg: #1d1d1f;
+  --muted: #86868b;
+  --rule: rgba(0, 0, 0, 0.09);
+  --code-bg: rgba(0, 0, 0, 0.045);
+  --accent: #0a64d8;
+  --hl-keyword: #a626a4;
+  --hl-string: #50a14f;
+  --hl-number: #986801;
+  --hl-comment: #a0a1a7;
+  --hl-title: #4078f2;
+  --hl-type: #c18401;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fg: #e8e8ea;
+    --muted: #8e8e93;
+    --rule: rgba(255, 255, 255, 0.09);
+    --code-bg: rgba(255, 255, 255, 0.06);
+    --accent: #4ea1ff;
+    --hl-keyword: #c678dd;
+    --hl-string: #98c379;
+    --hl-number: #d19a66;
+    --hl-comment: #7f848e;
+    --hl-title: #61afef;
+    --hl-type: #e5c07b;
+  }
+}
+
+:where(.fold-content) h1, :where(.fold-content) h2, :where(.fold-content) h3, :where(.fold-content) h4, :where(.fold-content) h5, :where(.fold-content) h6 { line-height: 1.25; margin: 1em 0 0.4em; }
+:where(.fold-content) h1 { font-size: 1.75em; }
+:where(.fold-content) h2 { font-size: 1.4em; }
+:where(.fold-content) h3 { font-size: 1.2em; }
+:where(.fold-content) h4, :where(.fold-content) h5, :where(.fold-content) h6 { font-size: 1em; }
+:where(.fold-content) p { margin: 0.6em 0; }
+:where(.fold-content) ul, :where(.fold-content) ol { margin: 0.6em 0; padding-left: 1.5em; }
+:where(.fold-content) li { margin: 0.2em 0; }
+:where(.fold-content) a { color: var(--accent); text-decoration: none; }
+:where(.fold-content) a:hover { text-decoration: underline; }
+:where(.fold-content) img { max-width: 100%; border-radius: 6px; }
+:where(.fold-content) .img-missing {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 1px dashed var(--rule);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+:where(.fold-content) .img-missing code { font-size: 12px; overflow-wrap: anywhere; }
+:where(.fold-content) hr { border: 0; border-top: 1px solid var(--rule); margin: 1.6em 0; }
+
+:where(.fold-content) blockquote {
+  margin: 0.8em 0;
+  padding: 0 1em;
+  border-left: 3px solid var(--rule);
+  color: var(--muted);
+}
+
+:where(.fold-content) table { border-collapse: collapse; margin: 0.8em 0; }
+:where(.fold-content) th, :where(.fold-content) td { border: 1px solid var(--rule); padding: 4px 10px; }
+
+:where(.fold-content) code, :where(.fold-content) pre {
+  font: 13.5px/1.5 ui-monospace, "SF Mono", Menlo, monospace;
+}
+:where(.fold-content) :not(pre) > code {
+  background: var(--code-bg);
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+}
+:where(.fold-content) pre {
+  background: var(--code-bg);
+  padding: 12px 14px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 0.8em 0;
+}
+
+:where(.fold-content) .math-block { margin: 0.8em 0; overflow-x: auto; overflow-y: hidden; }
+:where(.fold-content) .katex { font-size: 1.1em; }
+
+/* highlight.js tokens */
+:where(.fold-content) .hljs-keyword, :where(.fold-content) .hljs-selector-tag, :where(.fold-content) .hljs-doctag { color: var(--hl-keyword); }
+:where(.fold-content) .hljs-string, :where(.fold-content) .hljs-regexp, :where(.fold-content) .hljs-addition, :where(.fold-content) .hljs-symbol { color: var(--hl-string); }
+:where(.fold-content) .hljs-number, :where(.fold-content) .hljs-literal, :where(.fold-content) .hljs-attr, :where(.fold-content) .hljs-attribute, :where(.fold-content) .hljs-variable { color: var(--hl-number); }
+:where(.fold-content) .hljs-comment, :where(.fold-content) .hljs-quote, :where(.fold-content) .hljs-meta { color: var(--hl-comment); font-style: italic; }
+:where(.fold-content) .hljs-title, :where(.fold-content) .hljs-section, :where(.fold-content) .hljs-name { color: var(--hl-title); }
+:where(.fold-content) .hljs-type, :where(.fold-content) .hljs-built_in, :where(.fold-content) .hljs-title.class_ { color: var(--hl-type); }
+:where(.fold-content) .hljs-deletion { color: #e45649; }

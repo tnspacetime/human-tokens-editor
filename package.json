@@ -1,0 +1,9 @@
+{
+  "name": "human-tokens",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/editor/web",
+    "apps/site"
+  ]
+}

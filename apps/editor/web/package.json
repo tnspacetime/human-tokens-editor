@@ -1,0 +1,15 @@
+{
+  "name": "@human-tokens/editor-previews",
+  "private": true,
+  "type": "module",
+  "description": "Fold MD's preview page (the sheet and the publishing surface), bundled into FoldMD/renderer.html.",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "@human-tokens/renderer": "workspace:*"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  }
+}

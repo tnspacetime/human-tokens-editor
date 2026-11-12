@@ -1,57 +1,24 @@
-// Fold MD renderer: markdown → HTML blocks that remember which source lines
-// they came from, so the native editor can drive the sheet by line number.
+// Fold MD's previews: the sheet above the editor and the publishing surface.
+// Markdown → HTML comes from @human-tokens/renderer (shared with the site);
+// this file keeps the blocks in sync with the editor by source line.
 //
 // API (called from Swift via callAsyncJavaScript):
 //   Fold.setDocument(text)   re-render (only changed blocks touch the DOM)
+//   Fold.setBase(dir, home)  the folder relative image links start from
 //   Fold.setMode(mode)       "under" | "focus" (the sheet) | "page" (side panel)
 //   Fold.scrollToLine(line)  fractional source line at the editor's top edge
 //   Fold.focusLine(line)     source line the cursor is on
+//   Fold.setSeries(info)     where this document sits in a series (page only)
 
-import MarkdownIt from "markdown-it";
-import katex from "katex";
-import hljs from "highlight.js/lib/common";
-
-// ---------------------------------------------------------------- markdown
-
-const md = new MarkdownIt({
-  html: false,
-  linkify: true,
-  typographer: true,
-  highlight(code, lang) {
-    if (lang && hljs.getLanguage(lang)) {
-      try {
-        return hljs.highlight(code, { language: lang, ignoreIllegals: true }).value;
-      } catch {}
-    }
-    return ""; // markdown-it escapes it
-  },
-});
-md.use(mathPlugin);
-
-// Local files are fine to link (images next to the document, or anywhere on
-// disk); scripts never are, and only image data URLs.
-md.validateLink = (url) => {
-  const link = url.trim().toLowerCase();
-  if (/^(javascript|vbscript):/.test(link)) return false;
-  if (link.startsWith("data:")) return /^data:image\/(gif|png|jpeg|webp);/.test(link);
-  return true;
-};
+import { createRenderer, escapeHTML, missingImage } from "@human-tokens/renderer";
 
 // Images: web links load as they are. Local ones (relative to the document's
 // folder, absolute, ~/ or file:) go through the app's fold-asset: handler.
 // A relative link in an untitled document has nowhere to point yet.
-const defaultImage = md.renderer.rules.image;
-md.renderer.rules.image = (tokens, idx, options, env, self) => {
-  const token = tokens[idx];
-  const src = token.attrGet("src") || "";
-  const resolved = resolveImage(src);
-  if (!resolved) {
-    return missingImage(src, "Save the document to show");
-  }
-  token.attrSet("src", resolved);
-  token.attrSet("data-src", src);
-  return defaultImage(tokens, idx, options, env, self);
-};
+const { renderBlocks } = createRenderer({
+  resolveImage,
+  unresolvedImageLabel: "Save the document to show",
+});
 
 const encodePath = (path) => path.split("/").map(encodeURIComponent).join("/");
 function safeDecode(text) {
@@ -72,121 +39,6 @@ function resolveImage(src) {
     return null;
   }
   return "fold-asset://image" + encodePath(path);
-}
-
-function missingImage(src, reason) {
-  return `<span class="img-missing"><span>${reason}</span> <code>${escapeHTML(safeDecode(src))}</code></span>`;
-}
-
-const mathCache = new Map();
-function renderMath(tex, displayMode) {
-  const key = (displayMode ? "D" : "I") + tex;
-  let html = mathCache.get(key);
-  if (html === undefined) {
-    html = katex.renderToString(tex, { displayMode, throwOnError: false });
-    if (mathCache.size > 500) mathCache.clear();
-    mathCache.set(key, html);
-  }
-  return html;
-}
-
-// $inline$ and $$display$$ math. An unclosed $$ stays plain text, so the
-// sheet doesn't flash red while you're still typing the block.
-function mathPlugin(md) {
-  md.inline.ruler.after("escape", "math_inline", (state, silent) => {
-    const src = state.src;
-    const start = state.pos;
-    if (src.charCodeAt(start) !== 0x24 /* $ */) return false;
-    if (src.charCodeAt(start + 1) === 0x24) return false;
-    const first = src.charCodeAt(start + 1);
-    if (Number.isNaN(first) || first === 0x20 || first === 0x09) return false;
-
-    let end = start + 1;
-    while ((end = src.indexOf("$", end)) !== -1 && src.charCodeAt(end - 1) === 0x5c /* \ */) end++;
-    if (end === -1) return false;
-    const last = src.charCodeAt(end - 1);
-    if (last === 0x20 || last === 0x09) return false;
-    const after = src.charCodeAt(end + 1);
-    if (after >= 0x30 && after <= 0x39) return false; // "$5 and $10" is money
-
-    if (!silent) {
-      const token = state.push("math_inline", "math", 0);
-      token.content = src.slice(start + 1, end);
-      token.markup = "$";
-    }
-    state.pos = end + 1;
-    return true;
-  });
-
-  md.block.ruler.before(
-    "fence",
-    "math_block",
-    (state, startLine, endLine, silent) => {
-      const begin = state.bMarks[startLine] + state.tShift[startLine];
-      const lineEnd = state.eMarks[startLine];
-      if (state.sCount[startLine] - state.blkIndent >= 4) return false;
-      if (state.src.slice(begin, begin + 2) !== "$$") return false;
-
-      const firstRest = state.src.slice(begin + 2, lineEnd).trim();
-      let line = startLine;
-      let content = null;
-
-      if (firstRest.length >= 2 && firstRest.endsWith("$$")) {
-        content = firstRest.slice(0, -2);
-      } else {
-        const lines = firstRest ? [firstRest] : [];
-        while (++line < endLine) {
-          const pos = state.bMarks[line] + state.tShift[line];
-          const max = state.eMarks[line];
-          const text = state.src.slice(pos, max).trim();
-          if (text.endsWith("$$")) {
-            lines.push(text.slice(0, -2));
-            content = lines.join("\n");
-            break;
-          }
-          lines.push(state.src.slice(state.bMarks[line], max));
-        }
-      }
-      if (content === null) return false;
-      if (silent) return true;
-
-      state.line = line + 1;
-      const token = state.push("math_block", "math", 0);
-      token.block = true;
-      token.content = content;
-      token.map = [startLine, state.line];
-      token.markup = "$$";
-      return true;
-    },
-    { alt: ["paragraph", "reference", "blockquote", "list"] },
-  );
-
-  md.renderer.rules.math_inline = (tokens, i) => renderMath(tokens[i].content, false);
-  md.renderer.rules.math_block = (tokens, i) =>
-    `<div class="math-block">${renderMath(tokens[i].content, true)}</div>\n`;
-}
-
-// Parse once (so references resolve across the whole document), then render
-// each top-level block separately with its [start, end) source line range.
-function renderBlocks(src) {
-  const env = {};
-  const tokens = md.parse(src, env);
-  const blocks = [];
-  let i = 0;
-  while (i < tokens.length) {
-    const open = tokens[i];
-    let j = i;
-    if (open.nesting === 1) {
-      for (let depth = 0; j < tokens.length; j++) {
-        depth += tokens[j].nesting;
-        if (depth === 0) break;
-      }
-    }
-    const [start, end] = open.map || [0, 0];
-    blocks.push({ start, end, html: md.renderer.render(tokens.slice(i, j + 1), md.options, env) });
-    i = j + 1;
-  }
-  return blocks;
 }
 
 // ---------------------------------------------------------------- the sheet
@@ -332,9 +184,6 @@ function reposition(smooth) {
 const seriesHead = document.getElementById("series-head");
 const seriesFoot = document.getElementById("series-foot");
 
-function escapeHTML(value) {
-  return String(value).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
-}
 
 // Where this document sits in a series (shown on the publishing surface).
 function setSeries(info) {
