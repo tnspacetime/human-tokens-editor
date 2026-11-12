@@ -5,9 +5,11 @@
    island the glass capsule at the top
    feed   section headings and the tiles, with their drawn covers
    live   the live board, its ticker and sheet in the island
+   rules  the five rules: a band on the homepage, and their own page
    post   a piece, its qualities and comments */
 @import "./styles/base.css";
 @import "./styles/island.css";
 @import "./styles/feed.css";
 @import "./styles/live.css";
+@import "./styles/rules.css";
 @import "./styles/post.css";

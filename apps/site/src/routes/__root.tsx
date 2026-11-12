@@ -40,6 +40,9 @@ function Root() {
 			<footer className="site-footer">
 				<BrandMark />
 				<p>Written by people, published with Fold MD.</p>
+				<Link to="/rules" className="site-footer-link">
+					The rules
+				</Link>
 				<p className="site-footer-domain">human-tokens.dev</p>
 			</footer>
 		</>

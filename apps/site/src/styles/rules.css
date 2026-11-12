@@ -1,0 +1,227 @@
+/* ---------------------------------------------------------------- rules */
+
+.section-link {
+	color: var(--accent);
+	font-size: 14px;
+	font-weight: 500;
+	text-decoration: none;
+}
+
+.section-link:hover {
+	text-decoration: underline;
+}
+
+.section-link::after {
+	content: " ›";
+}
+
+/* On the homepage: one white panel, five columns divided by hairlines. */
+.rules {
+	margin-bottom: 28px;
+}
+
+.rule-list {
+	display: grid;
+	grid-template-columns: repeat(5, 1fr);
+	margin: 0;
+	padding: 30px 8px 32px;
+	background: var(--surface);
+	border-radius: 28px;
+	list-style: none;
+}
+
+.rule-list li {
+	padding: 0 22px;
+}
+
+.rule-list li + li {
+	border-left: 1px solid var(--line);
+}
+
+.rule-number {
+	display: block;
+	margin-bottom: 14px;
+	background: linear-gradient(135deg, var(--brand-from), var(--brand-to));
+	-webkit-background-clip: text;
+	background-clip: text;
+	color: transparent;
+	font: 200 44px/1 var(--display);
+	font-variant-numeric: tabular-nums;
+	letter-spacing: -0.02em;
+}
+
+.rule-title {
+	margin: 0 0 6px;
+	font: 700 17px/1.24 var(--display);
+	letter-spacing: -0.01em;
+	text-wrap: balance;
+}
+
+.rule-line {
+	margin: 0;
+	color: var(--ink-soft);
+	font-size: 14px;
+	line-height: 1.43;
+	text-wrap: pretty;
+}
+
+/* At the top of the homepage, the rules rise in one after another as the
+   page opens. */
+.rules .rule-list li {
+	animation: rule-in 0.8s var(--ease) backwards;
+	animation-delay: calc(var(--n, 0) * 80ms + 100ms);
+}
+
+@keyframes rule-in {
+	from {
+		opacity: 0;
+		transform: translateY(14px);
+	}
+}
+
+/* Their own page: the same five, large, on the white sheet. */
+html:has(main.rules-page),
+html:has(main.rules-page) body {
+	background: var(--sheet);
+}
+
+.rules-page {
+	width: min(692px, 100% - 48px);
+	margin: 0 auto;
+	padding: 48px 0 0;
+}
+
+.rules-eyebrow {
+	margin: 0 0 6px;
+	color: var(--muted);
+	font: 700 12px/1.33 var(--sans);
+	letter-spacing: 0.02em;
+	text-transform: uppercase;
+}
+
+.rules-page h1 {
+	margin: 0;
+	font: 700 56px/1.07 var(--display);
+	letter-spacing: -0.005em;
+}
+
+.rules-intro {
+	margin: 12px 0 40px;
+	color: var(--ink-soft);
+	font-size: 21px;
+	line-height: 1.38;
+}
+
+.rule-list.large {
+	grid-template-columns: 1fr;
+	gap: 0;
+	padding: 0;
+	background: none;
+	border-radius: 0;
+}
+
+.rule-list.large li {
+	display: grid;
+	grid-template-columns: 64px 1fr;
+	column-gap: 8px;
+	padding: 26px 0;
+	border-left: 0;
+	border-top: 1px solid var(--line);
+}
+
+.rule-list.large li:last-child {
+	border-bottom: 1px solid var(--line);
+}
+
+.rule-list.large .rule-number {
+	grid-row: span 2;
+	margin: 0;
+	font-size: 52px;
+}
+
+.rule-list.large .rule-title {
+	font-size: 28px;
+	line-height: 1.14;
+}
+
+.rule-list.large .rule-line {
+	font-size: 19px;
+	line-height: 1.42;
+}
+
+.rules-back {
+	margin: 36px 0 0;
+}
+
+.rules-back a {
+	color: var(--accent);
+	text-decoration: none;
+}
+
+.rules-back a::after {
+	content: " ›";
+}
+
+.site-footer-link {
+	color: inherit;
+	text-decoration: none;
+}
+
+.site-footer-link:hover {
+	color: var(--ink);
+}
+
+@media (max-width: 1068px) {
+	.rules .rule-list {
+		grid-template-columns: repeat(3, 1fr);
+		row-gap: 26px;
+	}
+	.rules .rule-list li:nth-child(4) {
+		border-left: 0;
+	}
+}
+
+/* On a phone: one rule under another, number at the side. */
+@media (max-width: 734px) {
+	.rules .rule-list {
+		grid-template-columns: 1fr;
+		row-gap: 0;
+		padding: 8px 22px;
+		border-radius: 24px;
+	}
+	.rules .rule-list li {
+		display: grid;
+		grid-template-columns: 40px 1fr;
+		padding: 16px 0;
+		border-left: 0;
+	}
+	.rules .rule-list li + li {
+		border-top: 1px solid var(--line);
+	}
+	.rules .rule-number {
+		grid-row: span 2;
+		margin: 0;
+		font-size: 32px;
+	}
+	.rules-page h1 {
+		font-size: 40px;
+	}
+	.rule-list.large li {
+		grid-template-columns: 48px 1fr;
+	}
+	.rule-list.large .rule-number {
+		font-size: 40px;
+	}
+	.rule-list.large .rule-title {
+		font-size: 22px;
+	}
+	.rule-list.large .rule-line {
+		font-size: 17px;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.rules .rule-list li {
+		animation: none !important;
+	}
+}

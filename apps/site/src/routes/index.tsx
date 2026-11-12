@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { LiveBoard } from "../components/LiveBoard";
 import { PostTile, type TileSize } from "../components/PostCard";
+import { RulesBand } from "../components/Rules";
 import { useFeedMotion } from "../components/useFeedMotion";
 import type { FeedItem } from "../lib/types";
 import { getBoard, getFeed } from "../server/site.functions";
@@ -57,6 +58,7 @@ function Feed() {
 	return (
 		<main className="feed">
 			<h1 className="visually-hidden">Human Tokens</h1>
+			<RulesBand />
 			<LiveBoard board={board} />
 			<header className="section-head">
 				<h2>Latest</h2>
