@@ -555,7 +555,7 @@ struct EditorWindow: View {
     /// the image file given as the object at the cursor, the way a drop does
     /// ("…insertImage"); paste ("…paste").
     private func imageHooks(_ view: some View) -> some View {
-        view
+        noteHooks(view)
         .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.images"))) { _ in
             logImages()
         }
@@ -567,6 +567,96 @@ struct EditorWindow: View {
         .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.paste"))) { _ in
             foldTextView()?.paste(nil)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { logImages() }
+        }
+    }
+
+    /// Self-notes: log them ("md.fold.app.notes"); select "start,length"
+    /// and show the selection menu as letting go of the mouse does
+    /// ("…select"); add a note "start,length,body" ("…addNote"); replace
+    /// "start,length,text" as typing would ("…edit"); undo ("…undo").
+    private func noteHooks(_ view: some View) -> some View {
+        view
+        // For testing a second copy of the app only: "pid,width" sets that
+        // copy's window width ("…testWidth"); "pid,index" hovers the index-th
+        // note bubble ("…testHover", -1 to leave it).
+        .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.testWidth"))) { note in
+            guard let parts = (note.object as? String)?.split(separator: ","), parts.count == 2,
+                  Int32(parts[0]) == ProcessInfo.processInfo.processIdentifier, let width = Double(parts[1]),
+                  let window = foldTextView()?.window else { return }
+            var frame = window.frame
+            frame.size.width = width
+            window.setFrame(frame, display: true)
+        }
+        .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.testHover"))) { note in
+            guard let parts = (note.object as? String)?.split(separator: ","), parts.count == 2,
+                  Int32(parts[0]) == ProcessInfo.processInfo.processIdentifier, let index = Int(parts[1]),
+                  let text = foldTextView() else { return }
+            text.notes.testHover(index)
+        }
+        // A test copy only: scroll its editor by "pid,dy" ("…testScroll").
+        .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.testScroll"))) { note in
+            guard let parts = (note.object as? String)?.split(separator: ","), parts.count == 2,
+                  Int32(parts[0]) == ProcessInfo.processInfo.processIdentifier, let dy = Double(parts[1]),
+                  let scroll = foldTextView()?.enclosingScrollView else { return }
+            let clip = scroll.contentView
+            let target = NSRect(origin: NSPoint(x: 0, y: clip.bounds.minY + dy), size: clip.bounds.size)
+            clip.scroll(to: clip.constrainBoundsRect(target).origin)
+            scroll.reflectScrolledClipView(clip)
+        }
+        // Also for a test copy only: the cursor into the index-th note, or
+        // back to the text with -1 ("…testWrite"); type "pid,text" where the
+        // cursor is ("…testType"); a note on "pid,start,length" as the
+        // selection menu adds one ("…testAddNote").
+        .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.testWrite"))) { note in
+            guard let parts = (note.object as? String)?.split(separator: ","), parts.count == 2,
+                  Int32(parts[0]) == ProcessInfo.processInfo.processIdentifier, let index = Int(parts[1]),
+                  let text = foldTextView() else { return }
+            text.notes.testWrite(index)
+        }
+        .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.testType"))) { note in
+            guard let parts = (note.object as? String)?.split(separator: ",", maxSplits: 1), parts.count == 2,
+                  Int32(parts[0]) == ProcessInfo.processInfo.processIdentifier,
+                  let responder = foldTextView()?.window?.firstResponder as? NSTextView else { return }
+            responder.insertText(String(parts[1]), replacementRange: NSRange(location: NSNotFound, length: 0))
+        }
+        .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.testAddNote"))) { note in
+            guard let parts = (note.object as? String)?.split(separator: ","), parts.count == 3,
+                  Int32(parts[0]) == ProcessInfo.processInfo.processIdentifier,
+                  let start = Int(parts[1]), let length = Int(parts[2]), let text = foldTextView() else { return }
+            text.window?.makeFirstResponder(text)
+            text.setSelectedRange(NSRange(location: start, length: length))
+            text.notes.addNote()
+        }
+        .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.notes"))) { _ in
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                guard let text = foldTextView() else { return }
+                testLog("notes: \(text.notes.describe()) menu=\(text.selectionMenu.isShowing)")
+            }
+        }
+        .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.select"))) { note in
+            guard let text = foldTextView(), let parts = (note.object as? String)?.split(separator: ","),
+                  parts.count == 2, let start = Int(parts[0]), let length = Int(parts[1]) else { return }
+            text.window?.makeFirstResponder(text)
+            text.setSelectedRange(NSRange(location: start, length: length))
+            text.showSelectionMenu()
+        }
+        .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.addNote"))) { note in
+            guard let text = foldTextView(), let parts = (note.object as? String)?.split(separator: ",", maxSplits: 2),
+                  parts.count == 3, let start = Int(parts[0]), let length = Int(parts[1]) else { return }
+            text.notes.testAdd(range: NSRange(location: start, length: length), body: String(parts[2]))
+        }
+        .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.edit"))) { note in
+            guard let text = foldTextView(), let parts = (note.object as? String)?.split(separator: ",", maxSplits: 2, omittingEmptySubsequences: false),
+                  parts.count == 3, let start = Int(parts[0]), let length = Int(parts[1]) else { return }
+            let range = NSRange(location: start, length: length)
+            text.window?.makeFirstResponder(text)
+            if text.shouldChangeText(in: range, replacementString: String(parts[2])) {
+                text.textStorage?.replaceCharacters(in: range, with: String(parts[2]))
+                text.didChangeText()
+            }
+        }
+        .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.undo"))) { _ in
+            foldTextView()?.undoManager?.undo()
         }
     }
 

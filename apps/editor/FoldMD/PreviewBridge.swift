@@ -22,6 +22,10 @@ final class PreviewBridge: NSObject, WKNavigationDelegate, WKScriptMessageHandle
     /// Sheet mode; ignored by the page.
     private(set) var mode: DrawerMode = .under
     private var topLine: Double = 0
+    /// Sheet only: how far the editor's column is moved right of centre and
+    /// made narrower (to make room for notes), so the text lines up.
+    private var columnShift: Double = 0
+    private var columnNarrower: Double = 0
     private var cursorLine = 0
     /// Page only: where the editor's top line sits on screen, as the editor's
     /// top edge in the window plus any padding showing above its first line.
@@ -160,6 +164,13 @@ final class PreviewBridge: NSObject, WKNavigationDelegate, WKScriptMessageHandle
                 "previous": neighbour(series.previous), "next": neighbour(series.next)]
     }
 
+    func setColumn(shift: Double, narrower: Double) {
+        guard role == .sheet, shift != columnShift || narrower != columnNarrower else { return }
+        columnShift = shift
+        columnNarrower = narrower
+        call("Fold.setColumn(shift, narrower)", ["shift": shift, "narrower": narrower])
+    }
+
     func focus(line: Int) {
         guard line != cursorLine else { return }
         cursorLine = line
@@ -170,8 +181,8 @@ final class PreviewBridge: NSObject, WKNavigationDelegate, WKScriptMessageHandle
     private func pushState() {
         pendingRender?.cancel()
         call(
-            "Fold.setBase(base, home); Fold.setDocument(text); Fold.setSeries(series); Fold.setAnchor(anchor); Fold.scrollToLine(line); Fold.focusLine(cursor); Fold.setMode(mode);",
-            ["base": baseDirectory ?? NSNull(), "home": Self.home, "text": text, "series": seriesInfo, "anchor": anchor, "line": topLine, "cursor": cursorLine, "mode": jsMode]
+            "Fold.setBase(base, home); Fold.setDocument(text); Fold.setSeries(series); Fold.setAnchor(anchor); Fold.scrollToLine(line); Fold.focusLine(cursor); Fold.setColumn(shift, narrower); Fold.setMode(mode);",
+            ["shift": columnShift, "narrower": columnNarrower, "base": baseDirectory ?? NSNull(), "home": Self.home, "text": text, "series": seriesInfo, "anchor": anchor, "line": topLine, "cursor": cursorLine, "mode": jsMode]
         )
     }
 

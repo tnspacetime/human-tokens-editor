@@ -242,6 +242,16 @@ window.Fold = {
     state.anchor = Number(px) || 0;
     if (state.mode === "page") applyPage();
   },
+  // The editor's column moved right of centre and got narrower, to make
+  // room for notes beside it: the sheet's text moves with it.
+  setColumn(shift, narrower) {
+    const content = document.getElementById("content");
+    shift = Number(shift) || 0;
+    narrower = Number(narrower) || 0;
+    content.style.marginLeft = shift || narrower ? `calc((100% - min(100%, 680px)) / 2 + ${shift}px)` : "";
+    content.style.maxWidth = narrower ? `${680 - narrower}px` : "";
+    reposition(false);
+  },
   focusLine(line) {
     state.cursor = Number(line) || 0;
     if (state.mode === "focus") applyFocus(true);

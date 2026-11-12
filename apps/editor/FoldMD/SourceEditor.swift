@@ -38,7 +38,9 @@ struct SourceEditor: NSViewRepresentable {
         textView.autoresizingMask = [.width]
         textView.minSize = .zero
         textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: .greatestFiniteMagnitude)
-        textView.textContainer?.widthTracksTextView = true
+        // The column's width and place are set by the text view itself
+        // (centred, or moved over for notes).
+        textView.textContainer?.widthTracksTextView = false
 
         let scrollView = NSScrollView()
         scrollView.hasVerticalScroller = true
@@ -47,6 +49,9 @@ struct SourceEditor: NSViewRepresentable {
         scrollView.backgroundColor = .textBackgroundColor
         scrollView.automaticallyAdjustsContentInsets = false
         scrollView.documentView = textView
+
+        textView.textStorage?.delegate = textView.notes
+        textView.notes.attach(to: scrollView)
 
         context.coordinator.attach(textView: textView, scrollView: scrollView)
         return scrollView
@@ -95,14 +100,20 @@ struct SourceEditor: NSViewRepresentable {
             sheet.onJump = { [weak self] line in self?.jump(toLine: line) }
             page.onJump = { [weak self] line in self?.jump(toLine: line) }
             sheet.shiftEditor = { [weak self] dy in self?.shift(by: dy) }
+            // Notes on the left move the column; the sheet's text follows.
+            textView.onColumnChange = { [weak self] shift, narrower in
+                self?.sheet.setColumn(shift: shift, narrower: narrower)
+            }
         }
 
         /// Puts text from the document into the view (first load, revert).
         func load(_ newText: String) {
             guard let textView, textView.string != newText else { return }
+            textView.notes.beginLoad()
             textView.string = newText
             textView.setSelectedRange(NSRange(location: 0, length: 0))
             textChanged()
+            textView.notes.endLoad()
         }
 
         // MARK: NSTextViewDelegate
@@ -110,12 +121,14 @@ struct SourceEditor: NSViewRepresentable {
         func textDidChange(_ notification: Notification) {
             guard let textView else { return }
             text.wrappedValue = textView.string
+            textView.selectionMenu.hide()
             textChanged()
             pinTypingParagraph()
         }
 
         func textViewDidChangeSelection(_ notification: Notification) {
             reportCursor()
+            textView?.notes.selectionChanged()
         }
 
         // MARK: Reporting to the sheet

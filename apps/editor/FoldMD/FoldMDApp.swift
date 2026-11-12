@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 @main
@@ -17,6 +18,15 @@ struct FoldMDApp: App {
         // New windows open compact: one reading column with some margin.
         .defaultSize(width: 760, height: 680)
         .commands {
+            CommandGroup(after: .textEditing) {
+                Divider()
+                // A note to yourself on the selected words (or the paragraph
+                // the cursor is in); never published.
+                Button("Add Note") {
+                    NSApp.sendAction(#selector(FoldTextView.addNoteAction(_:)), to: nil, from: nil)
+                }
+                .keyboardShortcut("n", modifiers: [.command, .shift])
+            }
             CommandGroup(after: .toolbar) {
                 TypewriterScrollingToggle()
                 Divider()

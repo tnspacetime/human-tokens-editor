@@ -1,9 +1,10 @@
 import AppKit
 import UniformTypeIdentifiers
 
-/// The native source editor. A plain NSTextView with two additions: a centred
-/// reading column, and dropped markdown files open as documents instead of
-/// inserting their path.
+/// The native source editor. A plain NSTextView with a few additions: a
+/// centred reading column; dropped markdown files open as documents instead
+/// of inserting their path; images dropped or pasted are copied next to the
+/// document; and self-notes, with the iOS-style menu over a selection.
 final class FoldTextView: NSTextView {
     /// Matches max-width in web/src/renderer.css.
     var columnWidth: CGFloat = 680
@@ -24,10 +25,130 @@ final class FoldTextView: NSTextView {
             newSize.height = max(content + overscroll, minSize.height)
         }
         super.setFrameSize(newSize)
-        let side = max(28, (newSize.width - columnWidth) / 2)
-        if abs(textContainerInset.width - side) > 0.5 {
-            textContainerInset = NSSize(width: side, height: 28)
+        layoutColumn()
+        notesNeedLayout()
+    }
+
+    // MARK: The column
+
+    /// Whether the document has notes beside its text: they're on the
+    /// left, so the column moves right to make room when it has to.
+    var hasNotes = false {
+        didSet { if hasNotes != oldValue { layoutColumn() } }
+    }
+
+    /// Where the text column is (its left edge and width, in this view).
+    private(set) var columnLeft: CGFloat = 28
+    private(set) var columnActualWidth: CGFloat = 680
+    /// How wide the notes beside the column are.
+    private(set) var noteWidth: CGFloat = 0
+    /// Space between a note and the text.
+    static let noteGap: CGFloat = 22
+    /// Told when the column moves, so the sheet can move its text with it:
+    /// how far right of centre it is, and how much narrower than usual.
+    var onColumnChange: ((CGFloat, CGFloat) -> Void)?
+
+    override var textContainerOrigin: NSPoint {
+        NSPoint(x: columnLeft, y: textContainerInset.height)
+    }
+
+    /// Centred, as on the published page. With notes, they take the left:
+    /// when the window is too narrow for them beside the centred column,
+    /// the column moves right (and, in a small window, gets narrower).
+    private func layoutColumn() {
+        let width = bounds.width
+        let centred = max(28, (width - columnWidth) / 2)
+        var left = centred
+        var column = width - centred * 2
+        var notes: CGFloat = 0
+        if hasNotes {
+            notes = min(240, max(160, width - columnWidth - 28 - Self.noteGap - 20))
+            let needed = 20 + notes + Self.noteGap
+            if centred < needed {
+                left = needed
+                column = max(300, min(columnWidth, width - needed - 28))
+            }
         }
+        noteWidth = notes
+        guard abs(left - columnLeft) > 0.5 || abs(column - columnActualWidth) > 0.5 else { return }
+        columnLeft = left
+        columnActualWidth = column
+        textContainerInset = NSSize(width: left, height: 28)
+        textContainer?.containerSize = NSSize(width: column, height: .greatestFiniteMagnitude)
+        needsDisplay = true
+        onColumnChange?(left - centred, width - centred * 2 - column)
+    }
+
+    // MARK: Self-notes
+
+    /// This document's notes to self (see NotesController).
+    private(set) lazy var notes = NotesController(textView: self)
+    let selectionMenu = SelectionMenu()
+    private var notesLayoutPending = false
+
+    /// The margin is laid out after the text (never while it's being laid out).
+    private func notesNeedLayout() {
+        guard !notesLayoutPending else { return }
+        notesLayoutPending = true
+        DispatchQueue.main.async { [weak self] in
+            self?.notesLayoutPending = false
+            self?.notes.viewResized()
+        }
+    }
+
+    /// Edit ▸ Add Note (⌘⇧N), and the selection menu: a note on the selected
+    /// words, or on the paragraph the cursor is in.
+    @objc func addNoteAction(_ sender: Any?) {
+        selectionMenu.hide()
+        notes.addNote()
+    }
+
+    /// Letting go of the mouse with words selected (dragging, double- or
+    /// triple-clicking) shows the menu over them.
+    override func mouseDown(with event: NSEvent) {
+        selectionMenu.hide()
+        super.mouseDown(with: event) // returns once the mouse is let go
+        if selectedRange().length > 0 { showSelectionMenu() }
+    }
+
+    func showSelectionMenu() {
+        let range = selectedRange()
+        guard range.length > 0, let layout = layoutManager, let container = textContainer else { return }
+        let glyphs = layout.glyphRange(forCharacterRange: range, actualCharacterRange: nil)
+        var first = layout.lineFragmentUsedRect(forGlyphAt: glyphs.location, effectiveRange: nil)
+        let words = layout.boundingRect(forGlyphRange: glyphs, in: container)
+        first.origin.x = words.minX
+        first.size.width = min(first.width, words.width)
+        first = first.offsetBy(dx: textContainerOrigin.x, dy: textContainerOrigin.y)
+        let pasteboard = NSPasteboard.general
+        let canPaste = pasteboard.availableType(from: readablePasteboardTypes) != nil
+        selectionMenu.show([
+            .init(title: "Cut", enabled: isEditable) { [weak self] in self?.cut(nil) },
+            .init(title: "Copy", enabled: true) { [weak self] in self?.copy(nil) },
+            .init(title: "Paste", enabled: isEditable && canPaste) { [weak self] in self?.paste(nil) },
+            .init(title: "Add Note", enabled: true) { [weak self] in self?.addNoteAction(nil) },
+        ], over: first, in: self, visible: visibleRect)
+    }
+
+    override func keyDown(with event: NSEvent) {
+        selectionMenu.hide()
+        super.keyDown(with: event)
+    }
+
+    override func resignFirstResponder() -> Bool {
+        selectionMenu.hide()
+        return super.resignFirstResponder()
+    }
+
+    /// Right-click: Add Note first.
+    override func menu(for event: NSEvent) -> NSMenu? {
+        selectionMenu.hide()
+        let menu = super.menu(for: event) ?? NSMenu()
+        let item = NSMenuItem(title: "Add Note", action: #selector(addNoteAction(_:)), keyEquivalent: "")
+        item.target = self
+        menu.insertItem(item, at: 0)
+        menu.insertItem(.separator(), at: 1)
+        return menu
     }
 
     /// A new window opens with the cursor in the text, ready to type.
@@ -43,8 +164,10 @@ final class FoldTextView: NSTextView {
     // MARK: Dropping and pasting
 
     /// The document's file, so dropped or pasted images can be copied next
-    /// to it (nil while untitled).
-    var documentURL: URL?
+    /// to it, and its notes kept beside it (nil while untitled).
+    var documentURL: URL? {
+        didSet { notes.setFileURL(documentURL) }
+    }
 
     override var acceptableDragTypes: [NSPasteboard.PasteboardType] {
         super.acceptableDragTypes + [.png, .tiff, NSPasteboard.PasteboardType(UTType.jpeg.identifier)]
