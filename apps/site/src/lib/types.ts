@@ -54,7 +54,7 @@ export type BoardWindow = {
 	pieces: number;
 	reactions: number;
 	readers: number;
-	/** The top three pieces for each quality, most chosen first. */
+	/** The top ten pieces for each quality, most chosen first (the feed shows three). */
 	top: Record<Quality, BoardEntry[]>;
 };
 

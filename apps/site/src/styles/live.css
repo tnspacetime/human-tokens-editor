@@ -2,6 +2,7 @@
 
 .live {
 	margin-bottom: 28px;
+	scroll-margin-top: 76px; /* folding back up stops just under the island */
 }
 
 .live .section-head h2 {
@@ -125,6 +126,7 @@
 .stat {
 	display: flex;
 	flex-direction: column-reverse;
+	justify-content: flex-end; /* the top, reversed: numbers line up when a label wraps */
 	gap: 4px;
 }
 
@@ -174,7 +176,7 @@
 	text-align: center;
 }
 
-/* Top three, for each quality. */
+/* Top three, for each quality, opening out into the top ten. */
 .board-lists {
 	display: grid;
 	grid-template-columns: repeat(5, 1fr);
@@ -277,6 +279,119 @@
 	font: 600 12px/1 var(--sans);
 	font-variant-numeric: tabular-nums;
 	text-align: right;
+}
+
+/* Four to ten: folded away under the top three. Opening, each list grows
+   down (a grid row easing from nothing to its height) while its rows fall
+   into place one after another and their bars draw out; closing, it all
+   folds back up at once. */
+.board-extra {
+	display: grid;
+	grid-template-rows: 0fr;
+	transition: grid-template-rows 0.55s var(--ease);
+}
+
+.board-extra[data-open] {
+	grid-template-rows: 1fr;
+	transition-duration: 0.8s;
+}
+
+.board-extra-inner {
+	min-height: 0;
+	overflow: hidden;
+}
+
+.board-extra li {
+	border-top: 1px solid var(--line);
+	opacity: 0;
+	transform: translateY(-10px) scale(0.98);
+	transform-origin: 0 0;
+	filter: blur(3px);
+	transition:
+		opacity 0.25s ease,
+		transform 0.3s var(--ease),
+		filter 0.25s ease;
+}
+
+.board-extra[data-open] li {
+	opacity: 1;
+	transform: none;
+	filter: none;
+	transition:
+		opacity 0.5s ease,
+		transform 0.7s var(--ease),
+		filter 0.5s ease;
+	transition-delay: calc(var(--rank, 0) * 60ms + 120ms);
+}
+
+/* Only number one is amber and drawn at full strength. */
+.board-list .board-extra li .board-rank {
+	color: var(--muted);
+	font-size: 19px;
+	font-weight: 300;
+}
+
+.board-extra li .board-bar {
+	opacity: 0.45;
+}
+
+/* Show the top 10 / the top 3: a quiet pill under the lists, its chevron
+   turning over as they open. */
+.board-more {
+	display: flex;
+	justify-content: center;
+	margin-top: 22px;
+}
+
+.board-toggle {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	height: 36px;
+	padding: 0 16px 0 18px;
+	background: var(--glass-chip);
+	border: 0;
+	border-radius: 999px;
+	color: var(--ink);
+	font: 600 14px/1 var(--sans);
+	letter-spacing: -0.01em;
+	cursor: pointer;
+	transition:
+		background 0.3s ease,
+		transform 0.3s var(--ease);
+}
+
+.board-toggle:hover {
+	background: light-dark(rgba(0, 0, 0, 0.1), rgba(255, 255, 255, 0.18));
+}
+
+.board-toggle:active {
+	transform: scale(0.96);
+	transition-duration: 0.1s;
+}
+
+.board-toggle:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+
+.board-toggle svg {
+	width: 11px;
+	height: 8px;
+	fill: none;
+	stroke: currentColor;
+	stroke-width: 1.7;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+	transition: transform 0.6s var(--ease);
+}
+
+.board-toggle[aria-expanded="true"] svg {
+	transform: rotate(180deg);
+}
+
+.island-sheet .board-more {
+	margin-top: 16px;
 }
 
 .board-empty {
@@ -492,5 +607,9 @@
 	.live-dot::after,
 	.ticker-item {
 		animation: none !important;
+	}
+	.board-extra,
+	.board-extra li {
+		transition: none !important;
 	}
 }

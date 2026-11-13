@@ -32,32 +32,76 @@
 	color: var(--muted);
 }
 
-/* More pieces: a quiet pill under the last row. */
-.feed-more {
-	display: flex;
-	justify-content: center;
-	margin-top: 40px;
+/* The feed in stretches of time: each opens with its name and a hairline
+   running out to the edge, a landmark on the long scroll. */
+.feed-section + .feed-section {
+	margin-top: 64px;
 }
 
-.feed-more button {
-	padding: 11px 22px;
+.feed-section-title {
+	display: flex;
+	align-items: center;
+	gap: 18px;
+	margin: 0 0 22px;
+	color: var(--ink);
+	font: 600 21px/1.2 var(--display);
+	letter-spacing: 0.01em;
+}
+
+.feed-section-title::after {
+	content: "";
+	flex: 1;
+	height: 1px;
+	background: var(--line);
+}
+
+/* The end of the feed: a quiet note while the next page comes in, a retry
+   if it couldn't, and the mark once there's nothing more. */
+.feed-end {
+	display: flex;
+	justify-content: center;
+	min-height: 44px;
+	margin-top: 48px;
+}
+
+.feed-loading {
+	display: inline-flex;
+	align-items: center;
+	gap: 10px;
+	color: var(--muted);
+	font: 500 14px/44px var(--sans);
+}
+
+.feed-loading .live-dot {
+	width: 7px;
+	height: 7px;
+}
+
+.feed-retry {
+	height: 40px;
+	padding: 0 20px;
 	background: var(--surface);
 	border: 0;
 	border-radius: 999px;
 	box-shadow: 0 1px 2px var(--shade-1);
 	color: var(--ink);
-	font: 600 15px/1.2 var(--sans);
+	font: 600 14px/1 var(--sans);
 	cursor: pointer;
-	transition: box-shadow 0.4s var(--ease);
 }
 
-.feed-more button:hover {
-	box-shadow: 0 12px 28px -14px var(--shade-3);
-}
-
-.feed-more button:disabled {
+.feed-done {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 12px;
+	margin: 0;
 	color: var(--muted);
-	cursor: progress;
+	font-size: 14px;
+}
+
+.feed-done svg {
+	width: 22px;
+	height: 22px;
 }
 
 /* Six columns: the lead tile spans all six, a pair three each, the rest
@@ -446,6 +490,13 @@
 @media (max-width: 734px) {
 	.section-head {
 		padding: 16px 0 18px;
+	}
+	.feed-section + .feed-section {
+		margin-top: 48px;
+	}
+	.feed-section-title {
+		margin-bottom: 16px;
+		font-size: 19px;
 	}
 }
 

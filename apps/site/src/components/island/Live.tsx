@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { QUALITIES } from "../../lib/qualities";
 import type { Board, BoardWindow } from "../../lib/types";
-import { BoardLists, WindowSwitch } from "../LiveBoard";
+import { BoardLists, BoardToggle, WindowSwitch } from "../LiveBoard";
 import { QualityIcon } from "../QualityIcon";
 import { Slot } from "./Slot";
 
@@ -60,6 +60,7 @@ export function LiveTicker({
 
 // The whole board, dropped down from the island as a glass sheet.
 export function LiveSheet({ board, period, open }: { board: Board; period: BoardWindow; open: boolean }) {
+	const [expanded, setExpanded] = useState(false);
 	return (
 		<div id="island-board" className="island-sheet" data-open={open || undefined} inert={!open}>
 			<header className="island-sheet-head">
@@ -69,7 +70,13 @@ export function LiveSheet({ board, period, open }: { board: Board; period: Board
 				</span>
 				<WindowSwitch board={board} selected={period.id} />
 			</header>
-			<BoardLists period={period} compact />
+			<BoardLists id="island-board-lists" period={period} compact expanded={expanded} />
+			<BoardToggle
+				period={period}
+				expanded={expanded}
+				onToggle={() => setExpanded(!expanded)}
+				controls="island-board-lists"
+			/>
 		</div>
 	);
 }

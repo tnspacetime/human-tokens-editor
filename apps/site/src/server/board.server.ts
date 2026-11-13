@@ -14,6 +14,9 @@ const WINDOWS: { id: BoardWindow["id"]; label: string; hours: number }[] = [
 // (This keeps it per server instance; with real traffic, move it to
 // Cloudflare's cache or KV so every instance shares one copy.)
 const KEEP_MS = 60_000;
+
+/** How far down each quality's chart goes (the feed's board shows three). */
+export const CHART_LENGTH = 10;
 let kept: { at: number; board: Board } | null = null;
 
 export function forgetBoard() {
@@ -29,7 +32,7 @@ export async function loadBoard(): Promise<Board> {
 
 /**
  * For each time window: how many pieces came in, how many reactions from
- * how many readers, and the top three pieces for each quality. The board
+ * how many readers, and the top ten pieces for each quality. The board
  * opens on the shortest window that fills all four lists, so nobody arrives
  * to a row of blanks.
  */
@@ -53,7 +56,7 @@ async function countBoard(now: number): Promise<Board> {
 			const top = new Map<Quality, { postId: string; votes: number }[]>();
 			for (const row of counts.results) {
 				const list = top.get(row.quality) ?? [];
-				if (list.length < 3) list.push({ postId: row.post_id, votes: row.n });
+				if (list.length < CHART_LENGTH) list.push({ postId: row.post_id, votes: row.n });
 				top.set(row.quality, list);
 			}
 			return { id, label, pieces: pieces?.n ?? 0, reactions: activity?.reactions ?? 0, readers: activity?.readers ?? 0, top };
