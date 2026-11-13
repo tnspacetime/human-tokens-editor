@@ -40,14 +40,29 @@ export const getViewer = createServerFn({ method: "GET" }).handler(async () => {
 });
 
 /** How many pieces the homepage shows before it hands over to the archive. */
-export const HOME_COUNT = 30;
+export const HOME_COUNT = 100;
+/** How many come at a time: the first with the page, the rest as you scroll. */
+export const HOME_PAGE = 24;
 
-/** The homepage: the newest pieces, and how many there are in all. */
+/** The homepage's first pieces, and how many there are in all. */
 export const getHome = createServerFn({ method: "GET" }).handler(async () => {
 	currentReader();
-	const [feed, total] = await Promise.all([listFeed(undefined, HOME_COUNT), countPosts()]);
-	return { items: feed.items, total };
+	const [feed, total] = await Promise.all([listFeed(undefined, HOME_PAGE), countPosts()]);
+	return { ...feed, total };
 });
+
+/** The next pieces after `before` (the previous page's `next`), at most a page. */
+export const getFeed = createServerFn({ method: "GET" })
+	.validator((input: unknown) => {
+		const { before, limit } = object(input);
+		if (typeof before !== "string" || before.length > 64) throw new Error("Bad page");
+		if (typeof limit !== "number" || !Number.isInteger(limit) || limit < 1 || limit > HOME_PAGE) throw new Error("Bad limit");
+		return { before, limit };
+	})
+	.handler(async ({ data }) => {
+		currentReader();
+		return listFeed(data.before, data.limit);
+	});
 
 /** Every piece of one year (the latest, without one), in months. */
 export const getArchive = createServerFn({ method: "GET" })
