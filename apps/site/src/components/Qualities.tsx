@@ -5,7 +5,7 @@ import type { PostPage } from "../lib/types";
 import { toggleQualityFn } from "../server/site.functions";
 import { QualityIcon } from "./QualityIcon";
 
-// Inside the qualities sheet: the four ways a piece can read, as tiles to
+// Inside the qualities sheet: the five ways a piece can read, as tiles to
 // pick (any that fit), each with how many readers chose it.
 export function QualityChoices({ post }: { post: PostPage }) {
 	const router = useRouter();

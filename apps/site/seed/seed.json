@@ -17,9 +17,9 @@
     { "file": "Writing by Hand First.md", "author": "a_jun", "publishedAt": "2026-11-06T12:00:00Z" }
   ],
   "reactions": [
-    { "file": "Slow Software.md", "qualities": { "novel": 4, "clear": 7, "moving": 2 } },
+    { "file": "Slow Software.md", "qualities": { "novel": 4, "clear": 7, "sharp": 5, "moving": 2 } },
     { "file": "Writing by Hand First.md", "qualities": { "fresh": 5, "clear": 3, "moving": 4 } },
-    { "file": "03 Closures Explained.md", "qualities": { "clear": 9, "fresh": 1 } },
+    { "file": "03 Closures Explained.md", "qualities": { "clear": 9, "sharp": 3, "fresh": 1 } },
     { "file": "Night Train.md", "qualities": { "moving": 6, "fresh": 2 } },
     { "file": "On Walking.md", "qualities": { "moving": 3, "novel": 1 } },
     { "file": "Kitchen Notes.md", "qualities": { "clear": 5 } }

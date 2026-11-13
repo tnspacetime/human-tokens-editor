@@ -173,6 +173,36 @@
 	outline-offset: 1px;
 }
 
+/* Write: the one filled thing in the island, at its end. On its own page it
+   steps back to a chip. */
+.island-write {
+	display: grid;
+	place-items: center;
+	height: 32px;
+	margin-left: 6px;
+	padding: 0 15px;
+	background: var(--ink);
+	border-radius: 999px;
+	color: var(--sheet);
+	font: 600 14px/1 var(--sans);
+	letter-spacing: -0.01em;
+	text-decoration: none;
+	transition:
+		background 0.3s ease,
+		color 0.3s ease,
+		transform 0.3s var(--ease);
+}
+
+.island-write:active {
+	transform: scale(0.95);
+	transition-duration: 0.1s;
+}
+
+.island-write[data-status="active"] {
+	background: var(--glass-chip);
+	color: var(--ink);
+}
+
 /* How far through the piece you are: a hairline along the island's foot. */
 .island-progress {
 	position: absolute;
@@ -296,6 +326,16 @@
 	}
 	.island-who {
 		display: none;
+	}
+	/* Write folds away while a panel, the title or the ticker takes the room. */
+	.island:is([data-reading], [data-live], :has([aria-expanded="true"])) .island-write-slot {
+		grid-template-columns: 0fr;
+		opacity: 0;
+		visibility: hidden;
+		transition:
+			grid-template-columns 0.55s var(--ease),
+			opacity 0.3s ease,
+			visibility 0s 0.55s;
 	}
 }
 

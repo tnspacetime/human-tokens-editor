@@ -572,6 +572,10 @@ html:has(dialog.sheet[open]) {
 	gap: 10px;
 }
 
+.quality-buttons > .quality:last-child:nth-child(odd) {
+	grid-column: 1 / -1;
+}
+
 .quality-count {
 	margin-left: auto;
 	color: var(--muted);

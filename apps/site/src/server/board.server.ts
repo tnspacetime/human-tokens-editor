@@ -1,4 +1,4 @@
-import type { Quality } from "../lib/qualities";
+import { QUALITIES, type Quality } from "../lib/qualities";
 import type { Board, BoardEntry, BoardWindow } from "../lib/types";
 import { db } from "./rows.server";
 
@@ -80,14 +80,9 @@ async function countBoard(now: number): Promise<Board> {
 
 	const windows: BoardWindow[] = counted.map(({ top, ...rest }) => ({
 		...rest,
-		top: {
-			novel: entries(top.get("novel")),
-			fresh: entries(top.get("fresh")),
-			clear: entries(top.get("clear")),
-			moving: entries(top.get("moving")),
-		},
+		top: Object.fromEntries(QUALITIES.map((q) => [q.id, entries(top.get(q.id))])) as BoardWindow["top"],
 	}));
 	const filled = (w: BoardWindow) => Object.values(w.top).filter((list) => list.length > 0).length;
-	const initial = (windows.find((w) => filled(w) === 4) ?? [...windows].sort((a, b) => filled(b) - filled(a))[0]).id;
+	const initial = (windows.find((w) => filled(w) === QUALITIES.length) ?? [...windows].sort((a, b) => filled(b) - filled(a))[0]).id;
 	return { windows, initial };
 }

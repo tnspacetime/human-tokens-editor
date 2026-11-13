@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as RulesRouteImport } from './routes/rules'
+import { Route as WriteRouteImport } from './routes/write'
 import { Route as PIdSlugRouteImport } from './routes/p.$id.$slug'
 
 const IndexRoute = IndexRouteImport.update({
@@ -23,6 +24,11 @@ const RulesRoute = RulesRouteImport.update({
   path: '/rules',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WriteRoute = WriteRouteImport.update({
+  id: '/write',
+  path: '/write',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PIdSlugRoute = PIdSlugRouteImport.update({
   id: '/p/$id/$slug',
   path: '/p/$id/$slug',
@@ -32,30 +38,34 @@ const PIdSlugRoute = PIdSlugRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/rules': typeof RulesRoute
+  '/write': typeof WriteRoute
   '/p/$id/$slug': typeof PIdSlugRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/rules': typeof RulesRoute
+  '/write': typeof WriteRoute
   '/p/$id/$slug': typeof PIdSlugRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/rules': typeof RulesRoute
+  '/write': typeof WriteRoute
   '/p/$id/$slug': typeof PIdSlugRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/rules' | '/p/$id/$slug'
+  fullPaths: '/' | '/rules' | '/write' | '/p/$id/$slug'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/rules' | '/p/$id/$slug'
-  id: '__root__' | '/' | '/rules' | '/p/$id/$slug'
+  to: '/' | '/rules' | '/write' | '/p/$id/$slug'
+  id: '__root__' | '/' | '/rules' | '/write' | '/p/$id/$slug'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   RulesRoute: typeof RulesRoute
+  WriteRoute: typeof WriteRoute
   PIdSlugRoute: typeof PIdSlugRoute
 }
 
@@ -75,6 +85,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RulesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/write': {
+      id: '/write'
+      path: '/write'
+      fullPath: '/write'
+      preLoaderRoute: typeof WriteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/p/$id/$slug': {
       id: '/p/$id/$slug'
       path: '/p/$id/$slug'
@@ -88,6 +105,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   RulesRoute: RulesRoute,
+  WriteRoute: WriteRoute,
   PIdSlugRoute: PIdSlugRoute,
 }
 export const routeTree = rootRouteImport

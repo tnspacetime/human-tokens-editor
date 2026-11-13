@@ -14,11 +14,12 @@ import { useReading } from "./useReading";
 type Panel = "appearance" | "account" | null;
 
 // A small glass capsule floating at the top of every page: the wordmark,
-// appearance, and who you are. It changes shape with what you're doing:
-// while you read a post it shows the post's title and a hairline of
-// progress; opening Appearance or your account unfolds their choices; and
-// once the feed's live board has scrolled away it carries it, as a live
-// ticker of the leaders that drops the whole board down when tapped.
+// appearance, who you are, and Write, which leads to the editor. It changes
+// shape with what you're doing: while you read a post it shows the post's
+// title and a hairline of progress; opening Appearance or your account
+// unfolds their choices; and once the feed's live board has scrolled away it
+// carries it, as a live ticker of the leaders that drops the whole board
+// down when tapped.
 // One thing shows at a time: an open panel folds the title and ticker away.
 // On a post, a second island under it carries what readers made of it.
 export function Island({ viewer }: { viewer: Viewer & { theme: Theme } }) {
@@ -91,6 +92,12 @@ export function Island({ viewer }: { viewer: Viewer & { theme: Theme } }) {
 					onClose={closePanel}
 				/>
 				<Account viewer={viewer} open={panel === "account"} onToggle={() => toggle("account")} />
+				{/* On a phone there's room for it only while nothing else unfolds. */}
+				<Slot open className="island-write-slot">
+					<Link to="/write" className="island-write">
+						Write
+					</Link>
+				</Slot>
 				{title && <span ref={progress} className="island-progress" aria-hidden="true" />}
 			</nav>
 			{post?.loaderData && <ReaderIsland post={post.loaderData} />}

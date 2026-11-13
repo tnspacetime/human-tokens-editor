@@ -3,6 +3,7 @@ export const QUALITIES = [
 	{ id: "novel", label: "Novel", hint: "An idea I hadn't met before" },
 	{ id: "fresh", label: "Fresh", hint: "A familiar subject, seen anew" },
 	{ id: "clear", label: "Clear", hint: "Easy to follow all the way" },
+	{ id: "sharp", label: "Sharp", hint: "Well reasoned, it holds up" },
 	{ id: "moving", label: "Moving", hint: "It stayed with me" },
 ] as const;
 
