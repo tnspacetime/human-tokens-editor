@@ -14,7 +14,7 @@ export function useReading(title: string | undefined) {
 		if (!title) return;
 		const article = document.querySelector<HTMLElement>(".post-body");
 		if (!article) return;
-		const heading = article.querySelector("h1") ?? article;
+		const heading = document.querySelector(".post-headline") ?? article.querySelector("h1") ?? article;
 		let frame = 0;
 		const update = () => {
 			frame = 0;

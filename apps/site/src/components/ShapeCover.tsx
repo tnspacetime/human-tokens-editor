@@ -6,7 +6,7 @@ import { type ReactElement, useId } from "react";
 // headings are amber, lists are dotted, quotes hang off a rule, code is a
 // tinted block of indented lines, and an image is a small frame. Like the
 // three bars of the Fold MD mark, grown into each piece's fingerprint.
-// Pointing at the tile dissolves the bars into the real opening text.
+// (Only for a piece with no opening words to show.)
 
 const W = 320; // the drawing is 16:9, like every tile's cover
 const H = 180;

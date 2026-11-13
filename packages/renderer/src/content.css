@@ -45,6 +45,18 @@
 :where(.fold-content) a { color: var(--accent); text-decoration: none; }
 :where(.fold-content) a:hover { text-decoration: underline; }
 :where(.fold-content) img { max-width: 100%; border-radius: 6px; }
+
+/* A paragraph that is only an image is a figure, captioned by the image's
+   title; several images side by side are a gallery. */
+:where(.fold-content) figure { margin: 1em 0; }
+:where(.fold-content) figure img { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+:where(.fold-content) figcaption { margin-top: 8px; color: var(--muted); font-size: 0.8em; line-height: 1.35; }
+:where(.fold-content) figure.gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px;
+}
+:where(.fold-content) figure.gallery img { width: 100%; height: 100%; object-fit: cover; }
 :where(.fold-content) .img-missing {
   display: inline-flex;
   flex-wrap: wrap;
@@ -66,7 +78,8 @@
   color: var(--muted);
 }
 
-:where(.fold-content) table { border-collapse: collapse; margin: 0.8em 0; }
+:where(.fold-content) .table-wrap { margin: 0.8em 0; overflow-x: auto; }
+:where(.fold-content) table { border-collapse: collapse; }
 :where(.fold-content) th, :where(.fold-content) td { border: 1px solid var(--rule); padding: 4px 10px; }
 
 :where(.fold-content) code, :where(.fold-content) pre {

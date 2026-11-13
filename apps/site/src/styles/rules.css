@@ -1,23 +1,76 @@
 /* ---------------------------------------------------------------- rules */
 
-.section-link {
-	color: var(--accent);
-	font-size: 14px;
-	font-weight: 500;
+/* On the homepage: a small glass pill at the top left, level with the
+   island, that leads to them. It scrolls away with the page. */
+.rules-pill-row {
+	position: absolute;
+	top: 17px;
+	left: max(24px, calc(50% - 490px));
+}
+
+.rules-pill {
+	display: inline-flex;
+	align-items: center;
+	gap: 9px;
+	height: 40px;
+	padding: 0 17px 0 20px;
+	color: var(--ink);
+	font: 600 15px/1 var(--display);
+	letter-spacing: -0.005em;
 	text-decoration: none;
+	background: var(--glass);
+	border: 1px solid var(--glass-edge);
+	border-radius: 999px;
+	box-shadow:
+		inset 0 1px 0 var(--glass-shine),
+		0 1px 2px var(--shade-1),
+		0 10px 28px -14px var(--shade-3);
+	-webkit-backdrop-filter: blur(24px) saturate(1.8);
+	backdrop-filter: blur(24px) saturate(1.8);
+	animation: rules-pill-in 0.8s var(--ease) 0.1s backwards;
+	transition:
+		box-shadow 0.4s var(--ease),
+		transform 0.4s var(--ease);
 }
 
-.section-link:hover {
-	text-decoration: underline;
+.rules-pill:hover {
+	box-shadow:
+		inset 0 1px 0 var(--glass-shine),
+		0 1px 2px var(--shade-1),
+		0 16px 36px -14px var(--shade-3);
+	transform: translateY(-1px);
 }
 
-.section-link::after {
-	content: " ›";
+.rules-pill:active {
+	transform: scale(0.97);
+	transition-duration: 0.1s;
 }
 
-/* On the homepage: one white panel, five columns divided by hairlines. */
-.rules {
-	margin-bottom: 28px;
+.rules-pill:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 3px;
+}
+
+.rules-pill-chevron {
+	width: 7px;
+	height: 12px;
+	fill: none;
+	stroke: var(--muted);
+	stroke-width: 1.8;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+	transition: transform 0.4s var(--ease);
+}
+
+.rules-pill:hover .rules-pill-chevron {
+	transform: translateX(2px);
+}
+
+@keyframes rules-pill-in {
+	from {
+		opacity: 0;
+		transform: translateY(10px);
+	}
 }
 
 .rule-list {
@@ -63,20 +116,6 @@
 	font-size: 14px;
 	line-height: 1.43;
 	text-wrap: pretty;
-}
-
-/* At the top of the homepage, the rules rise in one after another as the
-   page opens. */
-.rules .rule-list li {
-	animation: rule-in 0.8s var(--ease) backwards;
-	animation-delay: calc(var(--n, 0) * 80ms + 100ms);
-}
-
-@keyframes rule-in {
-	from {
-		opacity: 0;
-		transform: translateY(14px);
-	}
 }
 
 /* Their own page: the same five, large, on the white sheet. */
@@ -171,37 +210,13 @@ html:has(main.rules-page) body {
 	color: var(--ink);
 }
 
-@media (max-width: 1068px) {
-	.rules .rule-list {
-		grid-template-columns: repeat(3, 1fr);
-		row-gap: 26px;
-	}
-	.rules .rule-list li:nth-child(4) {
-		border-left: 0;
-	}
-}
-
 /* On a phone: one rule under another, number at the side. */
 @media (max-width: 734px) {
-	.rules .rule-list {
-		grid-template-columns: 1fr;
-		row-gap: 0;
-		padding: 8px 22px;
-		border-radius: 24px;
-	}
-	.rules .rule-list li {
-		display: grid;
-		grid-template-columns: 40px 1fr;
-		padding: 16px 0;
-		border-left: 0;
-	}
-	.rules .rule-list li + li {
-		border-top: 1px solid var(--line);
-	}
-	.rules .rule-number {
-		grid-row: span 2;
-		margin: 0;
-		font-size: 32px;
+	/* The island needs the width: the pill comes down, on the left. */
+	.rules-pill-row {
+		position: static;
+		display: flex;
+		padding: 0 0 4px;
 	}
 	.rules-page h1 {
 		font-size: 40px;
@@ -221,7 +236,11 @@ html:has(main.rules-page) body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.rules .rule-list li {
-		animation: none !important;
+	.rules-pill {
+		animation: none;
+		transition: none;
+	}
+	.rules-pill-chevron {
+		transition: none;
 	}
 }

@@ -1,7 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { BrandMark } from "../components/BrandMark";
-import { Comments } from "../components/Comments";
-import { Qualities } from "../components/Qualities";
 import { Byline } from "../components/PostCard";
 import { getPost } from "../server/site.functions";
 
@@ -28,15 +26,17 @@ export const Route = createFileRoute("/p/$id/$slug")({
 
 function PostRoute() {
 	const post = Route.useLoaderData();
+	// The piece's own "# Title" becomes the page's headline (what readers
+	// made of it rides in the island, see ReaderIsland).
+	const body = post.html.replace(/^<h1>[\s\S]*?<\/h1>\n?/, "");
 	return (
 		<main className="post">
 			<Byline post={post} />
+			<h1 className="post-headline">{post.title}</h1>
 			{/* The markdown is rendered on the server by @human-tokens/renderer, which
 			    escapes any HTML in it; this is the same output as Fold MD's page. */}
-			<article className="fold-content post-body" dangerouslySetInnerHTML={{ __html: post.html }} />
+			<article className="fold-content post-body" dangerouslySetInnerHTML={{ __html: body }} />
 			<BrandMark className="end-mark" />
-			<Qualities post={post} />
-			<Comments post={post} />
 		</main>
 	);
 }

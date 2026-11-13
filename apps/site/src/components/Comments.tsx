@@ -1,5 +1,5 @@
 import { useRouter } from "@tanstack/react-router";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useId, useState } from "react";
 import type { Comment, PostPage } from "../lib/types";
 import { saveAuthorNoteFn, saveCommentFn } from "../server/site.functions";
 import { formatDate } from "./PostCard";
@@ -7,26 +7,32 @@ import { formatDate } from "./PostCard";
 // One comment per reader, no replies. To argue with a post, write your own
 // and respond (later: "Write a response"), or join its debate if the author
 // allows one.
-export function Comments({ post }: { post: PostPage }) {
-	const mine = post.commentList.find((c) => c.mine);
+//
+// In the comments sheet: the others' comments in the middle (CommentList),
+// and yours, or the box to write it, pinned at the foot (CommentComposer).
+export function CommentList({ post }: { post: PostPage }) {
 	const others = post.commentList.filter((c) => !c.mine);
 	return (
-		<section className="comments" aria-labelledby="comments-title">
-			<h2 id="comments-title" className="section-title">
-				Comments
-			</h2>
-			<p className="comments-rule">
+		<>
+			<p className="sheet-lede">
 				One comment each, and no replies. Say what you think of the piece.
 				{post.allowDebate && " The author has opened this post to debate."}
 			</p>
-			<CommentForm post={post} mine={mine} />
-			<ul className="comment-list">
-				{others.map((comment) => (
-					<CommentItem key={comment.id} comment={comment} isAuthor={post.viewer.isAuthor} authorName={post.author.name} />
-				))}
-			</ul>
-		</section>
+			{others.length === 0 ? (
+				<p className="comments-empty">No one else has commented yet.</p>
+			) : (
+				<ul className="comment-list">
+					{others.map((comment) => (
+						<CommentItem key={comment.id} comment={comment} isAuthor={post.viewer.isAuthor} authorName={post.author.name} />
+					))}
+				</ul>
+			)}
+		</>
 	);
+}
+
+export function CommentComposer({ post }: { post: PostPage }) {
+	return <CommentForm post={post} mine={post.commentList.find((c) => c.mine)} />;
 }
 
 function CommentForm({ post, mine }: { post: PostPage; mine?: Comment }) {
@@ -34,6 +40,7 @@ function CommentForm({ post, mine }: { post: PostPage; mine?: Comment }) {
 	const [editing, setEditing] = useState(!mine);
 	const [body, setBody] = useState(mine?.body ?? "");
 	const [saving, setSaving] = useState(false);
+	const fieldId = useId();
 
 	async function save(event: FormEvent, text = body) {
 		event.preventDefault();
@@ -68,15 +75,15 @@ function CommentForm({ post, mine }: { post: PostPage; mine?: Comment }) {
 
 	return (
 		<form className="comment-form" onSubmit={save}>
-			<label htmlFor="comment-body" className="visually-hidden">
+			<label htmlFor={fieldId} className="visually-hidden">
 				Your comment
 			</label>
 			<textarea
-				id="comment-body"
+				id={fieldId}
 				value={body}
 				onChange={(e) => setBody(e.target.value)}
 				placeholder={`Commenting as ${post.viewer.name}`}
-				rows={3}
+				rows={2}
 				maxLength={2000}
 			/>
 			<div className="comment-form-actions">

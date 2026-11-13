@@ -58,10 +58,56 @@ export function createRenderer(options = {}) {
     const token = tokens[idx];
     const src = token.attrGet("src") || "";
     const resolved = resolveImage(src);
-    if (!resolved) return missingImage(src, unresolvedLabel);
+    // In a figure, the image's title (![alt](src "Caption")) is its caption.
+    const title = token.meta?.figure ? token.attrGet("title") : null;
+    const caption = title ? `<figcaption>${escapeHTML(title)}</figcaption>` : "";
+    if (!resolved) return missingImage(src, unresolvedLabel) + caption;
     token.attrSet("src", resolved);
     token.attrSet("data-src", src);
-    return defaultImage(tokens, idx, opts, env, self);
+    token.attrSet("loading", "lazy");
+    token.attrSet("decoding", "async");
+    if (title) token.attrs = token.attrs.filter(([name]) => name !== "title");
+    return defaultImage(tokens, idx, opts, env, self) + caption;
+  };
+
+  // A paragraph that is only images is a figure (several side by side make a
+  // gallery), so pages can show pictures wider than the text.
+  md.core.ruler.push("figures", (state) => {
+    const tokens = state.tokens;
+    for (let i = 0; i + 2 < tokens.length; i++) {
+      if (tokens[i].type !== "paragraph_open" || tokens[i + 2].type !== "paragraph_close") continue;
+      const children = tokens[i + 1].children ?? [];
+      const parts = children.filter((c) => !(c.type === "text" && !c.content.trim()) && c.type !== "softbreak");
+      if (parts.length === 0 || !parts.every((c) => c.type === "image")) continue;
+      const kind = parts.length > 1 ? "figure gallery" : "figure";
+      tokens[i].meta = { figure: kind };
+      tokens[i + 2].meta = { figure: kind };
+      for (const image of parts) image.meta = { figure: parts.length === 1 };
+      // Only the images: the spaces and line breaks between them would
+      // otherwise sit between the gallery's pictures.
+      tokens[i + 1].children = parts;
+    }
+  });
+  const rule = (name) => md.renderer.rules[name] ?? ((tokens, idx, opts, env, self) => self.renderToken(tokens, idx, opts));
+  const paragraphOpen = rule("paragraph_open");
+  const paragraphClose = rule("paragraph_close");
+  md.renderer.rules.paragraph_open = (tokens, idx, ...rest) =>
+    tokens[idx].meta?.figure ? `<figure class="${tokens[idx].meta.figure}">` : paragraphOpen(tokens, idx, ...rest);
+  md.renderer.rules.paragraph_close = (tokens, idx, ...rest) =>
+    tokens[idx].meta?.figure ? "</figure>\n" : paragraphClose(tokens, idx, ...rest);
+
+  // Wide tables scroll sideways inside their own box, not the whole page.
+  const tableOpen = rule("table_open");
+  const tableClose = rule("table_close");
+  md.renderer.rules.table_open = (...args) => `<div class="table-wrap">${tableOpen(...args)}`;
+  md.renderer.rules.table_close = (...args) => `${tableClose(...args)}</div>`;
+
+  // A code block names its language (```swift), for a small label.
+  const fence = rule("fence");
+  md.renderer.rules.fence = (tokens, idx, ...rest) => {
+    const html = fence(tokens, idx, ...rest);
+    const lang = tokens[idx].info.trim().split(/\s+/)[0];
+    return lang ? html.replace(/^<pre/, `<pre data-lang="${escapeHTML(lang)}"`) : html;
   };
 
   // Parse once (so references resolve across the whole document), then render

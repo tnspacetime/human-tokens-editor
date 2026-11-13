@@ -6,6 +6,7 @@ import { BrandMark } from "../BrandMark";
 import { Account, type Viewer } from "./Account";
 import { Appearance } from "./Appearance";
 import { LiveSheet, LiveTicker } from "./Live";
+import { ReaderIsland } from "./ReaderIsland";
 import { Slot } from "./Slot";
 import { useDismiss } from "./useDismiss";
 import { useReading } from "./useReading";
@@ -19,6 +20,7 @@ type Panel = "appearance" | "account" | null;
 // once the feed's live board has scrolled away it carries it, as a live
 // ticker of the leaders that drops the whole board down when tapped.
 // One thing shows at a time: an open panel folds the title and ticker away.
+// On a post, a second island under it carries what readers made of it.
 export function Island({ viewer }: { viewer: Viewer & { theme: Theme } }) {
 	const post = useMatch({ from: "/p/$id/$slug", shouldThrow: false });
 	const title = post?.loaderData?.title;
@@ -91,6 +93,7 @@ export function Island({ viewer }: { viewer: Viewer & { theme: Theme } }) {
 				<Account viewer={viewer} open={panel === "account"} onToggle={() => toggle("account")} />
 				{title && <span ref={progress} className="island-progress" aria-hidden="true" />}
 			</nav>
+			{post?.loaderData && <ReaderIsland post={post.loaderData} />}
 			{liveState.board && period && <LiveSheet board={liveState.board} period={period} open={sheetOpen} />}
 		</div>
 	);

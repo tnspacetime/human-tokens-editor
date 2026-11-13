@@ -191,6 +191,103 @@
 	opacity: 0.75;
 }
 
+/* Reading a piece: a second, smaller island under the first, with what
+   readers made of it. It drops out from under the first as the page opens. */
+.reader-island {
+	display: flex;
+	align-items: center;
+	height: 38px;
+	margin-top: 8px;
+	padding: 0 4px;
+	background: var(--glass);
+	border: 1px solid var(--glass-edge);
+	border-radius: 999px;
+	box-shadow:
+		inset 0 1px 0 var(--glass-shine),
+		0 1px 2px var(--shade-1),
+		0 12px 30px -14px var(--shade-3);
+	-webkit-backdrop-filter: blur(24px) saturate(1.8);
+	backdrop-filter: blur(24px) saturate(1.8);
+	pointer-events: auto;
+	animation: reader-island-in 0.7s var(--ease) 0.35s backwards;
+}
+
+@keyframes reader-island-in {
+	from {
+		opacity: 0;
+		transform: translateY(-14px) scale(0.92);
+	}
+}
+
+.reader-island .island-divider {
+	height: 16px;
+	margin: 0 2px;
+}
+
+.reader-seg {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	height: 30px;
+	padding: 0 11px;
+	background: none;
+	border: 0;
+	border-radius: 999px;
+	color: var(--ink);
+	font: 600 13px/1 var(--sans);
+	letter-spacing: -0.01em;
+	font-variant-numeric: tabular-nums;
+	cursor: pointer;
+	transition:
+		background 0.3s ease,
+		transform 0.3s var(--ease);
+}
+
+.reader-seg:hover {
+	background: var(--glass-chip);
+}
+
+.reader-seg:active {
+	transform: scale(0.95);
+	transition-duration: 0.1s;
+}
+
+.reader-seg .signal {
+	gap: 4px;
+}
+
+.reader-seg .q-icon {
+	width: 14px;
+	height: 14px;
+}
+
+/* A quality you chose yourself: its mark filled in. */
+.reader-seg .signal[data-mine] .q-icon path {
+	fill: currentColor;
+	fill-opacity: 0.35;
+}
+
+/* No one has said yet: the four marks, quiet, to tap. */
+.reader-seg:has(.signal-quiet) {
+	gap: 8px;
+}
+
+.reader-seg .signal-quiet .q-icon {
+	color: var(--muted);
+}
+
+.reader-seg .signal-comments {
+	padding-left: 0;
+}
+
+.reader-seg .signal-comments::before {
+	display: none;
+}
+
+.reader-seg .signal-comments .q-icon {
+	color: var(--ink-soft);
+}
+
 @media (max-width: 734px) {
 	/* No room for both: the name folds away while a panel is open. */
 	.island:has([aria-expanded="true"]) .island-home .island-slot {
@@ -206,5 +303,8 @@
 	.island-slot,
 	.island-slot[data-open] {
 		transition: none;
+	}
+	.reader-island {
+		animation: none;
 	}
 }
