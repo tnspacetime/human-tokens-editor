@@ -78,7 +78,8 @@ export function PostTile({ post, size }: { post: FeedItem; size: TileSize }) {
 
 // What readers made of it, in one soft capsule: each quality someone chose
 // (its mark in amber, its count in ink), then the comments after a hairline.
-function Signals({ post }: { post: FeedItem }) {
+// The archive's lines use it too.
+export function Signals({ post }: { post: Pick<FeedItem, "qualities" | "comments"> }) {
 	const chosen = QUALITIES.filter((q) => (post.qualities[q.id] ?? 0) > 0);
 	if (chosen.length === 0 && post.comments === 0) return null;
 	const said = chosen.map((q) => `${q.label} ${post.qualities[q.id]}`);

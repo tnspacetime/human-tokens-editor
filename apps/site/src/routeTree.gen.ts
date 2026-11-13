@@ -12,6 +12,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as RulesRouteImport } from './routes/rules'
 import { Route as WriteRouteImport } from './routes/write'
+import { Route as ArchiveIndexRouteImport } from './routes/archive.index'
+import { Route as ArchiveYearRouteImport } from './routes/archive.$year'
 import { Route as PIdSlugRouteImport } from './routes/p.$id.$slug'
 
 const IndexRoute = IndexRouteImport.update({
@@ -29,6 +31,16 @@ const WriteRoute = WriteRouteImport.update({
   path: '/write',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ArchiveIndexRoute = ArchiveIndexRouteImport.update({
+  id: '/archive/',
+  path: '/archive/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ArchiveYearRoute = ArchiveYearRouteImport.update({
+  id: '/archive/$year',
+  path: '/archive/$year',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PIdSlugRoute = PIdSlugRouteImport.update({
   id: '/p/$id/$slug',
   path: '/p/$id/$slug',
@@ -39,12 +51,16 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/rules': typeof RulesRoute
   '/write': typeof WriteRoute
+  '/archive/$year': typeof ArchiveYearRoute
+  '/archive/': typeof ArchiveIndexRoute
   '/p/$id/$slug': typeof PIdSlugRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/rules': typeof RulesRoute
   '/write': typeof WriteRoute
+  '/archive/$year': typeof ArchiveYearRoute
+  '/archive': typeof ArchiveIndexRoute
   '/p/$id/$slug': typeof PIdSlugRoute
 }
 export interface FileRoutesById {
@@ -52,20 +68,32 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/rules': typeof RulesRoute
   '/write': typeof WriteRoute
+  '/archive/$year': typeof ArchiveYearRoute
+  '/archive/': typeof ArchiveIndexRoute
   '/p/$id/$slug': typeof PIdSlugRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/rules' | '/write' | '/p/$id/$slug'
+  fullPaths:
+    '/' | '/rules' | '/write' | '/archive/$year' | '/archive/' | '/p/$id/$slug'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/rules' | '/write' | '/p/$id/$slug'
-  id: '__root__' | '/' | '/rules' | '/write' | '/p/$id/$slug'
+  to: '/' | '/rules' | '/write' | '/archive/$year' | '/archive' | '/p/$id/$slug'
+  id:
+    | '__root__'
+    | '/'
+    | '/rules'
+    | '/write'
+    | '/archive/$year'
+    | '/archive/'
+    | '/p/$id/$slug'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   RulesRoute: typeof RulesRoute
   WriteRoute: typeof WriteRoute
+  ArchiveYearRoute: typeof ArchiveYearRoute
+  ArchiveIndexRoute: typeof ArchiveIndexRoute
   PIdSlugRoute: typeof PIdSlugRoute
 }
 
@@ -92,6 +120,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WriteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/archive/': {
+      id: '/archive/'
+      path: '/archive'
+      fullPath: '/archive/'
+      preLoaderRoute: typeof ArchiveIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/archive/$year': {
+      id: '/archive/$year'
+      path: '/archive/$year'
+      fullPath: '/archive/$year'
+      preLoaderRoute: typeof ArchiveYearRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/p/$id/$slug': {
       id: '/p/$id/$slug'
       path: '/p/$id/$slug'
@@ -106,6 +148,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   RulesRoute: RulesRoute,
   WriteRoute: WriteRoute,
+  ArchiveYearRoute: ArchiveYearRoute,
+  ArchiveIndexRoute: ArchiveIndexRoute,
   PIdSlugRoute: PIdSlugRoute,
 }
 export const routeTree = rootRouteImport

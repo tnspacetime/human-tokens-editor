@@ -55,53 +55,67 @@
 	background: var(--line);
 }
 
-/* The end of the feed: a quiet note while the next page comes in, a retry
-   if it couldn't, and the mark once there's nothing more. */
-.feed-end {
+/* The end of the homepage: a wide, quiet card onward to every piece. */
+.feed-archive {
 	display: flex;
-	justify-content: center;
-	min-height: 44px;
-	margin-top: 48px;
-}
-
-.feed-loading {
-	display: inline-flex;
 	align-items: center;
-	gap: 10px;
-	color: var(--muted);
-	font: 500 14px/44px var(--sans);
-}
-
-.feed-loading .live-dot {
-	width: 7px;
-	height: 7px;
-}
-
-.feed-retry {
-	height: 40px;
-	padding: 0 20px;
+	gap: 20px;
+	margin-top: 56px;
+	padding: 30px 34px;
 	background: var(--surface);
-	border: 0;
-	border-radius: 999px;
-	box-shadow: 0 1px 2px var(--shade-1);
-	color: var(--ink);
-	font: 600 14px/1 var(--sans);
-	cursor: pointer;
+	border-radius: 28px;
+	text-decoration: none;
+	transition:
+		box-shadow 0.4s var(--ease),
+		transform 0.4s var(--ease);
 }
 
-.feed-done {
+.feed-archive:hover {
+	box-shadow: 0 18px 40px -20px var(--shade-3);
+	transform: translateY(-2px);
+}
+
+.feed-archive:active {
+	transform: scale(0.99);
+	transition-duration: 0.1s;
+}
+
+.feed-archive:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 3px;
+}
+
+.feed-archive-text {
 	display: flex;
+	flex: 1;
 	flex-direction: column;
-	align-items: center;
-	gap: 12px;
-	margin: 0;
-	color: var(--muted);
-	font-size: 14px;
+	gap: 4px;
 }
 
-.feed-done svg {
-	width: 22px;
-	height: 22px;
+.feed-archive-title {
+	font: 700 28px/1.14 var(--display);
+	letter-spacing: 0.007em;
+}
+
+.feed-archive-line {
+	color: var(--muted);
+	font-size: 17px;
+}
+
+.feed-archive-chevron {
+	width: 10px;
+	height: 18px;
+	flex: none;
+	fill: none;
+	stroke: var(--muted);
+	stroke-width: 1.8;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+	transition: transform 0.4s var(--ease);
+}
+
+.feed-archive:hover .feed-archive-chevron {
+	transform: translateX(3px);
 }
 
 /* Six columns: the lead tile spans all six, a pair three each, the rest
@@ -497,6 +511,14 @@
 	.feed-section-title {
 		margin-bottom: 16px;
 		font-size: 19px;
+	}
+	.feed-archive {
+		margin-top: 40px;
+		padding: 24px;
+		border-radius: 24px;
+	}
+	.feed-archive-title {
+		font-size: 24px;
 	}
 }
 

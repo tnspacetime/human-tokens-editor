@@ -21,6 +21,21 @@ export type FeedItem = {
 	opening: string[];
 };
 
+/** A piece as the archive lists it: a line, no cover. */
+export type ArchiveItem = Pick<FeedItem, "id" | "slug" | "title" | "publishedAt" | "minutes" | "qualities" | "comments"> & {
+	author: string;
+};
+
+/** Every piece, one year at a time, in months (1-12), newest first. */
+export type Archive = {
+	years: { year: number; count: number }[];
+	year: number;
+	total: number;
+	/** When the first piece of all was published. */
+	since: string | null;
+	months: { month: number; items: ArchiveItem[] }[];
+};
+
 /** One page of the feed; `next` asks for the page after it. */
 export type FeedPage = { items: FeedItem[]; next: string | null };
 

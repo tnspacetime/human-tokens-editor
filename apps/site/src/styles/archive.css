@@ -1,0 +1,225 @@
+/* ---------------------------------------------------------------- archive */
+
+/* Every piece, one year at a time: the years as pills, the months as a row
+   of short names to jump between, then each month a white card of lines,
+   one per piece, its day standing out on the left like a diary's margin. */
+.archive {
+	width: min(980px, 100% - 48px);
+	margin: 0 auto;
+	padding-top: 40px;
+}
+
+.archive-eyebrow {
+	margin: 0 0 6px;
+	color: var(--muted);
+	font: 700 12px/1.33 var(--sans);
+	letter-spacing: 0.02em;
+	text-transform: uppercase;
+}
+
+.archive-head h1 {
+	margin: 0;
+	font: 700 56px/1.07 var(--display);
+	letter-spacing: -0.005em;
+}
+
+.archive-intro {
+	margin: 12px 0 32px;
+	color: var(--ink-soft);
+	font-size: 21px;
+	line-height: 1.38;
+}
+
+.archive-years,
+.archive-months {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.archive-years a {
+	display: inline-flex;
+	align-items: center;
+	gap: 9px;
+	height: 40px;
+	padding: 0 16px 0 18px;
+	background: var(--surface);
+	border-radius: 999px;
+	color: var(--ink-soft);
+	font: 600 15px/1 var(--sans);
+	font-variant-numeric: tabular-nums;
+	text-decoration: none;
+	transition:
+		background 0.35s ease,
+		color 0.35s ease;
+}
+
+.archive-years a:hover {
+	color: var(--ink);
+}
+
+.archive-years a[aria-current="page"] {
+	background: var(--ink);
+	color: var(--canvas);
+}
+
+.archive-count {
+	color: var(--muted);
+	font-weight: 500;
+}
+
+.archive-years a[aria-current="page"] .archive-count {
+	color: inherit;
+	opacity: 0.6;
+}
+
+.archive-months {
+	gap: 4px;
+	margin: 14px 0 0;
+}
+
+.archive-months a {
+	padding: 6px 10px;
+	border-radius: 999px;
+	color: var(--accent);
+	font: 500 14px/1.2 var(--sans);
+	text-decoration: none;
+	transition: background 0.3s ease;
+}
+
+.archive-months a:hover {
+	background: var(--glass-chip);
+}
+
+.archive-month {
+	margin-top: 44px;
+	scroll-margin-top: 84px;
+}
+
+.archive-month h2 {
+	display: flex;
+	align-items: baseline;
+	gap: 12px;
+	margin: 0 0 14px;
+	font: 700 28px/1.14 var(--display);
+	letter-spacing: 0.007em;
+}
+
+.archive-month h2 span {
+	color: var(--muted);
+	font: 500 15px/1 var(--sans);
+	letter-spacing: 0;
+}
+
+.archive-list {
+	margin: 0;
+	padding: 6px 30px;
+	background: var(--surface);
+	border-radius: 28px;
+	list-style: none;
+}
+
+.archive-list li + li {
+	border-top: 1px solid var(--line);
+}
+
+.archive-list a {
+	display: grid;
+	grid-template-columns: 52px minmax(0, 1fr) auto;
+	align-items: center;
+	gap: 18px;
+	padding: 15px 0;
+	text-decoration: none;
+}
+
+.archive-day {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 3px;
+}
+
+/* Still read out, only not shown. */
+.archive-day[data-same] {
+	opacity: 0;
+}
+
+.archive-day-n {
+	font: 300 28px/1 var(--display);
+	font-variant-numeric: tabular-nums;
+	letter-spacing: -0.02em;
+}
+
+.archive-day-w {
+	color: var(--muted);
+	font: 600 11px/1 var(--sans);
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
+
+.archive-piece {
+	display: flex;
+	min-width: 0;
+	flex-direction: column;
+	gap: 3px;
+}
+
+.archive-title {
+	overflow: hidden;
+	font: 600 17px/1.3 var(--sans);
+	letter-spacing: -0.015em;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	transition: color 0.3s ease;
+}
+
+.archive-list a:hover .archive-title {
+	color: var(--accent);
+}
+
+.archive-meta {
+	color: var(--muted);
+	font-size: 14px;
+	line-height: 1.3;
+}
+
+@media (max-width: 734px) {
+	.archive {
+		padding-top: 24px;
+	}
+	.archive-head h1 {
+		font-size: 40px;
+	}
+	.archive-intro {
+		font-size: 19px;
+	}
+	.archive-month {
+		margin-top: 36px;
+	}
+	.archive-month h2 {
+		font-size: 24px;
+	}
+	.archive-list {
+		padding: 4px 20px;
+		border-radius: 24px;
+	}
+	.archive-list a {
+		grid-template-columns: 38px minmax(0, 1fr);
+		gap: 6px 14px;
+		align-items: start;
+		padding: 14px 0;
+	}
+	.archive-day {
+		grid-row: span 2;
+	}
+	.archive-day-n {
+		font-size: 24px;
+	}
+	.archive-title {
+		white-space: normal;
+	}
+	.archive-list .tile-signals {
+		grid-column: 2;
+		justify-self: start;
+	}
+}

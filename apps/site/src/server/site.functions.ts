@@ -5,6 +5,7 @@ import { isTheme, THEME_COOKIE } from "../lib/theme";
 import { isQuality } from "../lib/qualities";
 import { loadBoard } from "./board.server";
 import { deleteComment, saveAuthorNote, saveComment } from "./comments.server";
+import { countPosts, loadArchive } from "./archive.server";
 import { listFeed } from "./feed.server";
 import { loadPost } from "./posts.server";
 import { toggleQuality } from "./reactions.server";
@@ -38,16 +39,30 @@ export const getViewer = createServerFn({ method: "GET" }).handler(async () => {
 	return { name: reader.name, asAuthor: reader.asAuthor, theme: isTheme(theme) ? theme : ("system" as const) };
 });
 
-/** A page of the feed; pass the previous page's `next` to get the one after. */
-export const getFeed = createServerFn({ method: "GET" })
+/** How many pieces the homepage shows before it hands over to the archive. */
+export const HOME_COUNT = 30;
+
+/** The homepage: the newest pieces, and how many there are in all. */
+export const getHome = createServerFn({ method: "GET" }).handler(async () => {
+	currentReader();
+	const [feed, total] = await Promise.all([listFeed(undefined, HOME_COUNT), countPosts()]);
+	return { items: feed.items, total };
+});
+
+/** Every piece of one year (the latest, without one), in months. */
+export const getArchive = createServerFn({ method: "GET" })
 	.validator((input: unknown) => {
-		const before = input === undefined ? undefined : object(input).before;
-		if (before !== undefined && (typeof before !== "string" || before.length > 64)) throw new Error("Bad page");
-		return { before };
+		const year = input === undefined ? undefined : object(input).year;
+		if (year !== undefined && (typeof year !== "number" || !Number.isInteger(year) || year < 2000 || year > 3000)) {
+			throw new Error("Bad year");
+		}
+		return { year };
 	})
 	.handler(async ({ data }) => {
 		currentReader();
-		return listFeed(data.before);
+		const archive = await loadArchive(data.year);
+		if (!archive) throw notFound();
+		return archive;
 	});
 
 export const getPost = createServerFn({ method: "GET" })
