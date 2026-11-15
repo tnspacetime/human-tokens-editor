@@ -1,6 +1,7 @@
+import { env } from "cloudflare:workers";
 import { createServerFn } from "@tanstack/react-start";
 import { notFound } from "@tanstack/react-router";
-import { getCookie } from "@tanstack/react-start/server";
+import { getCookie, getRequest } from "@tanstack/react-start/server";
 import { isTheme, THEME_COOKIE } from "../lib/theme";
 import { isQuality } from "../lib/qualities";
 import { loadBoard } from "./board.server";
@@ -9,7 +10,8 @@ import { countPosts, loadArchive } from "./archive.server";
 import { listFeed } from "./feed.server";
 import { loadPost } from "./posts.server";
 import { toggleQuality } from "./reactions.server";
-import { currentReader, setAuthorMode, startNewReader } from "./reader.server";
+import { currentUser, requireUser, signInOptions } from "./auth.server";
+import { devSignInAllowed } from "./dev-sign-in.server";
 
 const MAX_COMMENT = 2000;
 const MAX_NOTE = 280;
@@ -33,10 +35,15 @@ const postId = (value: unknown) => {
 
 export const getBoard = createServerFn({ method: "GET" }).handler(() => loadBoard());
 
+/** Who's here (null when signed out), the ways in, and the chosen theme. */
 export const getViewer = createServerFn({ method: "GET" }).handler(async () => {
-	const reader = currentReader();
+	const user = await currentUser();
 	const theme = getCookie(THEME_COOKIE);
-	return { name: reader.name, asAuthor: reader.asAuthor, theme: isTheme(theme) ? theme : ("system" as const) };
+	return {
+		user: user && { name: user.name, image: user.image, author: user.author && { handle: user.author.handle, name: user.author.name } },
+		signIn: signInOptions(getRequest()),
+		theme: isTheme(theme) ? theme : ("system" as const),
+	};
 });
 
 /** How many pieces the homepage shows before it hands over to the archive. */
@@ -46,7 +53,6 @@ export const HOME_PAGE = 24;
 
 /** The homepage's first pieces, and how many there are in all. */
 export const getHome = createServerFn({ method: "GET" }).handler(async () => {
-	currentReader();
 	const [feed, total] = await Promise.all([listFeed(undefined, HOME_PAGE), countPosts()]);
 	return { ...feed, total };
 });
@@ -59,10 +65,7 @@ export const getFeed = createServerFn({ method: "GET" })
 		if (typeof limit !== "number" || !Number.isInteger(limit) || limit < 1 || limit > HOME_PAGE) throw new Error("Bad limit");
 		return { before, limit };
 	})
-	.handler(async ({ data }) => {
-		currentReader();
-		return listFeed(data.before, data.limit);
-	});
+	.handler(async ({ data }) => listFeed(data.before, data.limit));
 
 /** Every piece of one year (the latest, without one), in months. */
 export const getArchive = createServerFn({ method: "GET" })
@@ -74,7 +77,6 @@ export const getArchive = createServerFn({ method: "GET" })
 		return { year };
 	})
 	.handler(async ({ data }) => {
-		currentReader();
 		const archive = await loadArchive(data.year);
 		if (!archive) throw notFound();
 		return archive;
@@ -83,7 +85,7 @@ export const getArchive = createServerFn({ method: "GET" })
 export const getPost = createServerFn({ method: "GET" })
 	.validator((input: unknown) => ({ id: postId(object(input).id) }))
 	.handler(async ({ data }) => {
-		const post = await loadPost(data.id, currentReader());
+		const post = await loadPost(data.id, await currentUser());
 		if (!post) throw notFound();
 		return post;
 	});
@@ -95,7 +97,7 @@ export const toggleQualityFn = createServerFn({ method: "POST" })
 		return { id: postId(id), quality };
 	})
 	.handler(async ({ data }) => {
-		await toggleQuality(data.id, data.quality, currentReader());
+		await toggleQuality(data.id, data.quality, await requireUser("say how a piece read"));
 	});
 
 export const saveCommentFn = createServerFn({ method: "POST" })
@@ -104,9 +106,9 @@ export const saveCommentFn = createServerFn({ method: "POST" })
 		return { id: postId(id), body: text(body, "Comment", MAX_COMMENT) };
 	})
 	.handler(async ({ data }) => {
-		const reader = currentReader();
-		if (data.body) await saveComment(data.id, data.body, reader);
-		else await deleteComment(data.id, reader);
+		const user = await requireUser("comment");
+		if (data.body) await saveComment(data.id, data.body, user);
+		else await deleteComment(data.id, user);
 	});
 
 export const saveAuthorNoteFn = createServerFn({ method: "POST" })
@@ -116,18 +118,13 @@ export const saveAuthorNoteFn = createServerFn({ method: "POST" })
 		return { commentId, note: text(note, "Note", MAX_NOTE) };
 	})
 	.handler(async ({ data }) => {
-		// PROTOTYPE: "View as author" stands in for owning the piece; with
-		// sign-in, check that the signed-in person wrote it.
-		if (!currentReader().asAuthor) throw new Error("Only the author can add a note");
-		await saveAuthorNote(data.commentId, data.note || null);
+		const user = await requireUser("add a note");
+		if (!(await saveAuthorNote(data.commentId, data.note || null, user))) throw new Error("Only the author can add a note");
 	});
 
-export const newReaderFn = createServerFn({ method: "POST" }).handler(async () => {
-	startNewReader();
+/** The dev sign-in page: only on localhost in `vite dev`, otherwise not found. */
+export const getDevSignIn = createServerFn({ method: "GET" }).handler(async () => {
+	if (!devSignInAllowed(getRequest())) throw notFound();
+	const { results } = await env.DB.prepare("SELECT handle, name FROM authors ORDER BY name").all<{ handle: string; name: string }>();
+	return { authors: results };
 });
-
-export const setAuthorModeFn = createServerFn({ method: "POST" })
-	.validator((input: unknown) => ({ on: object(input).on === true }))
-	.handler(async ({ data }) => {
-		setAuthorMode(data.on);
-	});

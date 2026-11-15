@@ -3,10 +3,12 @@ import { type FormEvent, useId, useState } from "react";
 import type { Comment, PostPage } from "../lib/types";
 import { saveAuthorNoteFn, saveCommentFn } from "../server/site.functions";
 import { formatDate } from "./PostCard";
+import { SignInPrompt } from "./SignIn";
 
-// One comment per reader, no replies. To argue with a post, write your own
-// and respond (later: "Write a response"), or join its debate if the author
-// allows one.
+// One comment per person, no replies. Signed out, you can read them; the
+// foot asks you to sign in to write one. To argue with a post, write your
+// own and respond (later: "Write a response"), or join its debate if the
+// author allows one.
 //
 // In the comments sheet: the others' comments in the middle (CommentList),
 // and yours, or the box to write it, pinned at the foot (CommentComposer).
@@ -23,7 +25,7 @@ export function CommentList({ post }: { post: PostPage }) {
 			) : (
 				<ul className="comment-list">
 					{others.map((comment) => (
-						<CommentItem key={comment.id} comment={comment} isAuthor={post.viewer.isAuthor} authorName={post.author.name} />
+						<CommentItem key={comment.id} comment={comment} isAuthor={post.viewer?.isAuthor ?? false} authorName={post.author.name} />
 					))}
 				</ul>
 			)}
@@ -32,10 +34,11 @@ export function CommentList({ post }: { post: PostPage }) {
 }
 
 export function CommentComposer({ post }: { post: PostPage }) {
-	return <CommentForm post={post} mine={post.commentList.find((c) => c.mine)} />;
+	if (!post.viewer) return <SignInPrompt action="comment" />;
+	return <CommentForm post={post} viewerName={post.viewer.name} mine={post.commentList.find((c) => c.mine)} />;
 }
 
-function CommentForm({ post, mine }: { post: PostPage; mine?: Comment }) {
+function CommentForm({ post, viewerName, mine }: { post: PostPage; viewerName: string; mine?: Comment }) {
 	const router = useRouter();
 	const [editing, setEditing] = useState(!mine);
 	const [body, setBody] = useState(mine?.body ?? "");
@@ -82,7 +85,7 @@ function CommentForm({ post, mine }: { post: PostPage; mine?: Comment }) {
 				id={fieldId}
 				value={body}
 				onChange={(e) => setBody(e.target.value)}
-				placeholder={`Commenting as ${post.viewer.name}`}
+				placeholder={`Commenting as ${viewerName}`}
 				rows={2}
 				maxLength={2000}
 			/>

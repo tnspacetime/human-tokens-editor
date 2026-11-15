@@ -1,16 +1,30 @@
 import { useRouter } from "@tanstack/react-router";
-import { newReaderFn, setAuthorModeFn } from "../../server/site.functions";
+import { useState } from "react";
+import { authClient } from "../../lib/auth-client";
+import { SignInLinks, type SignInOptions } from "../SignIn";
 import { Slot } from "./Slot";
 
-export type Viewer = { name: string; asAuthor: boolean };
+export type Viewer = {
+	user: { name: string; image: string | null; author: { handle: string; name: string } | null } | null;
+	signIn: SignInOptions;
+};
 
-// You. For now an anonymous reader (a prototype stand-in) with New reader
-// and Author view; sign-in with Google or GitHub replaces this.
+// You. Signed out, the panel offers the ways in (Google, GitHub); signed
+// in, it shows who you are and lets you sign out.
 export function Account({ viewer, open, onToggle }: { viewer: Viewer; open: boolean; onToggle: () => void }) {
 	const router = useRouter();
-	async function run(action: () => Promise<unknown>) {
-		await action();
-		await router.invalidate();
+	const [leaving, setLeaving] = useState(false);
+	const { user } = viewer;
+
+	async function signOut() {
+		setLeaving(true);
+		try {
+			await authClient.signOut();
+			onToggle();
+			await router.invalidate();
+		} finally {
+			setLeaving(false);
+		}
 	}
 
 	return (
@@ -18,32 +32,46 @@ export function Account({ viewer, open, onToggle }: { viewer: Viewer; open: bool
 			<button
 				type="button"
 				className="island-glyph island-you"
-				data-author={viewer.asAuthor || undefined}
+				data-signed-in={user ? "" : undefined}
 				aria-expanded={open}
 				aria-controls="island-account"
-				aria-label={`You: ${viewer.name}${viewer.asAuthor ? ", viewing as author" : ""}`}
+				aria-label={user ? `You: ${user.name}` : "Sign in"}
 				onClick={onToggle}
 			>
-				<svg viewBox="0 0 16 16" aria-hidden="true">
-					<circle cx="8" cy="5.6" r="2.6" fill="none" stroke="currentColor" strokeWidth="1.25" />
-					<path d="M2.9 13.6a5.2 5.2 0 0 1 10.2 0" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" />
-				</svg>
+				{user?.image ? (
+					<img src={user.image} alt="" referrerPolicy="no-referrer" />
+				) : user ? (
+					<span className="island-initial" aria-hidden="true">
+						{initial(user.name)}
+					</span>
+				) : (
+					<svg viewBox="0 0 16 16" aria-hidden="true">
+						<circle cx="8" cy="5.6" r="2.6" fill="none" stroke="currentColor" strokeWidth="1.25" />
+						<path d="M2.9 13.6a5.2 5.2 0 0 1 10.2 0" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" />
+					</svg>
+				)}
 			</button>
 			<Slot open={open}>
 				<div id="island-account" className="island-choices">
-					<span className="island-who">{viewer.name}</span>
-					<button type="button" onClick={() => run(() => newReaderFn())}>
-						New reader
-					</button>
-					<button
-						type="button"
-						aria-pressed={viewer.asAuthor}
-						onClick={() => run(() => setAuthorModeFn({ data: { on: !viewer.asAuthor } }))}
-					>
-						Author view
-					</button>
+					{user ? (
+						<>
+							<span className="island-who">{user.author ? `${user.name} · author` : user.name}</span>
+							<button type="button" onClick={signOut} disabled={leaving}>
+								Sign out
+							</button>
+						</>
+					) : (
+						<>
+							<span className="island-who">Sign in with</span>
+							<SignInLinks options={viewer.signIn} className="island-sign-in" />
+						</>
+					)}
 				</div>
 			</Slot>
 		</>
 	);
+}
+
+function initial(name: string) {
+	return [...name.trim()][0]?.toUpperCase() ?? "?";
 }

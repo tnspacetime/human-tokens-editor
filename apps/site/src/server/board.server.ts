@@ -43,7 +43,7 @@ async function countBoard(now: number): Promise<Board> {
 			const [pieces, activity, counts] = await Promise.all([
 				db().prepare("SELECT COUNT(*) AS n FROM posts WHERE published_at >= ?").bind(since).first<{ n: number }>(),
 				db()
-					.prepare("SELECT COUNT(*) AS reactions, COUNT(DISTINCT reader_id) AS readers FROM reactions WHERE created_at >= ?")
+					.prepare("SELECT COUNT(*) AS reactions, COUNT(DISTINCT user_id) AS readers FROM reactions WHERE created_at >= ?")
 					.bind(since)
 					.first<{ reactions: number; readers: number }>(),
 				db()

@@ -6,7 +6,8 @@
    feed   section headings and the tiles, with their drawn covers
    live   the live board, its ticker and sheet in the island
    rules  the five rules: a glass pill on the homepage, and their own page
-   post   a piece, its qualities and comments */
+   post   a piece, its qualities and comments
+   auth   the dev sign-in and the sign-in error page */
 @import "./styles/base.css";
 @import "./styles/island.css";
 @import "./styles/feed.css";
@@ -15,3 +16,4 @@
 @import "./styles/post.css";
 @import "./styles/write.css";
 @import "./styles/archive.css";
+@import "./styles/auth.css";

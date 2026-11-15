@@ -1,0 +1,20 @@
+# Copy to .dev.vars (gitignored) and fill in. `bun run dev` reads it.
+# Without any of these, the site still runs: only the dev sign-in (localhost)
+# is offered. Steps to make the OAuth apps: README, "Sign-in".
+
+# Signs sessions and encrypts stored tokens. Make one with:
+#   openssl rand -base64 32
+BETTER_AUTH_SECRET=
+BETTER_AUTH_URL=http://localhost:3100
+
+# Google Cloud console → APIs & Services → Credentials → OAuth client ID
+# (Web application). Authorized redirect URI:
+#   http://localhost:3100/api/auth/callback/google
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+
+# GitHub → Settings → Developer settings → OAuth Apps → New OAuth App.
+# Authorization callback URL:
+#   http://localhost:3100/api/auth/callback/github
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=

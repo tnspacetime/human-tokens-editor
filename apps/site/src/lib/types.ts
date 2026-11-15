@@ -52,10 +52,11 @@ export type Comment = {
 export type PostPage = FeedItem & {
 	html: string;
 	allowDebate: boolean;
-	/** The qualities this reader chose. */
+	/** The qualities the viewer chose (none when signed out). */
 	mine: Quality[];
 	commentList: Comment[];
-	viewer: { name: string; isAuthor: boolean };
+	/** Who's reading, or null when signed out; isAuthor when it's their piece. */
+	viewer: { name: string; isAuthor: boolean } | null;
 };
 
 export type BoardEntry = {

@@ -123,7 +123,9 @@
 	padding-left: 4px;
 }
 
-.island-choices button {
+.island-choices :is(button, a) {
+	display: inline-flex;
+	align-items: center;
 	height: 32px;
 	padding: 0 12px;
 	background: none;
@@ -131,13 +133,15 @@
 	border-radius: 999px;
 	color: var(--muted);
 	font: 500 14px/1 var(--sans);
+	text-decoration: none;
+	white-space: nowrap;
 	cursor: pointer;
 	transition:
 		background 0.3s ease,
 		color 0.3s ease;
 }
 
-.island-choices button:hover {
+.island-choices :is(button, a):hover {
 	color: var(--ink);
 }
 
@@ -150,22 +154,42 @@
 	padding: 0 8px 0 6px;
 	color: var(--muted);
 	font: 500 14px/32px var(--sans);
+	white-space: nowrap;
 }
 
-/* You, while viewing as an author: a small amber point. */
-.island-you {
-	position: relative;
+.island-sign-in {
+	display: contents;
 }
 
-.island-you[data-author]::after {
-	content: "";
-	position: absolute;
-	top: 6px;
-	right: 6px;
-	width: 5px;
-	height: 5px;
+/* The dev sign-in, plainly not a real one: dashed, and only on localhost. */
+.sign-in-dev {
+	outline: 1px dashed currentColor;
+	outline-offset: -5px;
+}
+
+.sign-in-none {
+	color: var(--muted);
+	font: 500 14px/32px var(--sans);
+	white-space: nowrap;
+}
+
+/* You, signed in: your picture from Google or GitHub, or your initial. */
+.island-you img {
+	width: 22px;
+	height: 22px;
+	border-radius: 50%;
+	object-fit: cover;
+}
+
+.island-initial {
+	display: grid;
+	place-items: center;
+	width: 22px;
+	height: 22px;
 	border-radius: 50%;
 	background: linear-gradient(135deg, var(--brand-from), var(--brand-to));
+	color: #fff;
+	font: 700 12px/1 var(--sans);
 }
 
 .island :focus-visible {

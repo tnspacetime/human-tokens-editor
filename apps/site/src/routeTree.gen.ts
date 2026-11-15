@@ -14,6 +14,9 @@ import { Route as RulesRouteImport } from './routes/rules'
 import { Route as WriteRouteImport } from './routes/write'
 import { Route as ArchiveIndexRouteImport } from './routes/archive.index'
 import { Route as ArchiveYearRouteImport } from './routes/archive.$year'
+import { Route as AuthDevRouteImport } from './routes/auth.dev'
+import { Route as AuthErrorRouteImport } from './routes/auth.error'
+import { Route as ApiAuthSplatRouteImport } from './routes/api.auth.$'
 import { Route as PIdSlugRouteImport } from './routes/p.$id.$slug'
 
 const IndexRoute = IndexRouteImport.update({
@@ -41,6 +44,21 @@ const ArchiveYearRoute = ArchiveYearRouteImport.update({
   path: '/archive/$year',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthDevRoute = AuthDevRouteImport.update({
+  id: '/auth/dev',
+  path: '/auth/dev',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthErrorRoute = AuthErrorRouteImport.update({
+  id: '/auth/error',
+  path: '/auth/error',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
+  id: '/api/auth/$',
+  path: '/api/auth/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PIdSlugRoute = PIdSlugRouteImport.update({
   id: '/p/$id/$slug',
   path: '/p/$id/$slug',
@@ -52,7 +70,10 @@ export interface FileRoutesByFullPath {
   '/rules': typeof RulesRoute
   '/write': typeof WriteRoute
   '/archive/$year': typeof ArchiveYearRoute
+  '/auth/dev': typeof AuthDevRoute
+  '/auth/error': typeof AuthErrorRoute
   '/archive/': typeof ArchiveIndexRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/p/$id/$slug': typeof PIdSlugRoute
 }
 export interface FileRoutesByTo {
@@ -60,7 +81,10 @@ export interface FileRoutesByTo {
   '/rules': typeof RulesRoute
   '/write': typeof WriteRoute
   '/archive/$year': typeof ArchiveYearRoute
+  '/auth/dev': typeof AuthDevRoute
+  '/auth/error': typeof AuthErrorRoute
   '/archive': typeof ArchiveIndexRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/p/$id/$slug': typeof PIdSlugRoute
 }
 export interface FileRoutesById {
@@ -69,22 +93,45 @@ export interface FileRoutesById {
   '/rules': typeof RulesRoute
   '/write': typeof WriteRoute
   '/archive/$year': typeof ArchiveYearRoute
+  '/auth/dev': typeof AuthDevRoute
+  '/auth/error': typeof AuthErrorRoute
   '/archive/': typeof ArchiveIndexRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/p/$id/$slug': typeof PIdSlugRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/rules' | '/write' | '/archive/$year' | '/archive/' | '/p/$id/$slug'
+    | '/'
+    | '/rules'
+    | '/write'
+    | '/archive/$year'
+    | '/auth/dev'
+    | '/auth/error'
+    | '/archive/'
+    | '/api/auth/$'
+    | '/p/$id/$slug'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/rules' | '/write' | '/archive/$year' | '/archive' | '/p/$id/$slug'
+  to:
+    | '/'
+    | '/rules'
+    | '/write'
+    | '/archive/$year'
+    | '/auth/dev'
+    | '/auth/error'
+    | '/archive'
+    | '/api/auth/$'
+    | '/p/$id/$slug'
   id:
     | '__root__'
     | '/'
     | '/rules'
     | '/write'
     | '/archive/$year'
+    | '/auth/dev'
+    | '/auth/error'
     | '/archive/'
+    | '/api/auth/$'
     | '/p/$id/$slug'
   fileRoutesById: FileRoutesById
 }
@@ -93,7 +140,10 @@ export interface RootRouteChildren {
   RulesRoute: typeof RulesRoute
   WriteRoute: typeof WriteRoute
   ArchiveYearRoute: typeof ArchiveYearRoute
+  AuthDevRoute: typeof AuthDevRoute
+  AuthErrorRoute: typeof AuthErrorRoute
   ArchiveIndexRoute: typeof ArchiveIndexRoute
+  ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   PIdSlugRoute: typeof PIdSlugRoute
 }
 
@@ -134,6 +184,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ArchiveYearRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth/dev': {
+      id: '/auth/dev'
+      path: '/auth/dev'
+      fullPath: '/auth/dev'
+      preLoaderRoute: typeof AuthDevRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/error': {
+      id: '/auth/error'
+      path: '/auth/error'
+      fullPath: '/auth/error'
+      preLoaderRoute: typeof AuthErrorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/$': {
+      id: '/api/auth/$'
+      path: '/api/auth/$'
+      fullPath: '/api/auth/$'
+      preLoaderRoute: typeof ApiAuthSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/p/$id/$slug': {
       id: '/p/$id/$slug'
       path: '/p/$id/$slug'
@@ -149,7 +220,10 @@ const rootRouteChildren: RootRouteChildren = {
   RulesRoute: RulesRoute,
   WriteRoute: WriteRoute,
   ArchiveYearRoute: ArchiveYearRoute,
+  AuthDevRoute: AuthDevRoute,
+  AuthErrorRoute: AuthErrorRoute,
   ArchiveIndexRoute: ArchiveIndexRoute,
+  ApiAuthSplatRoute: ApiAuthSplatRoute,
   PIdSlugRoute: PIdSlugRoute,
 }
 export const routeTree = rootRouteImport

@@ -713,6 +713,52 @@ button.primary {
 	transition: opacity 0.3s ease;
 }
 
+/* Signed out, in place of the comment box or above the qualities: the ways
+   in, as soft pills. */
+.sign-in-prompt {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px 14px;
+	margin: 0 0 18px;
+}
+
+.sheet-foot .sign-in-prompt,
+.sign-in-prompt:last-child {
+	margin-bottom: 0;
+}
+
+.sign-in-prompt p {
+	margin: 0;
+	color: var(--ink-soft);
+	font-size: 15px;
+}
+
+.sign-in-prompt-links {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.sign-in-prompt-links :is(button, a) {
+	padding: 7px 16px;
+	background: var(--fill);
+	color: var(--ink);
+	border: 0;
+	border-radius: 999px;
+	font: 500 15px/1.2 var(--sans);
+	text-decoration: none;
+	cursor: pointer;
+}
+
+.sign-in-prompt-links :is(button, a):hover {
+	background: var(--glass-chip);
+}
+
+.sign-in-prompt-links .sign-in-dev {
+	outline-offset: -4px;
+}
+
 button.primary:disabled {
 	opacity: 0.35;
 	cursor: default;

@@ -2,6 +2,11 @@
 // `bun run db:seed` loads it into the local D1 database. Safe to re-run:
 // it clears the tables first. Post ids come from the file name, so links
 // stay the same across re-seeds.
+//
+// Readers and commenters here are users with no way to sign in (no account,
+// a placeholder address). The authors
+// aren't linked to anyone: on localhost, the dev sign-in "as an author"
+// links you to one. Re-seeding signs everyone out.
 import { readFileSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { deriveFromMarkdown } from "../src/server/derive";
@@ -23,7 +28,24 @@ const q = (value: unknown) => (value === null || value === undefined ? "NULL" : 
 const slugify = (title: string) =>
 	title.toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
 
-const sql: string[] = ["DELETE FROM comments;", "DELETE FROM reactions;", "DELETE FROM posts;", "DELETE FROM authors;"];
+const sql: string[] = [
+	"DELETE FROM comments;",
+	"DELETE FROM reactions;",
+	"DELETE FROM posts;",
+	"DELETE FROM authors;",
+	"DELETE FROM sessions;",
+	"DELETE FROM accounts;",
+	"DELETE FROM users;",
+];
+const seeded = new Date().toISOString();
+const users = new Set<string>();
+const addUser = (id: string, name: string) => {
+	if (users.has(id)) return;
+	users.add(id);
+	sql.push(
+		`INSERT INTO users (id, name, email, created_at, updated_at) VALUES (${q(id)}, ${q(name)}, ${q(`${id}@seed.invalid`)}, ${q(seeded)}, ${q(seeded)});`,
+	);
+};
 
 for (const a of seed.authors) {
 	sql.push(`INSERT INTO authors (id, handle, name, bio) VALUES (${q(a.id)}, ${q(a.handle)}, ${q(a.name)}, ${q(a.bio)});`);
@@ -51,8 +73,9 @@ for (const r of seed.reactions) {
 	const post = postIds.get(r.file);
 	for (const [quality, count] of Object.entries(r.qualities)) {
 		for (let i = 0; i < count; i++) {
+			addUser(`seed-reader-${i}`, `Reader ${i + 1}`);
 			const at = new Date(Date.now() - minutesAgo(`${r.file}/${quality}/${i}`) * 60_000).toISOString();
-			sql.push(`INSERT INTO reactions (post_id, reader_id, quality, created_at) VALUES (${q(post)}, ${q(`seed-reader-${i}`)}, ${q(quality)}, ${q(at)});`);
+			sql.push(`INSERT INTO reactions (post_id, user_id, quality, created_at) VALUES (${q(post)}, ${q(`seed-reader-${i}`)}, ${q(quality)}, ${q(at)});`);
 		}
 	}
 }
@@ -60,10 +83,11 @@ for (const r of seed.reactions) {
 seed.comments.forEach((c, i) => {
 	const post = postIds.get(c.file);
 	const at = new Date(Date.now() - (seed.comments.length - i) * 3_600_000).toISOString();
+	addUser(`seed-commenter-${i}`, c.name);
 	sql.push(
-		`INSERT INTO comments (id, post_id, reader_id, reader_name, body, author_note, created_at, updated_at) VALUES (${q(idFor(`comment-${i}`, 12))}, ${q(post)}, ${q(`seed-commenter-${i}`)}, ${q(c.name)}, ${q(c.body)}, ${q(c.authorNote)}, ${q(at)}, ${q(at)});`,
+		`INSERT INTO comments (id, post_id, user_id, body, author_note, created_at, updated_at) VALUES (${q(idFor(`comment-${i}`, 12))}, ${q(post)}, ${q(`seed-commenter-${i}`)}, ${q(c.body)}, ${q(c.authorNote)}, ${q(at)}, ${q(at)});`,
 	);
 });
 
 writeFileSync(`${root}.seed.sql`, `${sql.join("\n")}\n`);
-console.log(`.seed.sql: ${seed.authors.length} authors, ${seed.posts.length} posts`);
+console.log(`.seed.sql: ${seed.authors.length} authors, ${seed.posts.length} posts, ${users.size} readers`);
