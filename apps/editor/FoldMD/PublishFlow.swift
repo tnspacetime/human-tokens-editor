@@ -358,6 +358,47 @@ struct PublishPill: View {
     }
 }
 
+/// The pill in the window's own toolbar, while the publishing surface is
+/// closed: only once the piece is published (Published · View, or Update).
+/// It shrinks and fades away as the surface opens, and back when it closes.
+struct ToolbarPublishPill: View {
+    @Bindable var flow: PublishFlow
+    var hidden: Bool
+
+    private var shown: Bool { !hidden && flow.record != nil }
+
+    var body: some View {
+        HStack(spacing: 0) {
+            if shown {
+                PublishPill(flow: flow)
+                    .transition(.asymmetric(
+                        insertion: .scale(scale: 0.6, anchor: .trailing).combined(with: .opacity),
+                        removal: .scale(scale: 0.6, anchor: .trailing).combined(with: .opacity)))
+            }
+        }
+        .animation(.spring(duration: 0.35, bounce: 0.2), value: shown)
+    }
+}
+
+/// The window toolbar's item for it. On macOS 26 the pill is its own glass,
+/// with no shared capsule behind it.
+struct PublishPillToolbarItem: ToolbarContent {
+    let flow: PublishFlow
+    let hidden: Bool
+
+    var body: some ToolbarContent {
+        if #available(macOS 26.0, *) {
+            item.sharedBackgroundVisibility(.hidden)
+        } else {
+            item
+        }
+    }
+
+    private var item: some ToolbarContent {
+        ToolbarItem { ToolbarPublishPill(flow: flow, hidden: hidden) }
+    }
+}
+
 private extension View {
     @ViewBuilder func publishPillStyle(prominent: Bool) -> some View {
         if #available(macOS 26.0, *) {

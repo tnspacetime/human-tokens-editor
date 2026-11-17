@@ -880,6 +880,10 @@ struct EditorWindow: View {
             }
             .help("Click to switch light/dark (⇧⌘L). Hold for System, Light or Dark.")
         }
+        // Once the piece is published, its pill shows here too while the
+        // publishing surface is closed; it gives way as the surface slides
+        // out, since the surface's strip has its own.
+        PublishPillToolbarItem(flow: pageBar.model.publish, hidden: pageOpen || sliding == .page)
     }
 }
 
