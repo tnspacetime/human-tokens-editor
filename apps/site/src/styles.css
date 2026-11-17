@@ -7,7 +7,7 @@
    live   the live board, its ticker and sheet in the island
    rules  the five rules: a glass pill on the homepage, and their own page
    post   a piece, its qualities and comments
-   auth   the dev sign-in and the sign-in error page */
+   auth   the dev sign-in, the sign-in error page, connecting Fold MD */
 @import "./styles/base.css";
 @import "./styles/island.css";
 @import "./styles/feed.css";

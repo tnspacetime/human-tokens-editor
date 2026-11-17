@@ -1,6 +1,8 @@
 import { env } from "cloudflare:workers";
 import { getRequest } from "@tanstack/react-start/server";
 import { betterAuth } from "better-auth";
+import { bearer } from "better-auth/plugins/bearer";
+import { deviceAuthorization } from "better-auth/plugins/device-authorization";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { devSignIn, devSignInAllowed } from "./dev-sign-in.server";
 import { db } from "./rows.server";
@@ -13,6 +15,15 @@ import { db } from "./rows.server";
 // Better Auth serves /api/auth/* (routes/api.auth.$.ts): the OAuth
 // redirects and callbacks, sessions, sign-out. Its tables are in
 // migrations/0004_accounts.sql, under our names.
+//
+// Fold MD connects with a short code (device authorization, RFC 8628): it
+// asks for a code, you allow it at /connect while signed in, and it gets a
+// session token that it sends as `Authorization: Bearer …` to the
+// publishing API (routes/api.fold.*). Device codes are in
+// migrations/0005_publishing.sql.
+
+/** The one client allowed to ask for a code. */
+export const FOLD_MD_CLIENT = "fold-md";
 
 const DAY = 60 * 60 * 24;
 
@@ -74,7 +85,31 @@ export const auth = betterAuth({
 	advanced: { cookiePrefix: "ht" },
 	// The dev sign-in isn't in a production build at all; tanstackStartCookies
 	// must come last.
-	plugins: [...(import.meta.env.DEV ? [devSignIn()] : []), tanstackStartCookies()],
+	plugins: [
+		...(import.meta.env.DEV ? [devSignIn()] : []),
+		deviceAuthorization({
+			verificationUri: "/connect",
+			expiresIn: "10m",
+			interval: "2s",
+			validateClient: (clientId) => clientId === FOLD_MD_CLIENT,
+			schema: {
+				deviceCode: {
+					modelName: "device_codes",
+					fields: {
+						deviceCode: "device_code",
+						userCode: "user_code",
+						userId: "user_id",
+						expiresAt: "expires_at",
+						lastPolledAt: "last_polled_at",
+						pollingInterval: "polling_interval",
+						clientId: "client_id",
+					},
+				},
+			},
+		}),
+		bearer(),
+		tanstackStartCookies(),
+	],
 });
 
 export type User = {

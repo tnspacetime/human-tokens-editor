@@ -121,6 +121,7 @@ struct EditorWindow: View {
         }
         .onChange(of: fileURL, initial: true) { _, url in
             pageBar.model.fileURL = url
+            pageBar.model.publish.setFileURL(url)
             sheet.setDocumentURL(url)
             page.setDocumentURL(url)
         }
@@ -128,10 +129,16 @@ struct EditorWindow: View {
         .frame(minWidth: 520, minHeight: 360)
         .background(WindowReader(reference: window, fileURL: fileURL))
         .toolbar { toolbar }
+        // Behind the Publish pill (in the page's strip of the toolbar).
+        .sheet(isPresented: Binding(get: { pageBar.model.publish.step != nil },
+                                    set: { if !$0 { pageBar.model.publish.cancel() } })) {
+            PublishSheet(flow: pageBar.model.publish)
+        }
         .onChange(of: document.text, initial: true) { _, text in
             sheet.setText(text)
             page.setText(text)
             pageBar.model.text = text
+            pageBar.model.publish.text = text
             // Editing a part moves its series to the top of the list.
             if let fileURL, Date().timeIntervalSince(lastSeriesTouch) > 30 {
                 lastSeriesTouch = Date()
@@ -276,6 +283,36 @@ struct EditorWindow: View {
         // ("md.fold.app.toolbarProbe").
         .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.toolbarProbe"))) { _ in
             toolbarProbe()
+        }
+        // Drives publishing in the window whose file is named in the object
+        // "file.md|command": start (the pill), pledge, publish, author
+        // "Name,handle", unpublish, disconnect, cancel; every command then
+        // logs where the flow stands ("publish: …").
+        .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.publish"))) { note in
+            guard let parts = (note.object as? String)?.split(separator: "|", maxSplits: 1).map(String.init), parts.count == 2,
+                  parts[0] == fileURL?.lastPathComponent else { return }
+            let flow = pageBar.model.publish
+            let command = parts[1]
+            switch command {
+            case "start": flow.start()
+            case "pledge": flow.pledged = true
+            case "debate": flow.allowDebate = true
+            case "publish": flow.publish()
+            case "unpublish": flow.unpublish()
+            case "disconnect": flow.disconnect()
+            case "cancel": flow.cancel()
+            default:
+                if command.hasPrefix("author ") {
+                    let fields = command.dropFirst(7).split(separator: ",").map(String.init)
+                    flow.authorName = fields.first ?? ""
+                    flow.handle = fields.count > 1 ? fields[1] : ""
+                    flow.becomeAuthor()
+                }
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                let record = flow.record.map { "\($0.postID) \($0.url.absoluteString)" } ?? "none"
+                testLog("publish: [\(fileURL?.lastPathComponent ?? "untitled")] \(command) → pill=\(flow.pill) step=\(String(describing: flow.step)) error=\(flow.error ?? "-") title=\(flow.preview?.title ?? "-") record=\(record)")
+            }
         }
     }
     #endif

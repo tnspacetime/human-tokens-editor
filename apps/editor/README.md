@@ -8,7 +8,7 @@ surface folds out to the right to show the page as it will be published.
 - **Current paragraph**: the sheet renders the block your cursor is in (good for math, tables and code).
 - **Publishing surface**: the window grows to the right and the published page slides out beside your writing, then slides back in.
 
-Files are plain `.md` on disk. Series organise them without moving them, and images you drop or paste are copied into an `images` folder beside the document. Publishing to [human-tokens.dev](../site) comes next.
+Files are plain `.md` on disk. Series organise them without moving them, and images you drop or paste are copied into an `images` folder beside the document. The **Publish** pill in the publishing surface's toolbar strip publishes the piece to [human-tokens.dev](../site): see *Publishing from Fold MD* in the [root README](../../README.md).
 
 ## Run it
 

@@ -5,7 +5,7 @@ import SwiftUI
 /// whole window, so without this its buttons would follow the window's right
 /// edge out over the page. This reserves the toolbar's trailing part, exactly
 /// as wide as the page, so the editor's buttons stay above the editor, and
-/// puts the page's own controls (Contents) there.
+/// puts the page's own controls there: Contents, and the Publish pill.
 @MainActor
 final class PageBar {
     let model = PageBarModel()
@@ -59,6 +59,8 @@ final class PageBarModel {
     var fileURL: URL?
     var seriesID: Series.ID?
     var showingContents = false
+    /// Publishing this document (the pill, and the sheet behind it).
+    let publish = PublishFlow()
     @ObservationIgnored var onOpenPart: (URL, Series.ID?) -> Void = { _, _ in }
     @ObservationIgnored var onHeading: (Int) -> Void = { _ in }
 }
@@ -79,7 +81,8 @@ private struct PageBarContent: View {
             .popover(isPresented: $model.showingContents, arrowEdge: .bottom) {
                 ContentsList(model: model)
             }
-            Spacer(minLength: 0)
+            Spacer(minLength: 12)
+            PublishPill(flow: model.publish)
         }
         .padding(.horizontal, 12)
         .frame(maxWidth: .infinity, maxHeight: .infinity)

@@ -48,13 +48,32 @@ To turn on Google and GitHub, copy `apps/site/.dev.vars.example` to `apps/site/.
 A GitHub OAuth app has one callback URL, so the live site will need its own app (`https://human-tokens.dev/api/auth/callback/github`); a Google client can list both redirect URIs.
 Signing in with Google and GitHub under the same verified email leads to the same person.
 
-A real account becomes an author when it publishes from Fold MD (not built yet).
-Until then, to link yourself to a sample author locally:
+A real account becomes an author the first time it publishes from Fold MD (below).
+To link yourself to a sample author locally instead, use the Dev sign-in "as an author".
 
-```bash
-cd apps/site
-npx wrangler d1 execute DB --local --command "UPDATE authors SET user_id = (SELECT id FROM users WHERE email = 'you@example.com') WHERE handle = 'mara'"
-```
+## Publishing from Fold MD
+
+Pieces are published from Fold MD, never written on the site.
+Open the publishing surface (⌥⌘P); its strip of the toolbar has a **Publish** pill.
+
+1. **Connect, the first time.** Fold MD shows a short code (like `KQ4M-7TXD`) and an *Open human-tokens.dev* button.
+   The site's `/connect` page asks you to sign in with Google or GitHub if you aren't, shows the code, and asks *Let Fold MD publish as you?*
+   Click **Allow**: Fold MD notices within seconds and keeps its token in your login Keychain (*Fold MD · human-tokens.dev*).
+   Your password is only ever typed on Google's or GitHub's own page.
+2. **Your first publish.** Choose your author name (filled in from your account) and a handle.
+3. **Publish.** The sheet shows the title and opening lines as the feed will, an *Open to debate* toggle, and the pledge: *I wrote this myself. No AI wrote or rewrote any of it.* Publishing needs the pledge every time.
+4. **Published · View** opens the piece on the site, where you have the author's tools.
+   Change the file and the pill reads **Update**: that replaces the text of the same post, keeping its link, reactions and comments.
+   **Unpublish** is in the pill's menu (it takes the post's reactions and comments with it), and so is *Disconnect*.
+
+Only the file's markdown is sent. Self-notes stay in their own hidden file and never leave your Mac.
+Each published file remembers its post in another hidden file beside it, `.Name.md.published`, so the `.md` stays plain markdown.
+A debug build of Fold MD publishes to `http://localhost:3100`; run the site first (`bun run dev` in `apps/site`).
+Pieces in a series are published one by one for now.
+
+How it works: Better Auth's [device authorization](https://www.better-auth.com/docs/plugins/device-authorization) (`client_id` `fold-md`) and `bearer` plugins, with the device codes in `migrations/0005_publishing.sql`.
+Fold MD then calls `/api/fold/*` (`apps/site/src/routes/api.fold.$.ts`) with `Authorization: Bearer <token>`; that API ignores cookies, so no web page can publish in your name.
+Each file sends a stable id with every publish, so publishing it again updates its post instead of making a second one.
 
 ## Run the editor
 

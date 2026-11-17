@@ -33,6 +33,7 @@ const sql: string[] = [
 	"DELETE FROM reactions;",
 	"DELETE FROM posts;",
 	"DELETE FROM authors;",
+	"DELETE FROM device_codes;",
 	"DELETE FROM sessions;",
 	"DELETE FROM accounts;",
 	"DELETE FROM users;",

@@ -84,3 +84,85 @@
 .auth-back {
 	margin-top: 40px;
 }
+
+/* ------------------------------------------------------------- connect */
+
+/* /connect: allowing Fold MD on your Mac to publish as you. The code is
+   the one thing to check, so it's set large, in the same letters Fold MD
+   shows it in. */
+.connect-icon {
+	display: block;
+	margin: 0 0 20px;
+}
+
+.connect-code {
+	padding: 1px 6px;
+	background: var(--fill);
+	border-radius: 6px;
+	font: 600 0.94em/1.2 ui-monospace, "SF Mono", Menlo, monospace;
+	letter-spacing: 0.04em;
+	white-space: nowrap;
+}
+
+.connect-code-large {
+	display: inline-block;
+	margin: 0 0 28px;
+	padding: 14px 22px;
+	background: var(--surface);
+	border: 1px solid var(--line);
+	border-radius: 16px;
+	font-size: clamp(28px, 8vw, 40px);
+	letter-spacing: 0.12em;
+}
+
+.connect-page .sign-in-prompt {
+	margin-top: 0;
+}
+
+.connect-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+	margin: 0 0 20px;
+}
+
+.connect-actions button {
+	padding: 11px 26px;
+	font-size: 17px;
+}
+
+.connect-deny {
+	background: var(--fill);
+	border: 0;
+	border-radius: 999px;
+	cursor: pointer;
+}
+
+.connect-deny:disabled {
+	opacity: 0.35;
+	cursor: default;
+}
+
+.connect-who {
+	color: var(--muted);
+	font-size: 15px;
+}
+
+.connect-enter {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.connect-enter input {
+	flex: 0 1 220px;
+	min-width: 0;
+	padding: 10px 16px;
+	background: var(--surface);
+	color: var(--ink);
+	border: 1px solid var(--line);
+	border-radius: 999px;
+	font: 600 17px/1.2 ui-monospace, "SF Mono", Menlo, monospace;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
