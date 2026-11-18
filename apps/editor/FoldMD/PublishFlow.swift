@@ -137,23 +137,30 @@ final class PublishFlow {
 
     // MARK: The file
 
-    /// The document's file changed: read what it remembers, or bring the
-    /// record along when it was renamed or moved.
+    /// The document's file changed: find what it was published as, or note
+    /// where the file is now when it was renamed or moved.
     func setFileURL(_ url: URL?) {
         guard url != fileURL else { return }
         let previous = fileURL
         fileURL = url
-        recordURL = url.map(PublishRecord.fileURL(for:))
-        guard let url else { record = nil; return }
-        if let previous, record != nil {
-            let source = PublishRecord.fileURL(for: previous), destination = PublishRecord.fileURL(for: url)
-            if FileManager.default.fileExists(atPath: source.path), !FileManager.default.fileExists(atPath: destination.path) {
-                try? FileManager.default.moveItem(at: source, to: destination)
-            }
+        guard let url else { recordURL = nil; record = nil; updateFixable(); return }
+        if previous != nil, let record, let recordURL {
+            keep(record, at: recordURL)
+        } else {
+            let found = PublishedFiles.find(for: url, site: PublishSite.base.absoluteString)
+            recordURL = found?.location ?? PublishedFiles.newLocation()
+            record = found?.record
         }
-        record = PublishRecord.read(at: PublishRecord.fileURL(for: url)).flatMap { $0.site == PublishSite.base.absoluteString ? $0 : nil }
         updateFixable()
         if step == .save { start() }
+    }
+
+    /// Save the record, noting where its file is now (a file's, not a series').
+    private func keep(_ record: PublishRecord, at location: URL) {
+        var record = record
+        if !isSeries, let fileURL { PublishedFiles.stamp(&record, file: fileURL) }
+        PublishedFiles.write(record, to: location)
+        self.record = record
     }
 
     // MARK: A series
@@ -252,7 +259,7 @@ final class PublishFlow {
             defer { busy = false }
             do {
                 try await SiteAPI.unpublish(token, postID: record.postID)
-                PublishRecord.remove(at: recordURL)
+                PublishedFiles.remove(at: recordURL)
                 self.record = nil
                 updateFixable()
             } catch SiteAPI.Failure.notConnected {
@@ -473,16 +480,14 @@ final class PublishFlow {
     private func apply(_ post: SiteAPI.Post) {
         guard var record, let recordURL, record.postID == post.id else { return }
         record.fixableUntil = post.fixableUntilDate
-        record.write(to: recordURL)
-        self.record = record
+        keep(record, at: recordURL)
         updateFixable()
     }
 
     private func markLocked() {
         guard var record, let recordURL else { return }
         record.fixableUntil = nil
-        record.write(to: recordURL)
-        self.record = record
+        keep(record, at: recordURL)
         updateFixable()
     }
 
@@ -503,7 +508,7 @@ final class PublishFlow {
     /// Unpublished on the site: this file can be published afresh.
     private func forgetGonePost() {
         guard let recordURL else { return }
-        PublishRecord.remove(at: recordURL)
+        PublishedFiles.remove(at: recordURL)
         record = nil
         updateFixable()
     }
@@ -556,8 +561,7 @@ final class PublishFlow {
                                            url: post.url, title: post.title,
                                            publishedHash: PublishRecord.hash(markdown), publishedAt: Date(),
                                            fixableUntil: post.fixableUntilDate)
-                record.write(to: recordURL)
-                self.record = record
+                keep(record, at: recordURL)
                 updateFixable()
                 followsLink = ""
                 step = nil

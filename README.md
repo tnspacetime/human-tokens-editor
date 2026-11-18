@@ -77,11 +77,11 @@ To delete a piece, open it while signed in as its author: **Delete…** is at it
 **Unpublish** in the pill's menu does the same from Fold MD, and *Disconnect* is there too.
 
 Only the file's markdown is sent. Self-notes stay in their own hidden file and never leave your Mac.
-Each published file remembers its post in another hidden file beside it, `.Name.md.published`, so the `.md` stays plain markdown.
+Fold MD remembers which post each file became in its own folder, `Application Support/Fold MD/published/`, so your folders hold only your markdown. It finds the file again after you rename or move it. (Older versions kept a hidden `.Name.md.published` beside the file; Fold MD moves those in the first time it opens the file.)
 A debug build of Fold MD publishes to `http://localhost:3100`; run the site first (`bun run dev` in `apps/site`).
 A **series** is published whole, as one piece: open it in the series sidebar (⌃⌘S) and use the **Publish** pill at its foot.
 The parts are joined in the sidebar's order, each part a chapter (its `# Title` becomes the chapter's heading), and on the site a small island at the foot of the page shows the part you're in and opens the list of parts.
-It then follows the same rules as any piece: the fix window, P.S. and follow-ups. Fold MD remembers a series' post in `Application Support/Fold MD/published/`.
+It then follows the same rules as any piece: the fix window, P.S. and follow-ups.
 
 How it works: Better Auth's [device authorization](https://www.better-auth.com/docs/plugins/device-authorization) (`client_id` `fold-md`) and `bearer` plugins, with the device codes in `migrations/0005_publishing.sql`.
 Fold MD then calls `/api/fold/*` (`apps/site/src/routes/api.fold.$.ts`) with `Authorization: Bearer <token>`; that API ignores cookies, so no web page can publish in your name.

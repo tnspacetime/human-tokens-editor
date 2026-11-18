@@ -258,8 +258,8 @@ enum PublishToken {
 
 // MARK: - What a file remembers
 
-/// The post a file became: kept in a hidden file next to it
-/// (".Name.md.published"), like self-notes, so the .md stays plain markdown.
+/// The post a file (or a series) became, kept in Fold MD's own folder
+/// (see PublishedFiles), so your folders hold only your markdown.
 struct PublishRecord: Codable, Equatable {
     var version = 1
     /// The site it's published on.
@@ -275,16 +275,26 @@ struct PublishRecord: Codable, Equatable {
     /// Until when it can still be fixed, as the site last said; nil once
     /// it's locked (or for records from before the fix window).
     var fixableUntil: Date?
+    /// The file it was published from: where it was last seen, and a macOS
+    /// bookmark that keeps finding it after it's renamed or moved. (None
+    /// for a series, whose record is named after it.)
+    var path: String?
+    var bookmark: Data?
 
-    /// Where a file's record lives: beside it.
-    static func fileURL(for document: URL) -> URL {
-        document.deletingLastPathComponent().appending(path: ".\(document.lastPathComponent).published")
+    /// Where Fold MD keeps what it published.
+    static var folder: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appending(path: "Fold MD/published")
     }
 
-    /// Where a series' record lives: in the app, next to the series themselves.
+    /// Where a series' record lives: named after the series.
     static func fileURL(forSeries id: Series.ID) -> URL {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appending(path: "Fold MD/published/series-\(id.uuidString).json")
+        folder.appending(path: "series-\(id.uuidString).json")
+    }
+
+    /// Where a file's record used to live: in a hidden file beside it.
+    static func legacyURL(for document: URL) -> URL {
+        document.deletingLastPathComponent().appending(path: ".\(document.lastPathComponent).published")
     }
 
     static func read(at location: URL) -> PublishRecord? {
@@ -309,5 +319,86 @@ struct PublishRecord: Codable, Equatable {
 
     static func hash(_ text: String) -> String {
         SHA256.hash(data: Data(text.utf8)).map { String(format: "%02x", $0) }.joined()
+    }
+}
+
+/// The records of published files, in Fold MD's own folder
+/// (Application Support/Fold MD/published/file-<id>.json), read once and
+/// kept in memory. A record finds its file by path, or by its bookmark
+/// when the file was renamed or moved while Fold MD wasn't looking.
+@MainActor
+enum PublishedFiles {
+    private static var cache: [URL: PublishRecord]?
+
+    /// Where a file that hasn't been published yet will keep its record.
+    static func newLocation() -> URL {
+        PublishRecord.folder.appending(path: "file-\(UUID().uuidString).json")
+    }
+
+    /// This document's record for `site`, if it has one.
+    static func find(for document: URL, site: String) -> (location: URL, record: PublishRecord)? {
+        if let adopted = adoptLegacy(for: document, site: site) { return adopted }
+        let path = document.standardizedFileURL.path
+        let mine = all().filter { $0.value.site == site }
+        if let hit = mine.first(where: { $0.value.path == path }) { return (hit.key, hit.value) }
+        // Renamed or moved since: ask the bookmarks of records whose file
+        // isn't where it was.
+        for (location, record) in mine where !(record.path.map(FileManager.default.fileExists(atPath:)) ?? false) {
+            guard let data = record.bookmark else { continue }
+            var stale = false
+            guard let url = try? URL(resolvingBookmarkData: data, options: [.withoutUI, .withoutMounting],
+                                     relativeTo: nil, bookmarkDataIsStale: &stale),
+                  url.standardizedFileURL.path == path else { continue }
+            var moved = record
+            stamp(&moved, file: document)
+            write(moved, to: location)
+            return (location, moved)
+        }
+        return nil
+    }
+
+    /// Note where the file is now.
+    static func stamp(_ record: inout PublishRecord, file: URL) {
+        record.path = file.standardizedFileURL.path
+        record.bookmark = try? file.bookmarkData()
+    }
+
+    static func write(_ record: PublishRecord, to location: URL) {
+        record.write(to: location)
+        if isFileRecord(location) { cache?[location] = record }
+    }
+
+    static func remove(at location: URL) {
+        PublishRecord.remove(at: location)
+        cache?[location] = nil
+    }
+
+    private static func isFileRecord(_ location: URL) -> Bool {
+        location.lastPathComponent.hasPrefix("file-") && location.pathExtension == "json"
+    }
+
+    private static func all() -> [URL: PublishRecord] {
+        if let cache { return cache }
+        let urls = (try? FileManager.default.contentsOfDirectory(at: PublishRecord.folder, includingPropertiesForKeys: nil)) ?? []
+        var found: [URL: PublishRecord] = [:]
+        for url in urls where isFileRecord(url) {
+            if let record = PublishRecord.read(at: url) { found[url] = record }
+        }
+        cache = found
+        return found
+    }
+
+    /// A record from before, in a hidden file beside the document: move it
+    /// into Fold MD's folder and remove the hidden file.
+    private static func adoptLegacy(for document: URL, site: String) -> (location: URL, record: PublishRecord)? {
+        let old = PublishRecord.legacyURL(for: document)
+        guard var record = PublishRecord.read(at: old) else { return nil }
+        stamp(&record, file: document)
+        let location = newLocation()
+        _ = all()
+        write(record, to: location)
+        guard FileManager.default.fileExists(atPath: location.path) else { return nil }
+        try? FileManager.default.removeItem(at: old)
+        return record.site == site ? (location, record) : nil
     }
 }
