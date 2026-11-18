@@ -1,5 +1,6 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { BrandMark } from "../components/BrandMark";
+import { SeriesIsland } from "../components/island/SeriesIsland";
 import { Byline } from "../components/PostCard";
 import { Postscripts } from "../components/Postscripts";
 import { getPost } from "../server/site.functions";
@@ -31,6 +32,7 @@ function PostRoute() {
 	// made of it rides in the island, see ReaderIsland).
 	const body = post.html.replace(/^<h1>[\s\S]*?<\/h1>\n?/, "");
 	return (
+		<>
 		<main className="post">
 			<Byline post={post} />
 			{post.follows && (
@@ -42,6 +44,7 @@ function PostRoute() {
 				</p>
 			)}
 			<h1 className="post-headline">{post.title}</h1>
+
 			{/* The markdown is rendered on the server by @human-tokens/renderer, which
 			    escapes any HTML in it; this is the same output as Fold MD's page. */}
 			<article className="fold-content post-body" dangerouslySetInnerHTML={{ __html: body }} />
@@ -63,5 +66,8 @@ function PostRoute() {
 			)}
 			<BrandMark className="end-mark" />
 		</main>
+		{/* A series: which part you're in, and the parts, at the foot. */}
+		{post.chapters.length > 0 && <SeriesIsland chapters={post.chapters} />}
+		</>
 	);
 }

@@ -112,6 +112,8 @@ struct PublishSheet: View {
         let until = flow.fixableUntil.map { " until \($0.formatted(date: .omitted, time: .shortened))" } ?? ""
         let message = flow.isFix
             ? "Nobody has reacted or commented yet, so you can still fix it\(until). After that its text is locked."
+            : flow.isSeries
+            ? "All \(flow.parts ?? 0) parts, joined into one piece in the sidebar's order, each part a chapter. For 15 minutes after you publish, until someone reacts or comments, you can still fix it. Then its text is locked."
             : "This is how it starts in the feed. For 15 minutes after you publish, until someone reacts or comments, you can still fix it. Then its text is locked, so it stays as readers saw it."
         return StepLayout(title: title, message: message) {
             Button("Cancel", role: .cancel) { flow.cancel() }

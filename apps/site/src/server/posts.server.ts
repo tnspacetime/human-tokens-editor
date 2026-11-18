@@ -13,12 +13,32 @@ const renderer = createRenderer({
 
 type PieceLink = { id: string; slug: string; title: string };
 
+/**
+ * A series' chapters are its h2s: give each an id to jump to, and list them
+ * for the contents at the top. A single piece has none.
+ */
+function chapters(html: string, parts: number | null) {
+	if (!parts) return { html, chapters: [] };
+	const list: { id: string; title: string }[] = [];
+	const marked = html.replace(/<h2>([\s\S]*?)<\/h2>/g, (_, inner: string) => {
+		const id = `part-${list.length + 1}`;
+		list.push({ id, title: plainText(inner) });
+		return `<h2 id="${id}">${inner}</h2>`;
+	});
+	return { html: marked, chapters: list };
+}
+
+const ENTITIES: Record<string, string> = { "&amp;": "&", "&lt;": "<", "&gt;": ">", "&quot;": '"', "&#39;": "'" };
+
+/** A rendered heading's text, without its tags. */
+const plainText = (html: string) => html.replace(/<[^>]+>/g, "").replace(/&(?:amp|lt|gt|quot|#39);/g, (e) => ENTITIES[e] ?? e);
+
 /** A piece, rendered, with its comments and what the viewer chose. */
 export async function loadPost(id: string, user: User | null): Promise<PostPage | null> {
 	const row = await db()
-		.prepare(`SELECT ${POST_COLUMNS}, p.markdown, a.user_id AS author_user_id FROM posts p JOIN authors a ON a.id = p.author_id WHERE p.id = ?`)
+		.prepare(`SELECT ${POST_COLUMNS}, p.markdown, p.parts, a.user_id AS author_user_id FROM posts p JOIN authors a ON a.id = p.author_id WHERE p.id = ?`)
 		.bind(id)
-		.first<PostRow & { markdown: string; author_user_id: string | null }>();
+		.first<PostRow & { markdown: string; parts: number | null; author_user_id: string | null }>();
 	if (!row) return null;
 
 	const [counts, mine, comments, postscripts, follows, followUps] = await Promise.all([
@@ -53,7 +73,7 @@ export async function loadPost(id: string, user: User | null): Promise<PostPage 
 
 	return {
 		...toFeedItem(row, counts.get(id) ?? {}),
-		html: renderer.render(row.markdown),
+		...chapters(renderer.render(row.markdown), row.parts),
 		allowDebate: row.allow_debate === 1,
 		mine: mine.results.map((r) => r.quality),
 		follows: follows ?? null,

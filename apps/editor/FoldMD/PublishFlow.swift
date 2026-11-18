@@ -47,6 +47,14 @@ final class PublishFlow {
     }
 
     private(set) var fileURL: URL?
+    /// Where this file's (or series') record of its post lives.
+    private(set) var recordURL: URL?
+
+    /// Publishing a whole series: how many parts, and how to put them
+    /// together into one piece (read fresh each time). nil for a file.
+    private(set) var parts: Int?
+    @ObservationIgnored private var joinParts: (() async throws -> (markdown: String, parts: Int))?
+    var isSeries: Bool { joinParts != nil }
     private(set) var record: PublishRecord?
     private var textHash = ""
     /// The document's text, as it is now.
@@ -135,6 +143,7 @@ final class PublishFlow {
         guard url != fileURL else { return }
         let previous = fileURL
         fileURL = url
+        recordURL = url.map(PublishRecord.fileURL(for:))
         guard let url else { record = nil; return }
         if let previous, record != nil {
             let source = PublishRecord.fileURL(for: previous), destination = PublishRecord.fileURL(for: url)
@@ -142,9 +151,35 @@ final class PublishFlow {
                 try? FileManager.default.moveItem(at: source, to: destination)
             }
         }
-        record = PublishRecord.read(for: url).flatMap { $0.site == PublishSite.base.absoluteString ? $0 : nil }
+        record = PublishRecord.read(at: PublishRecord.fileURL(for: url)).flatMap { $0.site == PublishSite.base.absoluteString ? $0 : nil }
         updateFixable()
         if step == .save { start() }
+    }
+
+    // MARK: A series
+
+    /// A flow for publishing a whole series, set up from the start.
+    convenience init(series id: Series.ID) {
+        self.init()
+        setSeries(id) { try await SeriesJoin.join(id) }
+    }
+
+    /// Publish a whole series as one piece: `join` puts its parts together.
+    func setSeries(_ id: Series.ID, join: @escaping () async throws -> (markdown: String, parts: Int)) {
+        let location = PublishRecord.fileURL(forSeries: id)
+        joinParts = join
+        guard location != recordURL else { return }
+        recordURL = location
+        record = PublishRecord.read(at: location).flatMap { $0.site == PublishSite.base.absoluteString ? $0 : nil }
+        updateFixable()
+    }
+
+    /// Put the series' parts together again, to tell whether it's changed
+    /// since it was published.
+    func refreshSeries() async {
+        guard let joinParts, let joined = try? await joinParts() else { return }
+        text = joined.markdown
+        parts = joined.parts
     }
 
     // MARK: The pill
@@ -153,7 +188,28 @@ final class PublishFlow {
     func start() {
         goal = .publish
         error = nil
-        guard fileURL != nil else { step = .save; return }
+        guard recordURL != nil else { step = .save; return }
+        if let joinParts {
+            // A series: put the parts together first, as they are now.
+            step = .working("Putting the parts together…")
+            Task {
+                do {
+                    let joined = try await joinParts()
+                    text = joined.markdown
+                    parts = joined.parts
+                } catch {
+                    step = .failed(error.localizedDescription)
+                    return
+                }
+                guard step != nil else { return }
+                continueStart()
+            }
+            return
+        }
+        continueStart()
+    }
+
+    private func continueStart() {
         if record != nil && !fixable { step = .locked; return }
         guard let token = PublishToken.current else { connect(); return }
         step = .working("Checking your account…")
@@ -190,13 +246,13 @@ final class PublishFlow {
     }
 
     func unpublish() {
-        guard let record, let fileURL, let token = PublishToken.current else { return }
+        guard let record, let recordURL, let token = PublishToken.current else { return }
         busy = true
         Task {
             defer { busy = false }
             do {
                 try await SiteAPI.unpublish(token, postID: record.postID)
-                PublishRecord.remove(for: fileURL)
+                PublishRecord.remove(at: recordURL)
                 self.record = nil
                 updateFixable()
             } catch SiteAPI.Failure.notConnected {
@@ -415,17 +471,17 @@ final class PublishFlow {
 
     /// Remember what the site says about the piece now.
     private func apply(_ post: SiteAPI.Post) {
-        guard var record, let fileURL, record.postID == post.id else { return }
+        guard var record, let recordURL, record.postID == post.id else { return }
         record.fixableUntil = post.fixableUntilDate
-        record.write(for: fileURL)
+        record.write(to: recordURL)
         self.record = record
         updateFixable()
     }
 
     private func markLocked() {
-        guard var record, let fileURL else { return }
+        guard var record, let recordURL else { return }
         record.fixableUntil = nil
-        record.write(for: fileURL)
+        record.write(to: recordURL)
         self.record = record
         updateFixable()
     }
@@ -446,8 +502,8 @@ final class PublishFlow {
 
     /// Unpublished on the site: this file can be published afresh.
     private func forgetGonePost() {
-        guard let fileURL else { return }
-        PublishRecord.remove(for: fileURL)
+        guard let recordURL else { return }
+        PublishRecord.remove(at: recordURL)
         record = nil
         updateFixable()
     }
@@ -485,7 +541,7 @@ final class PublishFlow {
     }
 
     func publish() {
-        guard canPublish, let fileURL, let token = PublishToken.current else { return }
+        guard canPublish, let recordURL, let token = PublishToken.current else { return }
         let markdown = text
         let sourceID = record?.sourceID ?? UUID().uuidString
         // Only a new piece can follow up an earlier one.
@@ -495,12 +551,12 @@ final class PublishFlow {
         Task {
             defer { busy = false }
             do {
-                let post = try await SiteAPI.publish(token, sourceID: sourceID, markdown: markdown, follows: followsID)
+                let post = try await SiteAPI.publish(token, sourceID: sourceID, markdown: markdown, follows: followsID, parts: parts)
                 let record = PublishRecord(site: PublishSite.base.absoluteString, sourceID: sourceID, postID: post.id,
                                            url: post.url, title: post.title,
                                            publishedHash: PublishRecord.hash(markdown), publishedAt: Date(),
                                            fixableUntil: post.fixableUntilDate)
-                record.write(for: fileURL)
+                record.write(to: recordURL)
                 self.record = record
                 updateFixable()
                 followsLink = ""
@@ -525,6 +581,8 @@ final class PublishFlow {
 /// View and Unpublish.
 struct PublishPill: View {
     @Bindable var flow: PublishFlow
+    /// Large in the toolbar; smaller at the foot of the series sidebar.
+    var size: ControlSize = .large
 
     var body: some View {
         Group {
@@ -567,7 +625,7 @@ struct PublishPill: View {
         .labelStyle(.titleAndIcon)
         .fixedSize()
         // Quiet once it's up and unchanged; prominent when there's something to do.
-        .publishPillStyle(prominent: !flow.isUpToDate)
+        .publishPillStyle(prominent: !flow.isUpToDate, size: size)
     }
 
     private var fixHelp: String {
@@ -638,15 +696,15 @@ struct PublishPillToolbarItem: ToolbarContent {
 }
 
 private extension View {
-    @ViewBuilder func publishPillStyle(prominent: Bool) -> some View {
+    @ViewBuilder func publishPillStyle(prominent: Bool, size: ControlSize) -> some View {
         if #available(macOS 26.0, *) {
             if prominent {
-                self.buttonStyle(.glassProminent).controlSize(.large)
+                self.buttonStyle(.glassProminent).controlSize(size)
             } else {
-                self.buttonStyle(.glass).controlSize(.large)
+                self.buttonStyle(.glass).controlSize(size)
             }
         } else {
-            self.menuStyle(.button).buttonStyle(.bordered).controlSize(.large)
+            self.menuStyle(.button).buttonStyle(.bordered).controlSize(size)
         }
     }
 }

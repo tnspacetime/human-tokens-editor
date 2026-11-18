@@ -181,6 +181,15 @@ export async function publish(
 	const allowDebate = input.allowDebate === true ? 1 : 0;
 	const now = new Date().toISOString();
 
+	// A whole series, joined into one piece by Fold MD: how many chapters.
+	let parts: number | null = null;
+	if (input.parts !== undefined && input.parts !== null) {
+		if (typeof input.parts !== "number" || !Number.isInteger(input.parts) || input.parts < 1 || input.parts > 200) {
+			throw new PublishError(400, "A series has 1 to 200 parts.");
+		}
+		parts = input.parts;
+	}
+
 	let follows: string | null = null;
 	if (input.follows !== undefined && input.follows !== null) {
 		if (typeof input.follows !== "string" || !(await ownPost(author, postId(input.follows)))) {
@@ -201,10 +210,10 @@ export async function publish(
 	// that lands in between still locks it.
 	const { meta } = await db()
 		.prepare(
-			`INSERT INTO posts (id, author_id, source_id, slug, title, excerpt, markdown, word_count, shape, opening, allow_debate, pledged_at, published_at, updated_at, follows)
-			 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?12, ?12, ?14)
+			`INSERT INTO posts (id, author_id, source_id, slug, title, excerpt, markdown, word_count, shape, opening, allow_debate, pledged_at, published_at, updated_at, follows, parts)
+			 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?12, ?12, ?14, ?15)
 			 ON CONFLICT (id) DO UPDATE SET slug = ?4, title = ?5, excerpt = ?6, markdown = ?7, word_count = ?8,
-			   shape = ?9, opening = ?10, allow_debate = ?11, pledged_at = ?12, updated_at = ?12
+			   shape = ?9, opening = ?10, allow_debate = ?11, pledged_at = ?12, updated_at = ?12, parts = ?15
 			 WHERE posts.author_id = ?2 AND posts.published_at > ?13
 			   AND NOT EXISTS (SELECT 1 FROM reactions WHERE post_id = posts.id)
 			   AND NOT EXISTS (SELECT 1 FROM comments WHERE post_id = posts.id)`,
@@ -224,6 +233,7 @@ export async function publish(
 			now,
 			new Date(Date.parse(now) - FIX_WINDOW_MS).toISOString(),
 			follows,
+			parts,
 		)
 		.run();
 	if (!meta.changes) throw new PublishError(existing ? 423 : 500, existing ? LOCKED : "The piece didn't save. Try again.");

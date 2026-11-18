@@ -132,8 +132,21 @@ private struct SeriesContents: View {
 
     @State private var title = ""
     @State private var deleting = false
+    /// Publishing the whole series as one piece (the pill at the foot).
+    @State private var publish: PublishFlow
     @FocusState private var editingTitle: Bool
     private var library: SeriesLibrary { .shared }
+
+    init(series: Series, currentFile: URL?, currentTitle: String, back: @escaping () -> Void,
+         open: @escaping (URL, Series.ID) -> Void) {
+        self.series = series
+        self.currentFile = currentFile
+        self.currentTitle = currentTitle
+        self.back = back
+        self.open = open
+        // Set up for this series from the start (the view is remade per series).
+        _publish = State(initialValue: PublishFlow(series: series.id))
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -191,6 +204,11 @@ private struct SeriesContents: View {
 
                 Spacer()
 
+                if !series.parts.isEmpty {
+                    PublishPill(flow: publish, size: .regular)
+                        .help("Publish the whole series as one piece, each part a chapter")
+                }
+
                 Menu {
                     Button("Delete Series…", role: .destructive) { deleting = true }
                 } label: {
@@ -206,6 +224,28 @@ private struct SeriesContents: View {
         .onAppear {
             title = series.title
             if series.title == "Untitled Series" { editingTitle = true }
+        }
+        .task(id: series) {
+            // Whether it has changed since it was published.
+            await publish.refreshSeries()
+        }
+        #if DEBUG
+        // Lets tests publish the series without clicking:
+        // "md.fold.app.seriesPublish", logging where the flow stands.
+        .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.seriesPublish"))) { _ in
+            publish.start()
+            Task {
+                try? await Task.sleep(for: .seconds(2))
+                let line = "series publish: [\(series.title)] step=\(String(describing: publish.step)) parts=\(publish.parts.map(String.init) ?? "-") pill=\(publish.pill)\n"
+                let log = FileManager.default.temporaryDirectory.appending(path: "foldmd-probe.log")
+                if let handle = try? FileHandle(forWritingTo: log) {
+                    handle.seekToEndOfFile(); handle.write(Data(line.utf8)); try? handle.close()
+                } else { try? Data(line.utf8).write(to: log) }
+            }
+        }
+        #endif
+        .sheet(isPresented: Binding(get: { publish.step != nil }, set: { if !$0 { publish.cancel() } })) {
+            PublishSheet(flow: publish)
         }
         .confirmationDialog("Delete “\(series.title)”?", isPresented: $deleting) {
             Button("Delete Series", role: .destructive) {

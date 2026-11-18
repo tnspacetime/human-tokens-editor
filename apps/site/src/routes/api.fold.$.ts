@@ -17,8 +17,9 @@ import {
 //   GET    /api/fold/me              who you are, and your author name if you have one
 //   POST   /api/fold/author          { name, handle }: become an author (once)
 //   POST   /api/fold/preview         { markdown }: the title and opening lines the feed will show
-//   PUT    /api/fold/posts           { sourceId, markdown, follows?, pledge: true }: publish, or fix;
-//                                    follows: the id of an earlier piece of yours this new one follows up
+//   PUT    /api/fold/posts           { sourceId, markdown, follows?, parts?, pledge: true }: publish, or fix;
+//                                    follows: the id of an earlier piece of yours this new one follows up;
+//                                    parts: for a whole series joined into one piece, how many chapters (h2s)
 //                                    (only for 15 minutes, and until anyone reacts or comments; then 423)
 //   GET    /api/fold/posts/<id>      one of your posts as it stands, with fixableUntil (null once locked)
 //                                    and its postscripts

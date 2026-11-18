@@ -293,6 +293,11 @@
 	margin-bottom: 0;
 }
 
+/* Jumping to a part leaves room for the island above it. */
+.post-body h2[id] {
+	scroll-margin-top: 120px;
+}
+
 /* A follow-up says which piece it follows, between the byline and the
    headline. */
 .post-follows {

@@ -54,6 +54,8 @@ export type PostPage = FeedItem & {
 	allowDebate: boolean;
 	/** The qualities the viewer chose (none when signed out). */
 	mine: Quality[];
+	/** A whole series published as one piece: its chapters, for the contents (none for a single piece). */
+	chapters: { id: string; title: string }[];
 	/** The earlier piece of the author's that this one follows up. */
 	follows: { id: string; slug: string; title: string } | null;
 	/** Later pieces of the author's that follow this one up, oldest first. */

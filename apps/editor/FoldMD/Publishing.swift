@@ -145,9 +145,12 @@ enum SiteAPI {
     }
 
     /// `follows`: the post a new piece follows up (a follow-up).
-    static func publish(_ token: String, sourceID: String, markdown: String, follows: String? = nil) async throws -> Post {
+    /// `parts`: a whole series joined into one piece, with this many chapters.
+    static func publish(_ token: String, sourceID: String, markdown: String, follows: String? = nil,
+                        parts: Int? = nil) async throws -> Post {
         var body: [String: Any] = ["sourceId": sourceID, "markdown": markdown, "pledge": true]
         if let follows { body["follows"] = follows }
+        if let parts { body["parts"] = parts }
         return try await send("PUT", "api/fold/posts", body: body, token: token)
     }
 
@@ -273,27 +276,35 @@ struct PublishRecord: Codable, Equatable {
     /// it's locked (or for records from before the fix window).
     var fixableUntil: Date?
 
+    /// Where a file's record lives: beside it.
     static func fileURL(for document: URL) -> URL {
         document.deletingLastPathComponent().appending(path: ".\(document.lastPathComponent).published")
     }
 
-    static func read(for document: URL) -> PublishRecord? {
-        guard let data = try? Data(contentsOf: fileURL(for: document)) else { return nil }
+    /// Where a series' record lives: in the app, next to the series themselves.
+    static func fileURL(forSeries id: Series.ID) -> URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appending(path: "Fold MD/published/series-\(id.uuidString).json")
+    }
+
+    static func read(at location: URL) -> PublishRecord? {
+        guard let data = try? Data(contentsOf: location) else { return nil }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         return try? decoder.decode(PublishRecord.self, from: data)
     }
 
-    func write(for document: URL) {
+    func write(to location: URL) {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
         guard let data = try? encoder.encode(self) else { return }
-        try? data.write(to: Self.fileURL(for: document), options: .atomic)
+        try? FileManager.default.createDirectory(at: location.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? data.write(to: location, options: .atomic)
     }
 
-    static func remove(for document: URL) {
-        try? FileManager.default.removeItem(at: fileURL(for: document))
+    static func remove(at location: URL) {
+        try? FileManager.default.removeItem(at: location)
     }
 
     static func hash(_ text: String) -> String {
