@@ -65,8 +65,10 @@ Open the publishing surface (⌥⌘P); its strip of the toolbar has a **Publish*
 4. **Published · View** opens the piece on the site, where you have the author's tools.
    Once a piece is published, the pill also sits in the window's own toolbar while the publishing surface is closed.
 5. **Fix, for a short while.** For 15 minutes after publishing, and only until someone reacts or comments, you can still fix the piece: change the file and the pill reads **Fix**.
-   After that its text is locked, so what readers reacted to stays what's there. The site enforces it (`423 Locked`), and your later changes stay on your Mac.
-6. **Add a P.S.** From the pill's menu, add a short note (at most 150 words) at the end of the piece, dated, with the pledge.
+   After that its text is locked, so what readers reacted to stays what's there. The site enforces it (`423 Locked`).
+6. **Follow up.** To say more once a piece is locked, write a new piece. When you publish it, paste the earlier piece's link where the sheet asks what it follows up (*Copy Link* is in the earlier piece's pill menu).
+   The site checks the earlier piece is yours. The new piece then says *Follows …* under its byline, and the earlier piece, which stays as it was, points forward to it.
+7. **Add a P.S.** From the pill's menu, add a short note (at most 150 words) at the end of the piece, dated, with the pledge.
    It's how you add a correction or a thought once the text is locked. A P.S. can't be changed or removed.
 
 **Unpublish** is in the pill's menu (it takes the post's reactions, comments and P.S.es with it), and so is *Disconnect*.

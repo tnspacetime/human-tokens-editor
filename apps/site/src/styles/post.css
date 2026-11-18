@@ -293,6 +293,59 @@
 	margin-bottom: 0;
 }
 
+/* A follow-up says which piece it follows, between the byline and the
+   headline. */
+.post-follows {
+	margin: -4px 0 14px;
+	color: var(--muted);
+	font: 600 14px/1.29 var(--sans);
+	letter-spacing: -0.016em;
+}
+
+.post-follows a {
+	color: var(--ink);
+	text-decoration: underline;
+	text-decoration-color: var(--line-strong);
+	text-underline-offset: 3px;
+}
+
+.post-follows a:hover {
+	text-decoration-color: currentColor;
+}
+
+/* The earlier piece points forward to its follow-ups, at the very end. */
+.post-followups {
+	margin-top: 44px;
+	padding-top: 24px;
+	border-top: 1px solid var(--line);
+}
+
+.post-followups-label {
+	margin: 0 0 8px;
+	color: var(--muted);
+	font: 700 12px/1.33 var(--sans);
+	letter-spacing: 0.02em;
+	text-transform: uppercase;
+}
+
+.post-followup {
+	display: block;
+	width: fit-content;
+	color: var(--ink);
+	font: 700 21px/27px var(--display);
+	text-decoration: none;
+	text-wrap: balance;
+}
+
+.post-followup + .post-followup {
+	margin-top: 8px;
+}
+
+.post-followup:hover {
+	text-decoration: underline;
+	text-underline-offset: 4px;
+}
+
 /* The author's P.S.es under the piece: after a hairline, a size down. */
 .postscripts {
 	margin-top: 44px;

@@ -4,8 +4,8 @@ import { db } from "./rows.server";
 
 // Publishing from Fold MD: who is asking (by the token Fold MD got when you
 // connected it), becoming an author on your first publish, and publishing,
-// fixing (only in the fix window), adding a P.S. and unpublishing your own
-// pieces. The HTTP side is routes/api.fold.$.ts.
+// fixing (only in the fix window), following up, adding a P.S. and
+// unpublishing your own pieces. The HTTP side is routes/api.fold.$.ts.
 
 /** A refusal Fold MD can show as it is. */
 export class PublishError extends Error {
@@ -164,7 +164,8 @@ const toPublished = (row: PostRow, origin: string): Published => ({
 /**
  * Publish a file, or fix the post it was published as, while that's still
  * allowed (see FIX_WINDOW_MINUTES); after that, 423 Locked. `sourceId` is
- * Fold MD's id for the file. Every publish asks for the pledge.
+ * Fold MD's id for the file. `follows`, on a new piece, is the id of an
+ * earlier piece of yours it follows up. Every publish asks for the pledge.
  */
 export async function publish(
 	publisher: Publisher,
@@ -180,10 +181,19 @@ export async function publish(
 	const allowDebate = input.allowDebate === true ? 1 : 0;
 	const now = new Date().toISOString();
 
+	let follows: string | null = null;
+	if (input.follows !== undefined && input.follows !== null) {
+		if (typeof input.follows !== "string" || !(await ownPost(author, postId(input.follows)))) {
+			throw new PublishError(404, "That isn't one of your pieces on the site, so this can't follow it up.");
+		}
+		follows = input.follows;
+	}
+
 	const existing = await db()
 		.prepare(`SELECT id, published_at, ${TOUCHED} AS touched FROM posts p WHERE author_id = ? AND source_id = ?`)
 		.bind(author.id, input.sourceId)
 		.first<Pick<PostRow, "id" | "published_at" | "touched">>();
+	if (existing && follows) throw new PublishError(409, "A follow-up is a new piece: it needs a new file id.");
 	if (existing && !fixableUntil(existing)) throw new PublishError(423, LOCKED);
 	const id = existing?.id ?? randomId(8);
 
@@ -191,8 +201,8 @@ export async function publish(
 	// that lands in between still locks it.
 	const { meta } = await db()
 		.prepare(
-			`INSERT INTO posts (id, author_id, source_id, slug, title, excerpt, markdown, word_count, shape, opening, allow_debate, pledged_at, published_at, updated_at)
-			 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?12, ?12)
+			`INSERT INTO posts (id, author_id, source_id, slug, title, excerpt, markdown, word_count, shape, opening, allow_debate, pledged_at, published_at, updated_at, follows)
+			 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?12, ?12, ?14)
 			 ON CONFLICT (id) DO UPDATE SET slug = ?4, title = ?5, excerpt = ?6, markdown = ?7, word_count = ?8,
 			   shape = ?9, opening = ?10, allow_debate = ?11, pledged_at = ?12, updated_at = ?12
 			 WHERE posts.author_id = ?2 AND posts.published_at > ?13
@@ -213,6 +223,7 @@ export async function publish(
 			allowDebate,
 			now,
 			new Date(Date.parse(now) - FIX_WINDOW_MS).toISOString(),
+			follows,
 		)
 		.run();
 	if (!meta.changes) throw new PublishError(existing ? 423 : 500, existing ? LOCKED : "The piece didn't save. Try again.");

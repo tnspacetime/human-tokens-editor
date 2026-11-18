@@ -137,14 +137,35 @@ struct PublishSheet: View {
             }
             .toggleStyle(.checkbox)
             .disabled(flow.busy)
+            if !flow.isFix { followsField }
             ErrorLine(flow.error)
+        }
+    }
+
+    /// A new piece can follow up an earlier one of yours: paste its link.
+    private var followsField: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Follows up an earlier piece of yours? (optional)")
+                .font(.callout)
+            TextField("Paste its link", text: $flow.followsLink)
+                .textFieldStyle(.roundedBorder)
+                .disabled(flow.busy)
+            if let earlier = flow.follows {
+                Label("Follows “\(earlier.title)”. That piece will point forward to this one.", systemImage: "checkmark.circle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.green)
+            } else if let problem = flow.followsProblem {
+                Text(problem)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
         }
     }
 
     private var locked: some View {
         StepLayout(title: "Its text is locked",
-                   message: "“\(flow.record?.title ?? "This piece")” has been up for more than 15 minutes, or someone has reacted or commented, so it stays as readers saw it. Your changes stay on your Mac.") {
-            Button("View on \(PublishSite.name)") { flow.view(); flow.cancel() }
+                   message: "“\(flow.record?.title ?? "This piece")” has been up for more than 15 minutes, or someone has reacted or commented, so it stays as readers saw it. Your changes stay on your Mac.\n\nTo say more, add a P.S., or write a new piece and paste this one's link when you publish it, as the piece it follows up.") {
+            Button("Copy Link") { flow.copyLink() }
             Button("OK") { flow.cancel() }
                 .keyboardShortcut(.defaultAction)
         }

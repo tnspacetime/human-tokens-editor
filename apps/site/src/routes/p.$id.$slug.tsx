@@ -1,4 +1,4 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { BrandMark } from "../components/BrandMark";
 import { Byline } from "../components/PostCard";
 import { Postscripts } from "../components/Postscripts";
@@ -33,6 +33,14 @@ function PostRoute() {
 	return (
 		<main className="post">
 			<Byline post={post} />
+			{post.follows && (
+				<p className="post-follows">
+					Follows{" "}
+					<Link to="/p/$id/$slug" params={{ id: post.follows.id, slug: post.follows.slug }}>
+						{post.follows.title}
+					</Link>
+				</p>
+			)}
 			<h1 className="post-headline">{post.title}</h1>
 			{/* The markdown is rendered on the server by @human-tokens/renderer, which
 			    escapes any HTML in it; this is the same output as Fold MD's page. */}
@@ -41,6 +49,17 @@ function PostRoute() {
 				<section id="ps" className="postscripts" aria-label="Postscripts">
 					<Postscripts post={post} />
 				</section>
+			)}
+			{post.followUps.length > 0 && (
+				<nav className="post-followups" aria-label="Follow-ups">
+					<p className="post-followups-label">{post.followUps.length === 1 ? "There's a follow-up" : "There are follow-ups"}</p>
+					{post.followUps.map((next) => (
+						<Link key={next.id} to="/p/$id/$slug" params={{ id: next.id, slug: next.slug }} className="post-followup">
+							{next.title}
+							<span aria-hidden="true"> →</span>
+						</Link>
+					))}
+				</nav>
 			)}
 			<BrandMark className="end-mark" />
 		</main>

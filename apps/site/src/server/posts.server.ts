@@ -11,6 +11,8 @@ const renderer = createRenderer({
 	unresolvedImageLabel: "Image not uploaded yet",
 });
 
+type PieceLink = { id: string; slug: string; title: string };
+
 /** A piece, rendered, with its comments and what the viewer chose. */
 export async function loadPost(id: string, user: User | null): Promise<PostPage | null> {
 	const row = await db()
@@ -19,7 +21,7 @@ export async function loadPost(id: string, user: User | null): Promise<PostPage 
 		.first<PostRow & { markdown: string; author_user_id: string | null }>();
 	if (!row) return null;
 
-	const [counts, mine, comments, postscripts] = await Promise.all([
+	const [counts, mine, comments, postscripts, follows, followUps] = await Promise.all([
 		qualityCounts([id]),
 		user
 			? db()
@@ -38,6 +40,15 @@ export async function loadPost(id: string, user: User | null): Promise<PostPage 
 			.prepare("SELECT id, body, created_at FROM postscripts WHERE post_id = ? ORDER BY created_at")
 			.bind(id)
 			.all<{ id: string; body: string; created_at: string }>(),
+		// The earlier piece this one follows up, and the pieces that follow it up.
+		db()
+			.prepare("SELECT e.id, e.slug, e.title FROM posts p JOIN posts e ON e.id = p.follows WHERE p.id = ?")
+			.bind(id)
+			.first<PieceLink>(),
+		db()
+			.prepare("SELECT id, slug, title FROM posts WHERE follows = ? ORDER BY published_at")
+			.bind(id)
+			.all<PieceLink>(),
 	]);
 
 	return {
@@ -45,6 +56,8 @@ export async function loadPost(id: string, user: User | null): Promise<PostPage 
 		html: renderer.render(row.markdown),
 		allowDebate: row.allow_debate === 1,
 		mine: mine.results.map((r) => r.quality),
+		follows: follows ?? null,
+		followUps: followUps.results,
 		postscripts: postscripts.results.map((ps) => ({ id: ps.id, html: renderer.render(ps.body), createdAt: ps.created_at })),
 		commentList: comments.results.map((c) => ({
 			id: c.id,

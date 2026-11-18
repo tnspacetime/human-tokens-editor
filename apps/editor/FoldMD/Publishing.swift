@@ -144,10 +144,11 @@ enum SiteAPI {
         try await send("POST", "api/fold/preview", body: ["markdown": markdown], token: token)
     }
 
-    static func publish(_ token: String, sourceID: String, markdown: String) async throws -> Post {
-        try await send("PUT", "api/fold/posts", body: [
-            "sourceId": sourceID, "markdown": markdown, "pledge": true,
-        ], token: token)
+    /// `follows`: the post a new piece follows up (a follow-up).
+    static func publish(_ token: String, sourceID: String, markdown: String, follows: String? = nil) async throws -> Post {
+        var body: [String: Any] = ["sourceId": sourceID, "markdown": markdown, "pledge": true]
+        if let follows { body["follows"] = follows }
+        return try await send("PUT", "api/fold/posts", body: body, token: token)
     }
 
     /// One of your posts as it stands on the site (whether it can still be fixed).
