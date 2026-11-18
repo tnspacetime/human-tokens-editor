@@ -36,6 +36,23 @@ export type Archive = {
 	months: { month: number; items: ArchiveItem[] }[];
 };
 
+/** An author's page: who they are, what readers made of their writing, and every piece of theirs, newest first. */
+export type AuthorPage = {
+	author: { handle: string; name: string; image: string | null };
+	/** `parts`: a series published whole, with this many chapters. */
+	pieces: (FeedItem & { parts: number | null })[];
+	/** When their first piece was published. */
+	since: string | null;
+	words: number;
+	/** Every reaction to their pieces, by quality. */
+	qualities: QualityCounts;
+	comments: number;
+	/** How many different people reacted to their pieces. */
+	readers: number;
+	/** The viewer is this author. */
+	isYou: boolean;
+};
+
 /** One page of the feed; `next` asks for the page after it. */
 export type FeedPage = { items: FeedItem[]; next: string | null };
 

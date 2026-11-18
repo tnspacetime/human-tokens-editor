@@ -7,6 +7,7 @@ import { isQuality } from "../lib/qualities";
 import { loadBoard } from "./board.server";
 import { deleteComment, saveAuthorNote, saveComment } from "./comments.server";
 import { countPosts, loadArchive } from "./archive.server";
+import { deleteOwnPost, loadAuthorPage } from "./authors.server";
 import { listFeed } from "./feed.server";
 import { loadPost } from "./posts.server";
 import { toggleQuality } from "./reactions.server";
@@ -88,6 +89,27 @@ export const getPost = createServerFn({ method: "GET" })
 		const post = await loadPost(data.id, await currentUser());
 		if (!post) throw notFound();
 		return post;
+	});
+
+/** An author's page, by handle. */
+export const getAuthorPage = createServerFn({ method: "GET" })
+	.validator((input: unknown) => {
+		const { handle } = object(input);
+		if (typeof handle !== "string" || !/^[A-Za-z0-9_-]{2,30}$/.test(handle)) throw new Error("Unknown author");
+		return { handle };
+	})
+	.handler(async ({ data }) => {
+		const page = await loadAuthorPage(data.handle, await currentUser());
+		if (!page) throw notFound();
+		return page;
+	});
+
+/** The author deletes one of their pieces, from its page on the site. */
+export const deletePostFn = createServerFn({ method: "POST" })
+	.validator((input: unknown) => ({ id: postId(object(input).id) }))
+	.handler(async ({ data }) => {
+		const user = await requireUser("delete a piece");
+		if (!(await deleteOwnPost(data.id, user))) throw new Error("Only its author can delete a piece");
 	});
 
 export const toggleQualityFn = createServerFn({ method: "POST" })

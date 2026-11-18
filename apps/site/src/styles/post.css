@@ -36,6 +36,15 @@
 	text-transform: uppercase;
 }
 
+.byline-author a {
+	color: inherit;
+	text-decoration: none;
+}
+
+.byline-author a:hover {
+	color: var(--ink);
+}
+
 .byline .byline-date {
 	margin-top: 4px;
 	color: var(--muted);
@@ -858,6 +867,32 @@ button.primary {
 
 .sign-in-prompt-links .sign-in-dev {
 	outline-offset: -4px;
+}
+
+/* At the foot of your own piece: Delete, quietly. */
+.author-tools {
+	display: flex;
+	align-items: baseline;
+	gap: 14px;
+	margin-top: 48px;
+	padding-top: 16px;
+	border-top: 1px solid var(--line);
+	color: var(--muted);
+	font: 600 14px/1.29 var(--sans);
+}
+
+.link-button.author-tools-delete,
+.delete-error {
+	color: #e5484d;
+}
+
+.delete-error {
+	margin-right: auto;
+	font-size: 14px;
+}
+
+button.primary.danger {
+	background: #e5484d;
 }
 
 button.primary:disabled {

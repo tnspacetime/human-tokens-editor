@@ -1,5 +1,6 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { BrandMark } from "../components/BrandMark";
+import { DeletePiece } from "../components/DeletePiece";
 import { SeriesIsland } from "../components/island/SeriesIsland";
 import { Byline } from "../components/PostCard";
 import { Postscripts } from "../components/Postscripts";
@@ -64,6 +65,7 @@ function PostRoute() {
 					))}
 				</nav>
 			)}
+			{post.viewer?.isAuthor && <DeletePiece post={post} />}
 			<BrandMark className="end-mark" />
 		</main>
 		{/* A series: which part you're in, and the parts, at the foot. */}

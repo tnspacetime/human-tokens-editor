@@ -19,7 +19,11 @@ export function tileDate(iso: string, now = new Date()) {
 export function Byline({ post }: { post: FeedItem }) {
 	return (
 		<div className="byline">
-			<p className="byline-author">{post.author.name}</p>
+			<p className="byline-author">
+				<Link to="/@{$handle}" params={{ handle: post.author.handle }}>
+					{post.author.name}
+				</Link>
+			</p>
 			<p className="byline-date">
 				<time dateTime={post.publishedAt}>{formatDate(post.publishedAt)}</time>
 				<span aria-hidden="true"> · </span>
@@ -36,7 +40,8 @@ export type TileSize = "hero" | "half" | "third";
 // words to show is drawn as its own page instead), who wrote it in small grey
 // capitals, the headline, and a foot with the date and what readers made of
 // it.
-export function PostTile({ post, size }: { post: FeedItem; size: TileSize }) {
+// `eyebrow` replaces the author's name (on their own page, which needs no name).
+export function PostTile({ post, size, eyebrow = post.author.name }: { post: FeedItem; size: TileSize; eyebrow?: string | null }) {
 	return (
 		<Link to="/p/$id/$slug" params={{ id: post.id, slug: post.slug }} className={`tile tile-${size}`}>
 			<div className="tile-cover">
@@ -61,7 +66,7 @@ export function PostTile({ post, size }: { post: FeedItem; size: TileSize }) {
 				)}
 			</div>
 			<div className="tile-body">
-				<p className="tile-eyebrow">{post.author.name}</p>
+				{eyebrow && <p className="tile-eyebrow">{eyebrow}</p>}
 				<h2 className="tile-headline">{post.title}</h2>
 				<div className="tile-foot">
 					<p className="tile-stamp">

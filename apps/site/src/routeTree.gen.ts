@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AtChar123handleChar125RouteImport } from './routes/@{$handle}'
 import { Route as ConnectRouteImport } from './routes/connect'
 import { Route as RulesRouteImport } from './routes/rules'
 import { Route as WriteRouteImport } from './routes/write'
@@ -24,6 +25,11 @@ import { Route as PIdSlugRouteImport } from './routes/p.$id.$slug'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AtChar123handleChar125Route = AtChar123handleChar125RouteImport.update({
+  id: '/@{$handle}',
+  path: '/@{$handle}',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ConnectRoute = ConnectRouteImport.update({
@@ -79,6 +85,7 @@ const PIdSlugRoute = PIdSlugRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/@{$handle}': typeof AtChar123handleChar125Route
   '/connect': typeof ConnectRoute
   '/rules': typeof RulesRoute
   '/write': typeof WriteRoute
@@ -92,6 +99,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/@{$handle}': typeof AtChar123handleChar125Route
   '/connect': typeof ConnectRoute
   '/rules': typeof RulesRoute
   '/write': typeof WriteRoute
@@ -106,6 +114,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/@{$handle}': typeof AtChar123handleChar125Route
   '/connect': typeof ConnectRoute
   '/rules': typeof RulesRoute
   '/write': typeof WriteRoute
@@ -121,6 +130,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/@{$handle}'
     | '/connect'
     | '/rules'
     | '/write'
@@ -134,6 +144,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/@{$handle}'
     | '/connect'
     | '/rules'
     | '/write'
@@ -147,6 +158,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/@{$handle}'
     | '/connect'
     | '/rules'
     | '/write'
@@ -161,6 +173,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AtChar123handleChar125Route: typeof AtChar123handleChar125Route
   ConnectRoute: typeof ConnectRoute
   RulesRoute: typeof RulesRoute
   WriteRoute: typeof WriteRoute
@@ -180,6 +193,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/@{$handle}': {
+      id: '/@{$handle}'
+      path: '/@{$handle}'
+      fullPath: '/@{$handle}'
+      preLoaderRoute: typeof AtChar123handleChar125RouteImport
       parentRoute: typeof rootRouteImport
     }
     '/connect': {
@@ -257,6 +277,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AtChar123handleChar125Route: AtChar123handleChar125Route,
   ConnectRoute: ConnectRoute,
   RulesRoute: RulesRoute,
   WriteRoute: WriteRoute,

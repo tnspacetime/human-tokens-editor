@@ -157,6 +157,21 @@
 	white-space: nowrap;
 }
 
+/* An author's name: a plain link to their page. */
+.island-choices a.island-who {
+	padding: 0 8px 0 6px;
+	color: var(--accent);
+	text-decoration: underline;
+	text-decoration-thickness: 1px;
+	text-underline-offset: 3px;
+	transition: none;
+}
+
+.island-choices a.island-who:hover {
+	background: none;
+	color: var(--accent);
+}
+
 .island-sign-in {
 	display: contents;
 }

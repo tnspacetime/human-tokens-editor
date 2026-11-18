@@ -71,7 +71,10 @@ Open the publishing surface (⌥⌘P); its strip of the toolbar has a **Publish*
 7. **Add a P.S.** From the pill's menu, add a short note (at most 150 words) at the end of the piece, dated, with the pledge.
    It's how you add a correction or a thought once the text is locked. A P.S. can't be changed or removed.
 
-**Unpublish** is in the pill's menu (it takes the post's reactions, comments and P.S.es with it), and so is *Disconnect*.
+Every author has a page listing their pieces, newest first: `/@handle`. Click the name in a byline, or your own name in the island's account panel.
+Publishing the same text twice makes two pieces, as on any social site; delete the one you don't want.
+To delete a piece, open it while signed in as its author: **Delete…** is at its foot (it takes the post's reactions, comments and P.S.es with it).
+**Unpublish** in the pill's menu does the same from Fold MD, and *Disconnect* is there too.
 
 Only the file's markdown is sent. Self-notes stay in their own hidden file and never leave your Mac.
 Each published file remembers its post in another hidden file beside it, `.Name.md.published`, so the `.md` stays plain markdown.

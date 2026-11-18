@@ -1,4 +1,4 @@
-import { useRouter } from "@tanstack/react-router";
+import { Link, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { authClient } from "../../lib/auth-client";
 import { SignInLinks, type SignInOptions } from "../SignIn";
@@ -10,7 +10,8 @@ export type Viewer = {
 };
 
 // You. Signed out, the panel offers the ways in (Google, GitHub); signed
-// in, it shows who you are and lets you sign out.
+// in, it shows who you are (an author's name opens their page) and lets
+// you sign out.
 export function Account({ viewer, open, onToggle }: { viewer: Viewer; open: boolean; onToggle: () => void }) {
 	const router = useRouter();
 	const [leaving, setLeaving] = useState(false);
@@ -55,7 +56,14 @@ export function Account({ viewer, open, onToggle }: { viewer: Viewer; open: bool
 				<div id="island-account" className="island-choices">
 					{user ? (
 						<>
-							<span className="island-who">{user.author ? `${user.name} · author` : user.name}</span>
+							{/* An author's name opens their page. */}
+							{user.author ? (
+								<Link to="/@{$handle}" params={{ handle: user.author.handle }} className="island-who" onClick={onToggle}>
+									{user.name}
+								</Link>
+							) : (
+								<span className="island-who">{user.name}</span>
+							)}
 							<button type="button" onClick={signOut} disabled={leaving}>
 								Sign out
 							</button>
