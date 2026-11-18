@@ -65,6 +65,9 @@ export type Comment = {
 	mine: boolean;
 };
 
+/** A link to another piece, with who wrote it. */
+export type PieceLink = { id: string; slug: string; title: string; author: { name: string; handle: string } };
+
 /** A piece as its own page shows it. */
 export type PostPage = FeedItem & {
 	html: string;
@@ -73,10 +76,12 @@ export type PostPage = FeedItem & {
 	mine: Quality[];
 	/** A whole series published as one piece: its chapters, for the contents (none for a single piece). */
 	chapters: { id: string; title: string }[];
-	/** The earlier piece of the author's that this one follows up. */
-	follows: { id: string; slug: string; title: string } | null;
+	/** The piece this one responds to: the author's own (`own`, a follow-up) or someone else's (a reply). */
+	respondsTo: (PieceLink & { own: boolean }) | null;
 	/** Later pieces of the author's that follow this one up, oldest first. */
-	followUps: { id: string; slug: string; title: string }[];
+	followUps: PieceLink[];
+	/** Pieces by others that reply to this one, oldest first. */
+	replies: (PieceLink & { publishedAt: string })[];
 	/** The author's notes under the piece, oldest first (rendered markdown). */
 	postscripts: { id: string; html: string; createdAt: string }[];
 	commentList: Comment[];

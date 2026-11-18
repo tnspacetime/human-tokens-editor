@@ -19,8 +19,8 @@
 
 .archive-head h1 {
 	margin: 0;
-	font: 700 56px/1.07 var(--display);
-	letter-spacing: -0.005em;
+	font: 600 56px/1.07 var(--serif);
+	letter-spacing: -0.01em;
 }
 
 .archive-intro {

@@ -101,6 +101,17 @@ enum SiteAPI {
         }
     }
 
+    /// A piece someone pasted the link of, to respond to.
+    struct Piece: Decodable, Equatable {
+        struct Author: Decodable, Equatable { let name: String; let handle: String }
+        let id: String
+        let title: String
+        let url: URL
+        let author: Author
+        /// Yours: responding makes a follow-up. Someone else's: a reply.
+        let yours: Bool
+    }
+
     struct Postscript: Decodable, Equatable {
         let id: String
         let body: String
@@ -144,14 +155,20 @@ enum SiteAPI {
         try await send("POST", "api/fold/preview", body: ["markdown": markdown], token: token)
     }
 
-    /// `follows`: the post a new piece follows up (a follow-up).
+    /// `respondsTo`: the piece a new one responds to, yours (a follow-up)
+    /// or anyone's (a reply).
     /// `parts`: a whole series joined into one piece, with this many chapters.
-    static func publish(_ token: String, sourceID: String, markdown: String, follows: String? = nil,
+    static func publish(_ token: String, sourceID: String, markdown: String, respondsTo: String? = nil,
                         parts: Int? = nil) async throws -> Post {
         var body: [String: Any] = ["sourceId": sourceID, "markdown": markdown, "pledge": true]
-        if let follows { body["follows"] = follows }
+        if let respondsTo { body["respondsTo"] = respondsTo }
         if let parts { body["parts"] = parts }
         return try await send("PUT", "api/fold/posts", body: body, token: token)
+    }
+
+    /// Any piece on the site, to respond to.
+    static func piece(_ token: String, postID: String) async throws -> Piece {
+        try await send("GET", "api/fold/pieces/\(postID)", token: token)
     }
 
     /// One of your posts as it stands on the site (whether it can still be fixed).

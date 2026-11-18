@@ -1,0 +1,15 @@
+/* The typefaces: Newsreader for the writing, Inter for everything around
+   it. Both are open source (SIL Open Font License) and travel with the
+   page: the site serves them itself, and Fold MD builds them into its own
+   page, so a piece looks the same in both and nothing is fetched from a
+   font service. Each comes in pieces by alphabet (Latin, Vietnamese, …);
+   a browser only loads the pieces a page uses. */
+@import "@fontsource-variable/newsreader/opsz.css";
+@import "@fontsource-variable/newsreader/opsz-italic.css";
+@import "@fontsource-variable/inter/opsz.css";
+@import "@fontsource-variable/inter/opsz-italic.css";
+
+:root {
+	--font-reading: "Newsreader Variable", Georgia, "Times New Roman", serif;
+	--font-ui: "Inter Variable", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
+}

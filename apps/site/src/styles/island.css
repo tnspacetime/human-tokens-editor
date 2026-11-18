@@ -363,6 +363,10 @@
 	letter-spacing: 0.02em;
 }
 
+.reader-seg .signal-replies {
+	gap: 6px;
+}
+
 .reader-seg .signal-ps-count {
 	color: var(--muted);
 	font-weight: 600;
@@ -427,6 +431,8 @@
 }
 
 .series-island-title {
+	font-family: var(--serif);
+	font-size: 14px;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;

@@ -66,8 +66,9 @@ Open the publishing surface (⌥⌘P); its strip of the toolbar has a **Publish*
    Once a piece is published, the pill also sits in the window's own toolbar while the publishing surface is closed.
 5. **Fix, for a short while.** For 15 minutes after publishing, and only until someone reacts or comments, you can still fix the piece: change the file and the pill reads **Fix**.
    After that its text is locked, so what readers reacted to stays what's there. The site enforces it (`423 Locked`).
-6. **Follow up.** To say more once a piece is locked, write a new piece. When you publish it, paste the earlier piece's link where the sheet asks what it follows up (*Copy Link* is in the earlier piece's pill menu).
-   The site checks the earlier piece is yours. The new piece then says *Follows …* under its byline, and the earlier piece, which stays as it was, points forward to it.
+6. **Respond to a piece.** When you publish a new piece, paste the link of the piece it responds to where the sheet asks (*Copy Link* is in a piece's pill menu, or copy it from the site).
+   One of your own pieces makes it a **follow-up**: it says *Follows …* under its byline, and the earlier piece, which stays as it was, points forward to it.
+   Anyone else's makes it a **reply**: it says *In reply to … by …*, and the piece it answers lists it under *Replies*, at its foot and in the reader island. Anyone can reply to any piece, and every reply shows.
 7. **Add a P.S.** From the pill's menu, add a short note (at most 150 words) at the end of the piece, dated, with the pledge.
    It's how you add a correction or a thought once the text is locked. A P.S. can't be changed or removed.
 

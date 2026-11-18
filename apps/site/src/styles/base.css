@@ -1,6 +1,7 @@
 /* After Apple Newsroom: a light grey canvas, white tiles with large round
-   corners, near-black ink, one typeface (the system's: SF Pro on Apple
-   devices) set bold for headlines. In dark, black with raised greys. The
+   corners, near-black ink. Two typefaces: Newsreader, a serif made for
+   reading on screens, for the writing and the headlines, and Inter for
+   everything around it. In dark, black with raised greys. The
    only colour of our own is the small amber mark. Each colour is written
    once as light-dark(); html[data-theme] forces Light or Dark, and System
    follows the device. */
@@ -44,8 +45,11 @@
 	--hl-title: light-dark(#326d74, #67b7a4);
 	--hl-type: light-dark(#3900a0, #dabaff);
 
-	--sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
-	--display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif;
+	/* Inter around the writing, Newsreader for it (and for headlines); both
+	   from @human-tokens/renderer/fonts.css, the same as Fold MD's page. */
+	--sans: var(--font-ui);
+	--display: var(--font-ui);
+	--serif: var(--font-reading);
 	--ease: cubic-bezier(0.32, 0.72, 0, 1);
 }
 

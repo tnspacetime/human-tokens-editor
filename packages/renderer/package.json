@@ -3,15 +3,18 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Markdown \u2192 HTML shared by the Fold MD editor and human-tokens.dev.",
+  "description": "Markdown → HTML shared by the Fold MD editor and human-tokens.dev.",
   "exports": {
     ".": {
       "types": "./src/index.d.ts",
       "default": "./src/index.js"
     },
-    "./content.css": "./src/content.css"
+    "./content.css": "./src/content.css",
+    "./fonts.css": "./src/fonts.css"
   },
   "dependencies": {
+    "@fontsource-variable/inter": "^5.3.0",
+    "@fontsource-variable/newsreader": "^5.3.0",
     "highlight.js": "^11.12.0",
     "katex": "^0.19.1",
     "markdown-it": "^15.0.3"

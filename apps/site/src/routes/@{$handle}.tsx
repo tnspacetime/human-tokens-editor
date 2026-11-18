@@ -1,15 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useRef } from "react";
-import { PostTile, Signals } from "../components/PostCard";
+import { PostTile } from "../components/PostCard";
 import { tileSizes } from "../components/tileSizes";
 import { useFeedMotion } from "../components/useFeedMotion";
-import { describeQualities } from "../lib/qualities";
 import type { AuthorPage } from "../lib/types";
 import { getAuthorPage } from "../server/site.functions";
 
-// /@<handle>: an author's page. Who they are and what readers made of their
-// writing, then every piece of theirs as the homepage draws them, newest
-// leading across the full width.
+// /@<handle>: an author's page. Who they are, then every piece of theirs
+// as the homepage draws them, newest leading across the full width; the
+// island under the site's carries the numbers.
 export const Route = createFileRoute("/@{$handle}")({
 	loader: ({ params }) => getAuthorPage({ data: { handle: params.handle } }),
 	head: ({ loaderData }) => ({
@@ -25,41 +24,29 @@ export const Route = createFileRoute("/@{$handle}")({
 
 const monthYear = (iso: string) => new Date(iso).toLocaleDateString("en", { month: "long", year: "numeric", timeZone: "UTC" });
 
-/** 8,412 · 12.3k · 1.2M */
-function compact(n: number) {
-	if (n < 10_000) return n.toLocaleString("en");
-	if (n < 1_000_000) return `${(n / 1000).toFixed(n < 100_000 ? 1 : 0).replace(/\.0$/, "")}k`;
-	return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
-}
-
 function AuthorRoute() {
 	const page = Route.useLoaderData();
 	const list = useRef<HTMLUListElement>(null);
 	useFeedMotion(list, page.pieces.length);
 	const sizes = tileSizes(page.pieces.length, true);
-	const said = describeQualities(page.qualities);
 
+	// What readers made of the writing rides in the island (AuthorIsland).
 	return (
 		<main className="feed author-page">
-			<header className="author-hero">
+			<header className="author-head">
 				<Portrait author={page.author} />
-				<h1 className="author-name">{page.author.name}</h1>
-				<p className="author-handle">
-					@{page.author.handle}
-					{page.since && (
-						<>
-							<span aria-hidden="true"> · </span>
-							writing here since {monthYear(page.since)}
-						</>
-					)}
-				</p>
-				{said && (
-					<p className="author-said">
-						Readers find this writing <em>{said}</em>.
+				<div>
+					<h1 className="author-name">{page.author.name}</h1>
+					<p className="author-handle">
+						@{page.author.handle}
+						{page.since && (
+							<>
+								<span aria-hidden="true"> · </span>
+								since {monthYear(page.since)}
+							</>
+						)}
 					</p>
-				)}
-				{page.pieces.length > 0 && <Stats page={page} />}
-				{said && <Signals post={{ qualities: page.qualities, comments: 0 }} />}
+				</div>
 			</header>
 
 			{page.pieces.length === 0 ? (
@@ -79,30 +66,11 @@ function AuthorRoute() {
 	);
 }
 
-/** Their picture from Google or GitHub, or their initial on the brand's warm gradient. */
+/** Their picture from Google or GitHub, or their initial. */
 function Portrait({ author }: { author: AuthorPage["author"] }) {
 	return (
 		<div className="author-portrait" aria-hidden="true">
 			{author.image ? <img src={author.image} alt="" referrerPolicy="no-referrer" /> : <span>{[...author.name.trim()][0]?.toUpperCase()}</span>}
 		</div>
-	);
-}
-
-function Stats({ page }: { page: AuthorPage }) {
-	const stats = [
-		{ label: page.pieces.length === 1 ? "piece" : "pieces", value: page.pieces.length },
-		{ label: "words", value: page.words },
-		{ label: page.readers === 1 ? "reader reacted" : "readers reacted", value: page.readers },
-		{ label: page.comments === 1 ? "comment" : "comments", value: page.comments },
-	].filter((stat, i) => i < 2 || stat.value > 0); // no "0 comments" on a new page
-	return (
-		<dl className="author-stats">
-			{stats.map((stat) => (
-				<div key={stat.label} className="author-stat">
-					<dd>{compact(stat.value)}</dd>
-					<dt>{stat.label}</dt>
-				</div>
-			))}
-		</dl>
 	);
 }

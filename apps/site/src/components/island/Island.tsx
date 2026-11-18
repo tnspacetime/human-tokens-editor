@@ -6,6 +6,7 @@ import { BrandMark } from "../BrandMark";
 import { Account, type Viewer } from "./Account";
 import { Appearance } from "./Appearance";
 import { LiveSheet, LiveTicker } from "./Live";
+import { AuthorIsland } from "./AuthorIsland";
 import { ReaderIsland } from "./ReaderIsland";
 import { Slot } from "./Slot";
 import { useDismiss } from "./useDismiss";
@@ -21,9 +22,11 @@ type Panel = "appearance" | "account" | null;
 // carries it, as a live ticker of the leaders that drops the whole board
 // down when tapped.
 // One thing shows at a time: an open panel folds the title and ticker away.
-// On a post, a second island under it carries what readers made of it.
+// On a post, a second island under it carries what readers made of it;
+// on an author's page, what they've written and what readers found in it.
 export function Island({ viewer }: { viewer: Viewer & { theme: Theme } }) {
 	const post = useMatch({ from: "/p/$id/$slug", shouldThrow: false });
+	const author = useMatch({ from: "/@{$handle}", shouldThrow: false });
 	const title = post?.loaderData?.title;
 	const dock = useRef<HTMLDivElement>(null);
 	const island = useRef<HTMLElement>(null);
@@ -101,6 +104,7 @@ export function Island({ viewer }: { viewer: Viewer & { theme: Theme } }) {
 				{title && <span ref={progress} className="island-progress" aria-hidden="true" />}
 			</nav>
 			{post?.loaderData && <ReaderIsland post={post.loaderData} />}
+			{author?.loaderData && author.loaderData.pieces.length > 0 && <AuthorIsland page={author.loaderData} />}
 			{liveState.board && period && <LiveSheet board={liveState.board} period={period} open={sheetOpen} />}
 		</div>
 	);

@@ -4,6 +4,7 @@ import { QUALITIES } from "../../lib/qualities";
 import type { PostPage } from "../../lib/types";
 import { CommentComposer, CommentList } from "../Comments";
 import { Postscripts } from "../Postscripts";
+import { Replies } from "../Replies";
 import { QualityChoices } from "../Qualities";
 import { QualityIcon } from "../QualityIcon";
 import { RollingNumber } from "../RollingNumber";
@@ -16,20 +17,23 @@ const REFRESH_MS = 20_000;
 // readers made of it. The qualities chosen and their counts open a sheet to
 // say how it read to you; the comment count opens the comments, with yours
 // to write at the foot. Once the author has added a P.S., a P.S. button
-// slides it down under the island, without losing your place. The counts roll like the live
+// slides it down under the island, without losing your place, and once
+// others have written pieces in reply, a Replies button slides those down. The counts roll like the live
 // board's, and catch up on their own every so often while the page is in
 // front of you.
 export function ReaderIsland({ post }: { post: PostPage }) {
 	const router = useRouter();
-	const [open, setOpen] = useState<"qualities" | "comments" | "ps" | null>(null);
+	const [open, setOpen] = useState<"qualities" | "comments" | "ps" | "replies" | null>(null);
 	const close = () => setOpen(null);
 	const dock = useRef<HTMLDivElement>(null);
-	const closePostscripts = useCallback(() => setOpen((now) => (now === "ps" ? null : now)), []);
-	useDismiss(open === "ps", dock, closePostscripts);
+	// The P.S. and Replies slide down under the island; a click elsewhere or Esc folds them away.
+	const closeDropDown = useCallback(() => setOpen((now) => (now === "ps" || now === "replies" ? null : now)), []);
+	useDismiss(open === "ps" || open === "replies", dock, closeDropDown);
 	const chosen = QUALITIES.filter((q) => (post.qualities[q.id] ?? 0) > 0);
 	const said = chosen.map((q) => `${q.label} ${post.qualities[q.id]}`).join(", ");
 	const comments = post.comments;
 	const postscripts = post.postscripts.length;
+	const replies = post.replies.length;
 
 	// Not while a sheet is open: nothing should shift under your hand.
 	useEffect(() => {
@@ -106,7 +110,33 @@ export function ReaderIsland({ post }: { post: PostPage }) {
 				>
 					<CommentList post={post} />
 				</Sheet>
+				{replies > 0 && (
+					<>
+						<span className="island-divider" aria-hidden="true" />
+						<button
+							type="button"
+							className="reader-seg"
+							aria-expanded={open === "replies"}
+							aria-controls="reader-replies"
+							aria-label={replies === 1 ? "1 reply" : `${replies} replies`}
+							onClick={() => setOpen(open === "replies" ? null : "replies")}
+						>
+							<span className="signal signal-replies">
+								{replies === 1 ? "Reply" : "Replies"}
+								<span className="signal-ps-count">{replies}</span>
+							</span>
+						</button>
+					</>
+				)}
 			</div>
+			{replies > 0 && (
+				<div id="reader-replies" className="island-sheet ps-sheet" data-open={open === "replies" || undefined} inert={open !== "replies"}>
+					<header className="island-sheet-head">
+						<span>Written in reply</span>
+					</header>
+					<Replies post={post} />
+				</div>
+			)}
 			{postscripts > 0 && (
 				<div id="reader-ps" className="island-sheet ps-sheet" data-open={open === "ps" || undefined} inert={open !== "ps"}>
 					<header className="island-sheet-head">

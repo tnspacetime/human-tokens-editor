@@ -11,7 +11,8 @@ const renderer = createRenderer({
 	unresolvedImageLabel: "Image not uploaded yet",
 });
 
-type PieceLink = { id: string; slug: string; title: string };
+type PieceRow = { id: string; slug: string; title: string; name: string; handle: string; own: number; published_at: string };
+const pieceLink = (row: PieceRow) => ({ id: row.id, slug: row.slug, title: row.title, author: { name: row.name, handle: row.handle } });
 
 /**
  * A series' chapters are its h2s: give each an id to jump to, and list them
@@ -41,7 +42,7 @@ export async function loadPost(id: string, user: User | null): Promise<PostPage 
 		.first<PostRow & { markdown: string; parts: number | null; author_user_id: string | null }>();
 	if (!row) return null;
 
-	const [counts, mine, comments, postscripts, follows, followUps] = await Promise.all([
+	const [counts, mine, comments, postscripts, respondsTo, responses] = await Promise.all([
 		qualityCounts([id]),
 		user
 			? db()
@@ -60,15 +61,23 @@ export async function loadPost(id: string, user: User | null): Promise<PostPage 
 			.prepare("SELECT id, body, created_at FROM postscripts WHERE post_id = ? ORDER BY created_at")
 			.bind(id)
 			.all<{ id: string; body: string; created_at: string }>(),
-		// The earlier piece this one follows up, and the pieces that follow it up.
+		// The piece this one responds to, and the pieces that respond to it:
+		// by the same author, follow-ups; by anyone else, replies.
 		db()
-			.prepare("SELECT e.id, e.slug, e.title FROM posts p JOIN posts e ON e.id = p.follows WHERE p.id = ?")
+			.prepare(
+				`SELECT e.id, e.slug, e.title, a.name, a.handle, e.published_at, e.author_id = p.author_id AS own
+				 FROM posts p JOIN posts e ON e.id = p.responds_to JOIN authors a ON a.id = e.author_id WHERE p.id = ?`,
+			)
 			.bind(id)
-			.first<PieceLink>(),
+			.first<PieceRow>(),
 		db()
-			.prepare("SELECT id, slug, title FROM posts WHERE follows = ? ORDER BY published_at")
+			.prepare(
+				`SELECT r.id, r.slug, r.title, a.name, a.handle, r.published_at, r.author_id = p.author_id AS own
+				 FROM posts r JOIN posts p ON p.id = r.responds_to JOIN authors a ON a.id = r.author_id
+				 WHERE r.responds_to = ? ORDER BY r.published_at`,
+			)
 			.bind(id)
-			.all<PieceLink>(),
+			.all<PieceRow>(),
 	]);
 
 	return {
@@ -76,8 +85,9 @@ export async function loadPost(id: string, user: User | null): Promise<PostPage 
 		...chapters(renderer.render(row.markdown), row.parts),
 		allowDebate: row.allow_debate === 1,
 		mine: mine.results.map((r) => r.quality),
-		follows: follows ?? null,
-		followUps: followUps.results,
+		respondsTo: respondsTo ? { ...pieceLink(respondsTo), own: respondsTo.own === 1 } : null,
+		followUps: responses.results.filter((r) => r.own === 1).map(pieceLink),
+		replies: responses.results.filter((r) => r.own !== 1).map((r) => ({ ...pieceLink(r), publishedAt: r.published_at })),
 		postscripts: postscripts.results.map((ps) => ({ id: ps.id, html: renderer.render(ps.body), createdAt: ps.created_at })),
 		commentList: comments.results.map((c) => ({
 			id: c.id,

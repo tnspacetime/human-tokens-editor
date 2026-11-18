@@ -80,13 +80,14 @@ final class PublishFlow {
     var preview: SiteAPI.Preview?
     var pledged = false
 
-    // A follow-up: the link of an earlier piece of yours that this new one
-    // follows up (optional), and that piece once the site has found it.
-    var followsLink = "" {
-        didSet { if followsLink != oldValue { findEarlierPiece() } }
+    // A response: the link of the piece this new one responds to
+    // (optional): one of yours makes it a follow-up, anyone else's a reply.
+    // Then that piece, once the site has found it.
+    var respondsToLink = "" {
+        didSet { if respondsToLink != oldValue { findPiece() } }
     }
-    private(set) var follows: SiteAPI.Post?
-    private(set) var followsProblem: String?
+    private(set) var respondsTo: SiteAPI.Piece?
+    private(set) var respondsToProblem: String?
     private var finding: Task<Void, Never>?
 
     // The P.S. step. What you've typed stays until it's added.
@@ -227,7 +228,7 @@ final class PublishFlow {
         if let url = record?.url { NSWorkspace.shared.open(url) }
     }
 
-    /// The piece's link, to paste where a new piece asks what it follows up.
+    /// The piece's link, to paste where a new piece asks what it responds to.
     func copyLink() {
         guard let url = record?.url else { return }
         NSPasteboard.general.clearContents()
@@ -353,7 +354,7 @@ final class PublishFlow {
         }
     }
 
-    // MARK: A follow-up
+    // MARK: A response
 
     /// The post id in a link like https://human-tokens.dev/p/AbC123xy/its-title.
     static func postID(in link: String) -> String? {
@@ -362,15 +363,15 @@ final class PublishFlow {
         return String(match.1)
     }
 
-    /// Look up the pasted link: it must be one of your pieces on the site.
-    private func findEarlierPiece() {
+    /// Look up the pasted link: any piece on the site.
+    private func findPiece() {
         finding?.cancel()
-        follows = nil
-        followsProblem = nil
-        let link = followsLink.trimmingCharacters(in: .whitespacesAndNewlines)
+        respondsTo = nil
+        respondsToProblem = nil
+        let link = respondsToLink.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !link.isEmpty else { return }
         guard let id = Self.postID(in: link) else {
-            followsProblem = "Paste the link of one of your pieces, like \(PublishSite.name)/p/…"
+            respondsToProblem = "Paste the link of a piece, like \(PublishSite.name)/p/…"
             return
         }
         guard let token = PublishToken.current else { return }
@@ -378,13 +379,13 @@ final class PublishFlow {
             try? await Task.sleep(for: .milliseconds(300))
             guard !Task.isCancelled else { return }
             do {
-                let post = try await SiteAPI.post(token, postID: id)
+                let piece = try await SiteAPI.piece(token, postID: id)
                 guard !Task.isCancelled else { return }
-                follows = post
+                respondsTo = piece
             } catch let failure as SiteAPI.Failure where failure.isGone {
-                if !Task.isCancelled { followsProblem = "That isn't one of your pieces on \(PublishSite.name)." }
+                if !Task.isCancelled { respondsToProblem = "That piece isn't on \(PublishSite.name)." }
             } catch {
-                if !Task.isCancelled { followsProblem = error.localizedDescription }
+                if !Task.isCancelled { respondsToProblem = error.localizedDescription }
             }
         }
     }
@@ -541,29 +542,29 @@ final class PublishFlow {
 
     var canPublish: Bool {
         // A pasted link has to be found first (or cleared).
-        let followsReady = isFix || followsLink.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || follows != nil
-        return pledged && !busy && preview?.title != nil && followsReady
+        let respondsToReady = isFix || respondsToLink.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || respondsTo != nil
+        return pledged && !busy && preview?.title != nil && respondsToReady
     }
 
     func publish() {
         guard canPublish, let recordURL, let token = PublishToken.current else { return }
         let markdown = text
         let sourceID = record?.sourceID ?? UUID().uuidString
-        // Only a new piece can follow up an earlier one.
-        let followsID = isFix ? nil : follows?.id
+        // Only a new piece can respond to another.
+        let respondsToID = isFix ? nil : respondsTo?.id
         busy = true
         error = nil
         Task {
             defer { busy = false }
             do {
-                let post = try await SiteAPI.publish(token, sourceID: sourceID, markdown: markdown, follows: followsID, parts: parts)
+                let post = try await SiteAPI.publish(token, sourceID: sourceID, markdown: markdown, respondsTo: respondsToID, parts: parts)
                 let record = PublishRecord(site: PublishSite.base.absoluteString, sourceID: sourceID, postID: post.id,
                                            url: post.url, title: post.title,
                                            publishedHash: PublishRecord.hash(markdown), publishedAt: Date(),
                                            fixableUntil: post.fixableUntilDate)
                 keep(record, at: recordURL)
                 updateFixable()
-                followsLink = ""
+                respondsToLink = ""
                 step = nil
             } catch SiteAPI.Failure.notConnected {
                 PublishToken.forget()

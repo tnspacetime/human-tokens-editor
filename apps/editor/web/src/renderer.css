@@ -1,3 +1,4 @@
+@import "@human-tokens/renderer/fonts.css";
 @import "@human-tokens/renderer/content.css";
 
 :root {
@@ -19,8 +20,10 @@ body {
   color: var(--fg);
 }
 
+/* The site's typefaces (fonts.css, built into this page): Inter around the
+   writing, Newsreader for it. */
 body {
-  font: 16px/1.6 -apple-system, system-ui, sans-serif;
+  font: 16px/1.6 var(--font-ui);
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
   -webkit-user-select: text;
@@ -47,7 +50,11 @@ body {
   max-width: 680px;
   margin: 0 auto;
   padding: 0 28px 1px;
+  font: 18px/1.6 var(--font-reading);
 }
+
+#content :is(h1, h2, h3, h4) { font-weight: 600; }
+#content blockquote { font-style: italic; }
 
 .blk {
   display: flow-root;

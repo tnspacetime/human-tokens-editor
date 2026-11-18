@@ -4,7 +4,7 @@ import { db } from "./rows.server";
 
 // Publishing from Fold MD: who is asking (by the token Fold MD got when you
 // connected it), becoming an author on your first publish, and publishing,
-// fixing (only in the fix window), following up, adding a P.S. and
+// fixing (only in the fix window), responding to a piece, adding a P.S. and
 // unpublishing your own pieces. The HTTP side is routes/api.fold.$.ts.
 
 /** A refusal Fold MD can show as it is. */
@@ -164,8 +164,9 @@ const toPublished = (row: PostRow, origin: string): Published => ({
 /**
  * Publish a file, or fix the post it was published as, while that's still
  * allowed (see FIX_WINDOW_MINUTES); after that, 423 Locked. `sourceId` is
- * Fold MD's id for the file. `follows`, on a new piece, is the id of an
- * earlier piece of yours it follows up. Every publish asks for the pledge.
+ * Fold MD's id for the file. `respondsTo`, on a new piece, is the id of the
+ * piece it responds to: one of yours (a follow-up) or anyone's (a reply).
+ * Every publish asks for the pledge.
  */
 export async function publish(
 	publisher: Publisher,
@@ -190,19 +191,21 @@ export async function publish(
 		parts = input.parts;
 	}
 
-	let follows: string | null = null;
-	if (input.follows !== undefined && input.follows !== null) {
-		if (typeof input.follows !== "string" || !(await ownPost(author, postId(input.follows)))) {
-			throw new PublishError(404, "That isn't one of your pieces on the site, so this can't follow it up.");
+	// (`follows` is what Fold MD sent before replies.)
+	const target = input.respondsTo ?? input.follows;
+	let respondsTo: string | null = null;
+	if (target !== undefined && target !== null) {
+		if (typeof target !== "string" || !(await anyPost(postId(target)))) {
+			throw new PublishError(404, "That piece isn't on the site, so this can't respond to it.");
 		}
-		follows = input.follows;
+		respondsTo = target;
 	}
 
 	const existing = await db()
 		.prepare(`SELECT id, published_at, ${TOUCHED} AS touched FROM posts p WHERE author_id = ? AND source_id = ?`)
 		.bind(author.id, input.sourceId)
 		.first<Pick<PostRow, "id" | "published_at" | "touched">>();
-	if (existing && follows) throw new PublishError(409, "A follow-up is a new piece: it needs a new file id.");
+	if (existing && respondsTo) throw new PublishError(409, "A response is a new piece: it needs a new file id.");
 	if (existing && !fixableUntil(existing)) throw new PublishError(423, LOCKED);
 	const id = existing?.id ?? randomId(8);
 
@@ -210,7 +213,7 @@ export async function publish(
 	// that lands in between still locks it.
 	const { meta } = await db()
 		.prepare(
-			`INSERT INTO posts (id, author_id, source_id, slug, title, excerpt, markdown, word_count, shape, opening, allow_debate, pledged_at, published_at, updated_at, follows, parts)
+			`INSERT INTO posts (id, author_id, source_id, slug, title, excerpt, markdown, word_count, shape, opening, allow_debate, pledged_at, published_at, updated_at, responds_to, parts)
 			 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?12, ?12, ?14, ?15)
 			 ON CONFLICT (id) DO UPDATE SET slug = ?4, title = ?5, excerpt = ?6, markdown = ?7, word_count = ?8,
 			   shape = ?9, opening = ?10, allow_debate = ?11, pledged_at = ?12, updated_at = ?12, parts = ?15
@@ -232,7 +235,7 @@ export async function publish(
 			allowDebate,
 			now,
 			new Date(Date.parse(now) - FIX_WINDOW_MS).toISOString(),
-			follows,
+			respondsTo,
 			parts,
 		)
 		.run();
@@ -245,6 +248,30 @@ export async function publish(
 
 /** 1 once anyone has reacted to or commented on post `p`. */
 const TOUCHED = `(EXISTS (SELECT 1 FROM reactions WHERE post_id = p.id) OR EXISTS (SELECT 1 FROM comments WHERE post_id = p.id))`;
+
+/** Any piece on the site, by anyone: what a response points at. */
+async function anyPost(id: string) {
+	return db()
+		.prepare("SELECT p.id, p.slug, p.title, p.author_id, a.name, a.handle FROM posts p JOIN authors a ON a.id = p.author_id WHERE p.id = ?")
+		.bind(id)
+		.first<{ id: string; slug: string; title: string; author_id: string; name: string; handle: string }>();
+}
+
+/**
+ * A piece Fold MD was given the link of, to respond to: its title, who
+ * wrote it, and whether that's you (a follow-up) or not (a reply).
+ */
+export async function piece(publisher: Publisher, id: string, origin: string) {
+	const row = await anyPost(postId(id));
+	if (!row) throw new PublishError(404, "That piece isn't on the site.");
+	return {
+		id: row.id,
+		title: row.title,
+		url: `${origin}/p/${row.id}/${row.slug}`,
+		author: { name: row.name, handle: row.handle },
+		yours: row.author_id === publisher.author?.id,
+	};
+}
 
 async function ownPost(author: Author, id: string) {
 	return db()

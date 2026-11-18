@@ -139,24 +139,28 @@ struct PublishSheet: View {
             }
             .toggleStyle(.checkbox)
             .disabled(flow.busy)
-            if !flow.isFix { followsField }
+            if !flow.isFix { respondsToField }
             ErrorLine(flow.error)
         }
     }
 
-    /// A new piece can follow up an earlier one of yours: paste its link.
-    private var followsField: some View {
+    /// A new piece can respond to another: paste its link. One of yours
+    /// makes it a follow-up; anyone else's, a reply.
+    private var respondsToField: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Follows up an earlier piece of yours? (optional)")
+            Text("Responds to a piece? (optional)")
                 .font(.callout)
-            TextField("Paste its link", text: $flow.followsLink)
+            TextField("Paste its link", text: $flow.respondsToLink)
                 .textFieldStyle(.roundedBorder)
                 .disabled(flow.busy)
-            if let earlier = flow.follows {
-                Label("Follows “\(earlier.title)”. That piece will point forward to this one.", systemImage: "checkmark.circle.fill")
+            if let piece = flow.respondsTo {
+                Label(piece.yours
+                      ? "A follow-up to your “\(piece.title)”. That piece will point forward to this one."
+                      : "A reply to “\(piece.title)” by \(piece.author.name). Their piece will list it under Replies.",
+                      systemImage: "checkmark.circle.fill")
                     .font(.caption)
                     .foregroundStyle(.green)
-            } else if let problem = flow.followsProblem {
+            } else if let problem = flow.respondsToProblem {
                 Text(problem)
                     .font(.caption)
                     .foregroundStyle(.red)
@@ -166,7 +170,7 @@ struct PublishSheet: View {
 
     private var locked: some View {
         StepLayout(title: "Its text is locked",
-                   message: "“\(flow.record?.title ?? "This piece")” has been up for more than 15 minutes, or someone has reacted or commented, so it stays as readers saw it. Your changes stay on your Mac.\n\nTo say more, add a P.S., or write a new piece and paste this one's link when you publish it, as the piece it follows up.") {
+                   message: "“\(flow.record?.title ?? "This piece")” has been up for more than 15 minutes, or someone has reacted or commented, so it stays as readers saw it. Your changes stay on your Mac.\n\nTo say more, add a P.S., or write a new piece and paste this one's link when you publish it, as the piece it responds to.") {
             Button("Copy Link") { flow.copyLink() }
             Button("OK") { flow.cancel() }
                 .keyboardShortcut(.defaultAction)

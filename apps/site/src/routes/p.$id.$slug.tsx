@@ -4,6 +4,7 @@ import { DeletePiece } from "../components/DeletePiece";
 import { SeriesIsland } from "../components/island/SeriesIsland";
 import { Byline } from "../components/PostCard";
 import { Postscripts } from "../components/Postscripts";
+import { Replies } from "../components/Replies";
 import { getPost } from "../server/site.functions";
 
 // /p/<id>/<slug>: the id is permanent, the slug follows the title. An old
@@ -36,12 +37,21 @@ function PostRoute() {
 		<>
 		<main className="post">
 			<Byline post={post} />
-			{post.follows && (
+			{/* What this piece responds to: the author's own (a follow-up) or someone else's (a reply). */}
+			{post.respondsTo && (
 				<p className="post-follows">
-					Follows{" "}
-					<Link to="/p/$id/$slug" params={{ id: post.follows.id, slug: post.follows.slug }}>
-						{post.follows.title}
+					{post.respondsTo.own ? "Follows " : "In reply to "}
+					<Link to="/p/$id/$slug" params={{ id: post.respondsTo.id, slug: post.respondsTo.slug }}>
+						{post.respondsTo.title}
 					</Link>
+					{!post.respondsTo.own && (
+						<>
+							{" by "}
+							<Link to="/@{$handle}" params={{ handle: post.respondsTo.author.handle }}>
+								{post.respondsTo.author.name}
+							</Link>
+						</>
+					)}
 				</p>
 			)}
 			<h1 className="post-headline">{post.title}</h1>
@@ -64,6 +74,12 @@ function PostRoute() {
 						</Link>
 					))}
 				</nav>
+			)}
+			{post.replies.length > 0 && (
+				<section id="replies" className="post-followups" aria-label="Replies">
+					<p className="post-followups-label">{post.replies.length === 1 ? "A reply" : `${post.replies.length} replies`}</p>
+					<Replies post={post} />
+				</section>
 			)}
 			{post.viewer?.isAuthor && <DeletePiece post={post} />}
 			<BrandMark className="end-mark" />

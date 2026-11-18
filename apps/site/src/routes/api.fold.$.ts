@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
 	addPostscript,
 	becomeAuthor,
+	piece,
 	preview,
 	PublishError,
 	publish,
@@ -17,14 +18,16 @@ import {
 //   GET    /api/fold/me              who you are, and your author name if you have one
 //   POST   /api/fold/author          { name, handle }: become an author (once)
 //   POST   /api/fold/preview         { markdown }: the title and opening lines the feed will show
-//   PUT    /api/fold/posts           { sourceId, markdown, follows?, parts?, pledge: true }: publish, or fix;
-//                                    follows: the id of an earlier piece of yours this new one follows up;
+//   PUT    /api/fold/posts           { sourceId, markdown, respondsTo?, parts?, pledge: true }: publish, or fix;
+//                                    respondsTo: the id of the piece this new one responds to, yours (a
+//                                    follow-up) or anyone's (a reply);
 //                                    parts: for a whole series joined into one piece, how many chapters (h2s)
 //                                    (only for 15 minutes, and until anyone reacts or comments; then 423)
 //   GET    /api/fold/posts/<id>      one of your posts as it stands, with fixableUntil (null once locked)
 //                                    and its postscripts
 //   POST   /api/fold/posts/<id>/ps   { body, pledge: true }: add a P.S. under it (at most 150 words; never edited)
 //   DELETE /api/fold/posts/<id>      unpublish it
+//   GET    /api/fold/pieces/<id>     any piece, to respond to: its title, url, author, and whether it's yours
 //
 // Connecting itself is Better Auth's: POST /api/auth/device/code and
 // /api/auth/device/token with client_id "fold-md".
@@ -65,6 +68,9 @@ async function handle(request: Request, path = "") {
 				await unpublish(publisher, parts[1]);
 				return reply({ ok: true });
 			}
+		}
+		if (parts[0] === "pieces" && parts.length === 2 && method === "GET") {
+			return reply(await piece(publisher, parts[1], origin));
 		}
 		if (parts[0] === "posts" && parts.length === 3 && parts[2] === "ps" && method === "POST") {
 			return reply({ postscript: await addPostscript(publisher, parts[1], await body(request)) }, 201);
