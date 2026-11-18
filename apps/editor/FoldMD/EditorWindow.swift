@@ -51,7 +51,10 @@ struct EditorWindow: View {
     @State private var contentHeight: CGFloat = 600
 
     /// How wide the publishing half slides out. Remembered when you resize it.
-    @AppStorage("page.width") private var preferredPageWidth = 620.0
+    /// Starts wide enough for the published column (736) at full size, like
+    /// Fold GPUI; narrower, the page is scaled down to fit. (A new key: the
+    /// old one remembered 620-ish widths, from when that was the default.)
+    @AppStorage("page.width.2") private var preferredPageWidth = 760.0
     @AppStorage("sheet.open") private var sheetOpen = true
     @AppStorage("sheet.height") private var sheetHeight = 220.0
     @AppStorage("sheet.mode") private var mode: DrawerMode = .under
