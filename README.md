@@ -63,7 +63,9 @@ Open the publishing surface (⌥⌘P); its strip of the toolbar has a **Publish*
 2. **Your first publish.** Choose your author name (filled in from your account) and a handle.
 3. **Publish.** The sheet shows the title and opening lines as the feed will, an *Open to debate* toggle, and the pledge: *I wrote this myself. No AI wrote or rewrote any of it.* Publishing needs the pledge every time.
 4. **Published · View** opens the piece on the site, where you have the author's tools.
-   Change the file and the pill reads **Update**: that replaces the text of the same post, keeping its link, reactions and comments.
+   Once a piece is published, the pill also sits in the window's own toolbar while the publishing surface is closed.
+5. **Fix, for a short while.** For 15 minutes after publishing, and only until someone reacts or comments, you can still fix the piece: change the file and the pill reads **Fix**.
+   After that its text is locked, so what readers reacted to stays what's there. The site enforces it (`423 Locked`), and your later changes stay on your Mac.
    **Unpublish** is in the pill's menu (it takes the post's reactions and comments with it), and so is *Disconnect*.
 
 Only the file's markdown is sent. Self-notes stay in their own hidden file and never leave your Mac.
@@ -73,7 +75,7 @@ Pieces in a series are published one by one for now.
 
 How it works: Better Auth's [device authorization](https://www.better-auth.com/docs/plugins/device-authorization) (`client_id` `fold-md`) and `bearer` plugins, with the device codes in `migrations/0005_publishing.sql`.
 Fold MD then calls `/api/fold/*` (`apps/site/src/routes/api.fold.$.ts`) with `Authorization: Bearer <token>`; that API ignores cookies, so no web page can publish in your name.
-Each file sends a stable id with every publish, so publishing it again updates its post instead of making a second one.
+Each file sends a stable id with every publish, so publishing it again (a fix) changes its post instead of making a second one.
 
 ## Run the editor
 

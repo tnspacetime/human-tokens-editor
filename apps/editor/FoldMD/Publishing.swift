@@ -69,6 +69,15 @@ enum SiteAPI {
         let url: URL
         let title: String
         let allowDebate: Bool
+        /// Until when its text can still be fixed (an ISO date); nil once
+        /// it's locked: after 15 minutes, or once anyone reacts or comments.
+        let fixableUntil: String?
+
+        var fixableUntilDate: Date? {
+            let format = ISO8601DateFormatter()
+            format.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            return fixableUntil.flatMap(format.date(from:))
+        }
     }
 
     enum Failure: LocalizedError, Equatable {
@@ -78,6 +87,11 @@ enum SiteAPI {
         case refused(String, status: Int)
         /// The site couldn't be reached.
         case offline
+
+        /// The piece's text is locked: its fix window has closed.
+        var isLocked: Bool { if case .refused(_, 423) = self { true } else { false } }
+        /// The piece isn't on the site any more.
+        var isGone: Bool { if case .refused(_, 404) = self { true } else { false } }
 
         var errorDescription: String? {
             switch self {
@@ -129,6 +143,11 @@ enum SiteAPI {
         try await send("PUT", "api/fold/posts", body: [
             "sourceId": sourceID, "markdown": markdown, "allowDebate": allowDebate, "pledge": true,
         ], token: token)
+    }
+
+    /// One of your posts as it stands on the site (whether it can still be fixed).
+    static func post(_ token: String, postID: String) async throws -> Post {
+        try await send("GET", "api/fold/posts/\(postID)", token: token)
     }
 
     static func unpublish(_ token: String, postID: String) async throws {
@@ -238,6 +257,9 @@ struct PublishRecord: Codable, Equatable {
     /// The text as published (a SHA-256), to tell when it has changed since.
     var publishedHash: String
     var publishedAt: Date
+    /// Until when it can still be fixed, as the site last said; nil once
+    /// it's locked (or for records from before the fix window).
+    var fixableUntil: Date?
 
     static func fileURL(for document: URL) -> URL {
         document.deletingLastPathComponent().appending(path: ".\(document.lastPathComponent).published")

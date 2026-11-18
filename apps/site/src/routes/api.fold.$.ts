@@ -16,8 +16,9 @@ import {
 //   GET    /api/fold/me              who you are, and your author name if you have one
 //   POST   /api/fold/author          { name, handle }: become an author (once)
 //   POST   /api/fold/preview         { markdown }: the title and opening lines the feed will show
-//   PUT    /api/fold/posts           { sourceId, markdown, allowDebate, pledge: true }: publish or update
-//   GET    /api/fold/posts/<id>      one of your posts as it stands
+//   PUT    /api/fold/posts           { sourceId, markdown, allowDebate, pledge: true }: publish, or fix
+//                                    (only for 15 minutes, and until anyone reacts or comments; then 423)
+//   GET    /api/fold/posts/<id>      one of your posts as it stands, with fixableUntil (null once locked)
 //   DELETE /api/fold/posts/<id>      unpublish it
 //
 // Connecting itself is Better Auth's: POST /api/auth/device/code and

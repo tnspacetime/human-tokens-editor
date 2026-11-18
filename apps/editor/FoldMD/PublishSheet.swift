@@ -14,6 +14,7 @@ struct PublishSheet: View {
             case .notConnected(let reason): notConnected(reason)
             case .author: author
             case .publish: publish
+            case .locked: locked
             case .failed(let message): failed(message)
             case nil: EmptyView()
             }
@@ -105,13 +106,14 @@ struct PublishSheet: View {
     }
 
     private var publish: some View {
-        let title = flow.isUpdate ? "Update" : "Publish"
-        let message = flow.isUpdate
-            ? "This replaces the text of your published piece. Its link, reactions and comments stay."
-            : "This is how it starts in the feed."
+        let title = flow.isFix ? "Fix" : "Publish"
+        let until = flow.fixableUntil.map { " until \($0.formatted(date: .omitted, time: .shortened))" } ?? ""
+        let message = flow.isFix
+            ? "Nobody has reacted or commented yet, so you can still fix it\(until). After that its text is locked."
+            : "This is how it starts in the feed. For 15 minutes after you publish, until someone reacts or comments, you can still fix it. Then its text is locked, so it stays as readers saw it."
         return StepLayout(title: title, message: message) {
             Button("Cancel", role: .cancel) { flow.cancel() }
-            Button(flow.busy ? (flow.isUpdate ? "Updating…" : "Publishing…") : title) { flow.publish() }
+            Button(flow.busy ? (flow.isFix ? "Fixing…" : "Publishing…") : title) { flow.publish() }
                 .keyboardShortcut(.defaultAction)
                 .disabled(!flow.canPublish)
         } content: {
@@ -142,6 +144,15 @@ struct PublishSheet: View {
             .toggleStyle(.checkbox)
             .disabled(flow.busy)
             ErrorLine(flow.error)
+        }
+    }
+
+    private var locked: some View {
+        StepLayout(title: "Its text is locked",
+                   message: "“\(flow.record?.title ?? "This piece")” has been up for more than 15 minutes, or someone has reacted or commented, so it stays as readers saw it. Your changes stay on your Mac.") {
+            Button("View on \(PublishSite.name)") { flow.view(); flow.cancel() }
+            Button("OK") { flow.cancel() }
+                .keyboardShortcut(.defaultAction)
         }
     }
 

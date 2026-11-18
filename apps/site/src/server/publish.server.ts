@@ -4,8 +4,8 @@ import { db } from "./rows.server";
 
 // Publishing from Fold MD: who is asking (by the token Fold MD got when you
 // connected it), becoming an author on your first publish, and publishing,
-// updating and unpublishing your own pieces. The HTTP side is
-// routes/api.fold.$.ts.
+// fixing (only in the fix window) and unpublishing your own pieces. The HTTP
+// side is routes/api.fold.$.ts.
 
 /** A refusal Fold MD can show as it is. */
 export class PublishError extends Error {
@@ -110,6 +110,17 @@ export function preview(input: Record<string, unknown>) {
 	};
 }
 
+/**
+ * A published piece's text can still be fixed for this long after it went
+ * up, and only until someone reacts or comments. After that it's locked:
+ * what readers reacted to stays what's there.
+ */
+export const FIX_WINDOW_MINUTES = 15;
+const FIX_WINDOW_MS = FIX_WINDOW_MINUTES * 60_000;
+
+export const LOCKED =
+	"Its text is locked now: it's been up for more than 15 minutes, or someone has reacted or commented. Your changes stay on your Mac.";
+
 export type Published = {
 	id: string;
 	slug: string;
@@ -118,9 +129,26 @@ export type Published = {
 	allowDebate: boolean;
 	publishedAt: string;
 	updatedAt: string;
+	/** Until when its text can still be fixed; null once it's locked. */
+	fixableUntil: string | null;
 };
 
-type PostRow = { id: string; slug: string; title: string; allow_debate: number; published_at: string; updated_at: string };
+type PostRow = {
+	id: string;
+	slug: string;
+	title: string;
+	allow_debate: number;
+	published_at: string;
+	updated_at: string;
+	/** 1 once anyone has reacted or commented. */
+	touched: number;
+};
+
+function fixableUntil(row: Pick<PostRow, "published_at" | "touched">, now = Date.now()): string | null {
+	if (row.touched) return null;
+	const until = Date.parse(row.published_at) + FIX_WINDOW_MS;
+	return until > now ? new Date(until).toISOString() : null;
+}
 
 const toPublished = (row: PostRow, origin: string): Published => ({
 	id: row.id,
@@ -130,12 +158,13 @@ const toPublished = (row: PostRow, origin: string): Published => ({
 	allowDebate: row.allow_debate === 1,
 	publishedAt: row.published_at,
 	updatedAt: row.updated_at,
+	fixableUntil: fixableUntil(row),
 });
 
 /**
- * Publish a file, or replace the text of the post it was published as
- * before (same link, reactions and comments). `sourceId` is Fold MD's id
- * for the file. Every publish asks for the pledge.
+ * Publish a file, or fix the post it was published as, while that's still
+ * allowed (see FIX_WINDOW_MINUTES); after that, 423 Locked. `sourceId` is
+ * Fold MD's id for the file. Every publish asks for the pledge.
  */
 export async function publish(
 	publisher: Publisher,
@@ -152,18 +181,23 @@ export async function publish(
 	const now = new Date().toISOString();
 
 	const existing = await db()
-		.prepare("SELECT id FROM posts WHERE author_id = ? AND source_id = ?")
+		.prepare(`SELECT id, published_at, ${TOUCHED} AS touched FROM posts p WHERE author_id = ? AND source_id = ?`)
 		.bind(author.id, input.sourceId)
-		.first<{ id: string }>();
+		.first<Pick<PostRow, "id" | "published_at" | "touched">>();
+	if (existing && !fixableUntil(existing)) throw new PublishError(423, LOCKED);
 	const id = existing?.id ?? randomId(8);
 
-	await db()
+	// The fix window is checked again in the write itself, so a reaction
+	// that lands in between still locks it.
+	const { meta } = await db()
 		.prepare(
 			`INSERT INTO posts (id, author_id, source_id, slug, title, excerpt, markdown, word_count, shape, opening, allow_debate, pledged_at, published_at, updated_at)
 			 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?12, ?12)
 			 ON CONFLICT (id) DO UPDATE SET slug = ?4, title = ?5, excerpt = ?6, markdown = ?7, word_count = ?8,
 			   shape = ?9, opening = ?10, allow_debate = ?11, pledged_at = ?12, updated_at = ?12
-			 WHERE posts.author_id = ?2`,
+			 WHERE posts.author_id = ?2 AND posts.published_at > ?13
+			   AND NOT EXISTS (SELECT 1 FROM reactions WHERE post_id = posts.id)
+			   AND NOT EXISTS (SELECT 1 FROM comments WHERE post_id = posts.id)`,
 		)
 		.bind(
 			id,
@@ -178,17 +212,22 @@ export async function publish(
 			derived.opening,
 			allowDebate,
 			now,
+			new Date(Date.parse(now) - FIX_WINDOW_MS).toISOString(),
 		)
 		.run();
+	if (!meta.changes) throw new PublishError(existing ? 423 : 500, existing ? LOCKED : "The piece didn't save. Try again.");
 
 	const row = await ownPost(author, id);
 	if (!row) throw new PublishError(500, "The piece didn't save. Try again.");
 	return { ...toPublished(row, origin), created: !existing };
 }
 
+/** 1 once anyone has reacted to or commented on post `p`. */
+const TOUCHED = `(EXISTS (SELECT 1 FROM reactions WHERE post_id = p.id) OR EXISTS (SELECT 1 FROM comments WHERE post_id = p.id))`;
+
 async function ownPost(author: Author, id: string) {
 	return db()
-		.prepare("SELECT id, slug, title, allow_debate, published_at, updated_at FROM posts WHERE id = ? AND author_id = ?")
+		.prepare(`SELECT id, slug, title, allow_debate, published_at, updated_at, ${TOUCHED} AS touched FROM posts p WHERE id = ? AND author_id = ?`)
 		.bind(id, author.id)
 		.first<PostRow>();
 }

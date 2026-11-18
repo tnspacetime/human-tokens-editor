@@ -5,13 +5,19 @@ import SwiftUI
 /// its sheet. Connecting (the first time), choosing an author name (the
 /// first publish ever), then the pledge and Publish. Only the document's
 /// text is ever sent: self-notes live in their own file and never are.
+///
+/// Once published, a piece can be fixed only in its fix window (15 minutes,
+/// and until anyone reacts or comments); then its text is locked, so what
+/// readers reacted to stays what's there. The site enforces it.
 @MainActor @Observable
 final class PublishFlow {
     /// What the pill says.
     enum Pill: Equatable {
         case publish
+        /// Up, and either unchanged or locked.
         case published(URL)
-        case update(URL)
+        /// Changed since, and still in its fix window.
+        case fix(URL)
     }
 
     /// Where the sheet is. nil: no sheet.
@@ -26,8 +32,10 @@ final class PublishFlow {
         case notConnected(String)
         /// Your first publish: how you appear on the site.
         case author
-        /// The pledge, and Publish (or Update).
+        /// The pledge, and Publish (or Fix).
         case publish
+        /// You tried to fix it, but its text is locked now.
+        case locked
         /// Something went wrong before the sheet could do anything.
         case failed(String)
     }
@@ -37,7 +45,11 @@ final class PublishFlow {
     private var textHash = ""
     /// The document's text, as it is now.
     var text = "" {
-        didSet { if text != oldValue { textHash = PublishRecord.hash(text) } }
+        didSet {
+            guard text != oldValue else { return }
+            textHash = PublishRecord.hash(text)
+            if case .fix = pill { checkFixWindow() }
+        }
     }
 
     var step: Step?
@@ -59,9 +71,23 @@ final class PublishFlow {
     private(set) var author: SiteAPI.Author?
     private var polling: Task<Void, Never>?
 
+    /// Still in the fix window, as far as Fold MD knows. Turns false on its
+    /// own when the window's time runs out; the site can close it sooner
+    /// (a reaction or a comment), which Fold MD hears when it checks.
+    private(set) var fixable = false
+    private var windowClosing: Task<Void, Never>?
+    private var lastCheck = Date.distantPast
+
     var pill: Pill {
         guard let record else { return .publish }
-        return record.publishedHash == textHash ? .published(record.url) : .update(record.url)
+        if record.publishedHash == textHash || !fixable { return .published(record.url) }
+        return .fix(record.url)
+    }
+
+    /// Published, changed since, and locked: the changes stay on this Mac.
+    var hasLockedChanges: Bool {
+        guard let record else { return false }
+        return record.publishedHash != textHash && !fixable
     }
 
     /// Published, and not changed since.
@@ -70,7 +96,11 @@ final class PublishFlow {
     }
 
     var isConnected: Bool { PublishToken.current != nil }
-    var isUpdate: Bool { record != nil }
+    /// Publishing again fixes the piece it already is.
+    var isFix: Bool { record != nil }
+
+    /// When the fix window closes, if it's still open.
+    var fixableUntil: Date? { fixable ? record?.fixableUntil : nil }
 
     // MARK: The file
 
@@ -88,15 +118,17 @@ final class PublishFlow {
             }
         }
         record = PublishRecord.read(for: url).flatMap { $0.site == PublishSite.base.absoluteString ? $0 : nil }
+        updateFixable()
         if step == .save { start() }
     }
 
     // MARK: The pill
 
-    /// Publish, or Update.
+    /// Publish, or Fix.
     func start() {
         error = nil
         guard fileURL != nil else { step = .save; return }
+        if record != nil && !fixable { step = .locked; return }
         guard let token = PublishToken.current else { connect(); return }
         step = .working("Checking your account…")
         Task { await afterConnecting(token) }
@@ -133,6 +165,7 @@ final class PublishFlow {
                 try await SiteAPI.unpublish(token, postID: record.postID)
                 PublishRecord.remove(for: fileURL)
                 self.record = nil
+                updateFixable()
             } catch SiteAPI.Failure.notConnected {
                 PublishToken.forget()
                 step = .failed("This connection has ended. Click Publish to connect again, then unpublish.")
@@ -248,9 +281,73 @@ final class PublishFlow {
         return String(handle.prefix(30))
     }
 
+    // MARK: The fix window
+
+    private func updateFixable() {
+        windowClosing?.cancel()
+        guard let until = record?.fixableUntil, until > .now else { fixable = false; return }
+        fixable = true
+        windowClosing = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(until.timeIntervalSinceNow + 0.5))
+            guard !Task.isCancelled else { return }
+            self?.updateFixable()
+        }
+    }
+
+    /// Remember what the site says about the piece now.
+    private func apply(_ post: SiteAPI.Post) {
+        guard var record, let fileURL, record.postID == post.id else { return }
+        record.fixableUntil = post.fixableUntilDate
+        record.write(for: fileURL)
+        self.record = record
+        updateFixable()
+    }
+
+    private func markLocked() {
+        guard var record, let fileURL else { return }
+        record.fixableUntil = nil
+        record.write(for: fileURL)
+        self.record = record
+        updateFixable()
+    }
+
+    /// While the pill offers Fix, ask the site now and then whether someone
+    /// has reacted or commented since, which locks it.
+    private func checkFixWindow() {
+        guard let record, Date.now.timeIntervalSince(lastCheck) > 20, let token = PublishToken.current else { return }
+        lastCheck = .now
+        Task {
+            do {
+                apply(try await SiteAPI.post(token, postID: record.postID))
+            } catch let failure as SiteAPI.Failure where failure.isGone {
+                forgetGonePost()
+            } catch {}
+        }
+    }
+
+    /// Unpublished on the site: this file can be published afresh.
+    private func forgetGonePost() {
+        guard let fileURL else { return }
+        PublishRecord.remove(for: fileURL)
+        record = nil
+        updateFixable()
+    }
+
     // MARK: Publishing
 
     private func showPublish(_ token: String) async {
+        if let record {
+            // Fixing: make sure it still can be.
+            do {
+                apply(try await SiteAPI.post(token, postID: record.postID))
+                if !fixable { step = .locked; return }
+            } catch let failure as SiteAPI.Failure where failure.isGone {
+                forgetGonePost()
+            } catch {
+                if step != nil { step = .failed(error.localizedDescription) }
+                return
+            }
+        }
         pledged = false
         allowDebate = record?.allowDebate ?? false
         preview = nil
@@ -279,13 +376,18 @@ final class PublishFlow {
                 let post = try await SiteAPI.publish(token, sourceID: sourceID, markdown: markdown, allowDebate: allowDebate)
                 let record = PublishRecord(site: PublishSite.base.absoluteString, sourceID: sourceID, postID: post.id,
                                            url: post.url, title: post.title, allowDebate: post.allowDebate,
-                                           publishedHash: PublishRecord.hash(markdown), publishedAt: Date())
+                                           publishedHash: PublishRecord.hash(markdown), publishedAt: Date(),
+                                           fixableUntil: post.fixableUntilDate)
                 record.write(for: fileURL)
                 self.record = record
+                updateFixable()
                 step = nil
             } catch SiteAPI.Failure.notConnected {
                 PublishToken.forget()
                 connect()
+            } catch let failure as SiteAPI.Failure where failure.isLocked {
+                markLocked()
+                step = .locked
             } catch {
                 self.error = error.localizedDescription
             }
@@ -296,8 +398,8 @@ final class PublishFlow {
 // MARK: - The pill
 
 /// In the publishing surface's strip: Publish; once it's up, Published ·
-/// View, or Update when the text has changed since. Its menu has View and
-/// Unpublish.
+/// View, or Fix when the text has changed in its fix window. Its menu has
+/// View and Unpublish.
 struct PublishPill: View {
     @Bindable var flow: PublishFlow
 
@@ -324,16 +426,18 @@ struct PublishPill: View {
                     } primaryAction: {
                         flow.view()
                     }
-                    .help("Open it on \(PublishSite.name). Hold for more.")
-                case .update:
+                    .help(flow.hasLockedChanges
+                          ? "Open it on \(PublishSite.name). Its text is locked, so your changes since publishing stay on your Mac."
+                          : "Open it on \(PublishSite.name). Hold for more.")
+                case .fix:
                     Menu {
                         menuItems
                     } label: {
-                        Label("Update", systemImage: "arrow.triangle.2.circlepath")
+                        Label("Fix", systemImage: "pencil")
                     } primaryAction: {
                         flow.start()
                     }
-                    .help("You've changed it since it was published. Click to update the published piece.")
+                    .help(fixHelp)
                 }
             }
         }
@@ -343,9 +447,18 @@ struct PublishPill: View {
         .publishPillStyle(prominent: !flow.isUpToDate)
     }
 
+    private var fixHelp: String {
+        let until = flow.fixableUntil.map { " until \($0.formatted(date: .omitted, time: .shortened))" } ?? ""
+        return "You've changed it since publishing. Nobody has reacted or commented yet, so you can still fix it\(until)."
+    }
+
     @ViewBuilder private var menuItems: some View {
         if flow.record != nil {
             Button("View on \(PublishSite.name)") { flow.view() }
+            if flow.hasLockedChanges {
+                Button("Its text is locked: your changes stay on your Mac") {}
+                    .disabled(true)
+            }
             Divider()
             Button("Unpublish…") { flow.confirmUnpublish() }
         } else {
@@ -359,7 +472,7 @@ struct PublishPill: View {
 }
 
 /// The pill in the window's own toolbar, while the publishing surface is
-/// closed: only once the piece is published (Published · View, or Update).
+/// closed: only once the piece is published (Published · View, or Fix).
 /// It shrinks and fades away as the surface opens, and back when it closes.
 struct ToolbarPublishPill: View {
     @Bindable var flow: PublishFlow

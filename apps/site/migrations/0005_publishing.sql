@@ -19,11 +19,11 @@ CREATE TABLE device_codes (
 
 -- Which file a post came from: Fold MD keeps an id for each file it
 -- publishes and sends it every time, so publishing the same file again
--- replaces that post's text (same link, reactions and comments) instead of
--- making a second one.
+-- fixes that post (only in its fix window, before anyone reacts or comments)
+-- instead of making a second one.
 ALTER TABLE posts ADD COLUMN source_id TEXT;
 CREATE UNIQUE INDEX posts_by_source ON posts (author_id, source_id);
 
 -- When the author last promised they wrote it themselves (at every publish
--- and update). The sample posts have none.
+-- and fix). The sample posts have none.
 ALTER TABLE posts ADD COLUMN pledged_at TEXT;
