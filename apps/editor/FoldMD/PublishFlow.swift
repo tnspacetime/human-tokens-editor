@@ -36,6 +36,10 @@ final class PublishFlow {
         case publish
         /// You tried to fix it, but its text is locked now.
         case locked
+        /// Writing a P.S. under the published piece.
+        case postscript
+        /// The P.S. is up.
+        case postscriptAdded
         /// Something went wrong before the sheet could do anything.
         case failed(String)
     }
@@ -64,8 +68,18 @@ final class PublishFlow {
 
     // The publish step.
     var preview: SiteAPI.Preview?
-    var allowDebate = false
     var pledged = false
+
+    // The P.S. step. What you've typed stays until it's added.
+    var postscript = ""
+    var postscriptPledged = false
+    /// A P.S. is short: anything longer belongs in a follow-up.
+    static let postscriptMaxWords = 150
+    var postscriptWords: Int { postscript.split(whereSeparator: \.isWhitespace).count }
+
+    /// Where the sheet goes once connected.
+    private enum Goal { case publish, postscript }
+    private var goal = Goal.publish
 
     /// Who you publish as, once known.
     private(set) var author: SiteAPI.Author?
@@ -126,6 +140,7 @@ final class PublishFlow {
 
     /// Publish, or Fix.
     func start() {
+        goal = .publish
         error = nil
         guard fileURL != nil else { step = .save; return }
         if record != nil && !fixable { step = .locked; return }
@@ -238,7 +253,10 @@ final class PublishFlow {
             let me = try await SiteAPI.me(token)
             guard step != nil else { return }
             author = me.author
-            if me.author == nil {
+            if goal == .postscript, me.author != nil {
+                goal = .publish
+                showPostscript()
+            } else if me.author == nil {
                 accountName = me.user.name
                 if authorName.isEmpty { authorName = me.user.name }
                 if handle.isEmpty { handle = Self.suggestedHandle(me.user.name) }
@@ -251,6 +269,53 @@ final class PublishFlow {
             connect()
         } catch {
             if step != nil { step = .failed(error.localizedDescription) }
+        }
+    }
+
+    // MARK: A P.S.
+
+    /// Add a P.S. under the published piece.
+    func startPostscript() {
+        guard record != nil else { return }
+        goal = .postscript
+        error = nil
+        guard let token = PublishToken.current else { connect(); return }
+        step = .working("Checking your account…")
+        Task { await afterConnecting(token) }
+    }
+
+    private func showPostscript() {
+        postscriptPledged = false
+        error = nil
+        step = .postscript
+    }
+
+    var canAddPostscript: Bool {
+        postscriptPledged && !busy && postscriptWords > 0 && postscriptWords <= Self.postscriptMaxWords
+    }
+
+    func addPostscript() {
+        guard canAddPostscript, let record, let token = PublishToken.current else { return }
+        let body = postscript
+        busy = true
+        error = nil
+        Task {
+            defer { busy = false }
+            do {
+                _ = try await SiteAPI.addPostscript(token, postID: record.postID, body: body)
+                postscript = ""
+                postscriptPledged = false
+                step = .postscriptAdded
+            } catch SiteAPI.Failure.notConnected {
+                PublishToken.forget()
+                goal = .postscript
+                connect()
+            } catch let failure as SiteAPI.Failure where failure.isGone {
+                forgetGonePost()
+                step = .failed("This piece isn't on the site any more, so the P.S. couldn't be added.")
+            } catch {
+                self.error = error.localizedDescription
+            }
         }
     }
 
@@ -349,7 +414,6 @@ final class PublishFlow {
             }
         }
         pledged = false
-        allowDebate = record?.allowDebate ?? false
         preview = nil
         error = nil
         step = .publish
@@ -373,9 +437,9 @@ final class PublishFlow {
         Task {
             defer { busy = false }
             do {
-                let post = try await SiteAPI.publish(token, sourceID: sourceID, markdown: markdown, allowDebate: allowDebate)
+                let post = try await SiteAPI.publish(token, sourceID: sourceID, markdown: markdown)
                 let record = PublishRecord(site: PublishSite.base.absoluteString, sourceID: sourceID, postID: post.id,
-                                           url: post.url, title: post.title, allowDebate: post.allowDebate,
+                                           url: post.url, title: post.title,
                                            publishedHash: PublishRecord.hash(markdown), publishedAt: Date(),
                                            fixableUntil: post.fixableUntilDate)
                 record.write(for: fileURL)
@@ -455,6 +519,7 @@ struct PublishPill: View {
     @ViewBuilder private var menuItems: some View {
         if flow.record != nil {
             Button("View on \(PublishSite.name)") { flow.view() }
+            Button("Add a P.S.…") { flow.startPostscript() }
             if flow.hasLockedChanges {
                 Button("Its text is locked: your changes stay on your Mac") {}
                     .disabled(true)

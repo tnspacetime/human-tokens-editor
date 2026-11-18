@@ -61,12 +61,15 @@ Open the publishing surface (⌥⌘P); its strip of the toolbar has a **Publish*
    Click **Allow**: Fold MD notices within seconds and keeps its token in your login Keychain (*Fold MD · human-tokens.dev*).
    Your password is only ever typed on Google's or GitHub's own page.
 2. **Your first publish.** Choose your author name (filled in from your account) and a handle.
-3. **Publish.** The sheet shows the title and opening lines as the feed will, an *Open to debate* toggle, and the pledge: *I wrote this myself. No AI wrote or rewrote any of it.* Publishing needs the pledge every time.
+3. **Publish.** The sheet shows the title and opening lines as the feed will, and the pledge: *I wrote this myself. No AI wrote or rewrote any of it.* Publishing needs the pledge every time.
 4. **Published · View** opens the piece on the site, where you have the author's tools.
    Once a piece is published, the pill also sits in the window's own toolbar while the publishing surface is closed.
 5. **Fix, for a short while.** For 15 minutes after publishing, and only until someone reacts or comments, you can still fix the piece: change the file and the pill reads **Fix**.
    After that its text is locked, so what readers reacted to stays what's there. The site enforces it (`423 Locked`), and your later changes stay on your Mac.
-   **Unpublish** is in the pill's menu (it takes the post's reactions and comments with it), and so is *Disconnect*.
+6. **Add a P.S.** From the pill's menu, add a short note (at most 150 words) at the end of the piece, dated, with the pledge.
+   It's how you add a correction or a thought once the text is locked. A P.S. can't be changed or removed.
+
+**Unpublish** is in the pill's menu (it takes the post's reactions, comments and P.S.es with it), and so is *Disconnect*.
 
 Only the file's markdown is sent. Self-notes stay in their own hidden file and never leave your Mac.
 Each published file remembers its post in another hidden file beside it, `.Name.md.published`, so the `.md` stays plain markdown.

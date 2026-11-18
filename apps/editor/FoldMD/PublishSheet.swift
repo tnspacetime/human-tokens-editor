@@ -15,6 +15,8 @@ struct PublishSheet: View {
             case .author: author
             case .publish: publish
             case .locked: locked
+            case .postscript: postscript
+            case .postscriptAdded: postscriptAdded
             case .failed(let message): failed(message)
             case nil: EmptyView()
             }
@@ -124,14 +126,6 @@ struct PublishSheet: View {
                     .foregroundStyle(.orange)
             }
             VStack(alignment: .leading, spacing: 12) {
-                Toggle(isOn: $flow.allowDebate) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Open to debate")
-                        Text("Readers are invited to argue with it in the comments.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
                 Toggle(isOn: $flow.pledged) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("I wrote this myself. No AI wrote or rewrote any of it.")
@@ -152,6 +146,50 @@ struct PublishSheet: View {
                    message: "“\(flow.record?.title ?? "This piece")” has been up for more than 15 minutes, or someone has reacted or commented, so it stays as readers saw it. Your changes stay on your Mac.") {
             Button("View on \(PublishSite.name)") { flow.view(); flow.cancel() }
             Button("OK") { flow.cancel() }
+                .keyboardShortcut(.defaultAction)
+        }
+    }
+
+    private var postscript: some View {
+        let words = flow.postscriptWords, max = PublishFlow.postscriptMaxWords
+        return StepLayout(title: "Add a P.S.",
+                          message: "A short note at the end of “\(flow.record?.title ?? "your piece")”, dated today. It can't be changed or removed afterwards.") {
+            Button("Cancel", role: .cancel) { flow.cancel() }
+            Button(flow.busy ? "Adding…" : "Add P.S.") { flow.addPostscript() }
+                .keyboardShortcut(.defaultAction)
+                .disabled(!flow.canAddPostscript)
+        } content: {
+            TextEditor(text: $flow.postscript)
+                .font(.body)
+                .scrollContentBackground(.hidden)
+                .padding(8)
+                .frame(height: 130)
+                .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.05)))
+                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.primary.opacity(0.12)))
+                .disabled(flow.busy)
+            Text(words > max ? "\(words) of \(max) words. For more, publish a follow-up." : "\(words) of \(max) words")
+                .font(.caption)
+                .monospacedDigit()
+                .foregroundStyle(words > max ? .red : .secondary)
+            Toggle(isOn: $flow.postscriptPledged) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("I wrote this myself. No AI wrote or rewrote any of it.")
+                        .fontWeight(.medium)
+                    Link("Read the rules", destination: PublishSite.rules)
+                        .font(.caption)
+                }
+            }
+            .toggleStyle(.checkbox)
+            .disabled(flow.busy)
+            ErrorLine(flow.error)
+        }
+    }
+
+    private var postscriptAdded: some View {
+        StepLayout(title: "Your P.S. is up",
+                   message: "It's at the end of “\(flow.record?.title ?? "your piece")”, with today's date.") {
+            Button("View on \(PublishSite.name)") { flow.view(); flow.cancel() }
+            Button("Done") { flow.cancel() }
                 .keyboardShortcut(.defaultAction)
         }
     }

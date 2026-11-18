@@ -1,6 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { BrandMark } from "../components/BrandMark";
 import { Byline } from "../components/PostCard";
+import { Postscripts } from "../components/Postscripts";
 import { getPost } from "../server/site.functions";
 
 // /p/<id>/<slug>: the id is permanent, the slug follows the title. An old
@@ -36,6 +37,11 @@ function PostRoute() {
 			{/* The markdown is rendered on the server by @human-tokens/renderer, which
 			    escapes any HTML in it; this is the same output as Fold MD's page. */}
 			<article className="fold-content post-body" dangerouslySetInnerHTML={{ __html: body }} />
+			{post.postscripts.length > 0 && (
+				<section id="ps" className="postscripts" aria-label="Postscripts">
+					<Postscripts post={post} />
+				</section>
+			)}
 			<BrandMark className="end-mark" />
 		</main>
 	);

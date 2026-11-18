@@ -293,6 +293,49 @@
 	margin-bottom: 0;
 }
 
+/* The author's P.S.es under the piece: after a hairline, a size down. */
+.postscripts {
+	margin-top: 44px;
+	padding-top: 24px;
+	border-top: 1px solid var(--line);
+}
+
+.postscript + .postscript {
+	margin-top: 28px;
+}
+
+.postscript-label {
+	margin: 0 0 8px;
+	color: var(--muted);
+	font: 700 12px/1.33 var(--sans);
+	letter-spacing: 0.02em;
+	text-transform: uppercase;
+}
+
+.postscript-label time {
+	margin-left: 6px;
+	font-weight: 600;
+	letter-spacing: 0;
+	text-transform: none;
+}
+
+.postscript-body {
+	font: 400 17px/25px var(--sans);
+	letter-spacing: -0.01em;
+}
+
+.postscript-body > :first-child {
+	margin-top: 0;
+}
+
+.postscript-body > :last-child {
+	margin-bottom: 0;
+}
+
+.postscript-body p {
+	margin: 0 0 14px;
+}
+
 /* Medium: a narrower column, text a size down. */
 @media (max-width: 1068px) {
 	.post {

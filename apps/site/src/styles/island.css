@@ -342,6 +342,43 @@
 	color: var(--ink-soft);
 }
 
+/* The author's P.S.: not a count of readers, so just its name. */
+.reader-seg .signal-ps {
+	font-weight: 700;
+	letter-spacing: 0.02em;
+}
+
+.reader-seg .signal-ps-count {
+	color: var(--muted);
+	font-weight: 600;
+}
+
+/* The reader island, and the P.S. that slides down under it. */
+.reader-dock {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+}
+
+.reader-seg[aria-expanded="true"] {
+	background: var(--glass-chip);
+}
+
+/* Over the page, not pushing anything below it down (as an island-sheet,
+   from live.css, otherwise). */
+.island-sheet.ps-sheet {
+	position: absolute;
+	top: 100%;
+	left: 50%;
+	translate: -50% 0;
+	width: min(560px, calc(100vw - 32px));
+}
+
+.ps-sheet .postscript + .postscript {
+	margin-top: 22px;
+}
+
 @media (max-width: 734px) {
 	/* No room for both: the name folds away while a panel is open. */
 	.island:has([aria-expanded="true"]) .island-home .island-slot {

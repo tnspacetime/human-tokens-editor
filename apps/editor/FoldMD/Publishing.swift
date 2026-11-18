@@ -68,7 +68,6 @@ enum SiteAPI {
         let id: String
         let url: URL
         let title: String
-        let allowDebate: Bool
         /// Until when its text can still be fixed (an ISO date); nil once
         /// it's locked: after 15 minutes, or once anyone reacts or comments.
         let fixableUntil: String?
@@ -100,6 +99,12 @@ enum SiteAPI {
             case .offline: "Couldn't reach \(PublishSite.name). Check your connection and try again."
             }
         }
+    }
+
+    struct Postscript: Decodable, Equatable {
+        let id: String
+        let body: String
+        let createdAt: String
     }
 
     /// Polling for the token after showing the code.
@@ -139,15 +144,22 @@ enum SiteAPI {
         try await send("POST", "api/fold/preview", body: ["markdown": markdown], token: token)
     }
 
-    static func publish(_ token: String, sourceID: String, markdown: String, allowDebate: Bool) async throws -> Post {
+    static func publish(_ token: String, sourceID: String, markdown: String) async throws -> Post {
         try await send("PUT", "api/fold/posts", body: [
-            "sourceId": sourceID, "markdown": markdown, "allowDebate": allowDebate, "pledge": true,
+            "sourceId": sourceID, "markdown": markdown, "pledge": true,
         ], token: token)
     }
 
     /// One of your posts as it stands on the site (whether it can still be fixed).
     static func post(_ token: String, postID: String) async throws -> Post {
         try await send("GET", "api/fold/posts/\(postID)", token: token)
+    }
+
+    /// A P.S. under one of your posts. It can't be edited or removed.
+    static func addPostscript(_ token: String, postID: String, body: String) async throws -> Postscript {
+        struct Reply: Decodable { let postscript: Postscript }
+        let reply: Reply = try await send("POST", "api/fold/posts/\(postID)/ps", body: ["body": body, "pledge": true], token: token)
+        return reply.postscript
     }
 
     static func unpublish(_ token: String, postID: String) async throws {
@@ -253,7 +265,6 @@ struct PublishRecord: Codable, Equatable {
     var postID: String
     var url: URL
     var title: String
-    var allowDebate: Bool
     /// The text as published (a SHA-256), to tell when it has changed since.
     var publishedHash: String
     var publishedAt: Date

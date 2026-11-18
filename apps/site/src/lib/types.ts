@@ -54,6 +54,8 @@ export type PostPage = FeedItem & {
 	allowDebate: boolean;
 	/** The qualities the viewer chose (none when signed out). */
 	mine: Quality[];
+	/** The author's notes under the piece, oldest first (rendered markdown). */
+	postscripts: { id: string; html: string; createdAt: string }[];
 	commentList: Comment[];
 	/** Who's reading, or null when signed out; isAuthor when it's their piece. */
 	viewer: { name: string; isAuthor: boolean } | null;

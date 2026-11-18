@@ -29,6 +29,7 @@ const slugify = (title: string) =>
 	title.toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
 
 const sql: string[] = [
+	"DELETE FROM postscripts;",
 	"DELETE FROM comments;",
 	"DELETE FROM reactions;",
 	"DELETE FROM posts;",

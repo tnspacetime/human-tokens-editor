@@ -4,8 +4,8 @@ import { db } from "./rows.server";
 
 // Publishing from Fold MD: who is asking (by the token Fold MD got when you
 // connected it), becoming an author on your first publish, and publishing,
-// fixing (only in the fix window) and unpublishing your own pieces. The HTTP
-// side is routes/api.fold.$.ts.
+// fixing (only in the fix window), adding a P.S. and unpublishing your own
+// pieces. The HTTP side is routes/api.fold.$.ts.
 
 /** A refusal Fold MD can show as it is. */
 export class PublishError extends Error {
@@ -237,11 +237,52 @@ const postId = (value: string) => {
 	return value;
 };
 
-/** One of your posts as it stands on the site, or 404 if it's gone. */
-export async function published(publisher: Publisher, id: string, origin: string): Promise<Published> {
+/** One of your posts as it stands on the site, with its P.S.es, or 404 if it's gone. */
+export async function published(
+	publisher: Publisher,
+	id: string,
+	origin: string,
+): Promise<Published & { postscripts: Postscript[] }> {
 	const row = await ownPost(requireAuthor(publisher), postId(id));
 	if (!row) throw new PublishError(404, "This piece isn't on the site.");
-	return toPublished(row, origin);
+	const { results } = await db()
+		.prepare("SELECT id, body, created_at FROM postscripts WHERE post_id = ? ORDER BY created_at")
+		.bind(row.id)
+		.all<{ id: string; body: string; created_at: string }>();
+	return { ...toPublished(row, origin), postscripts: results.map((r) => ({ id: r.id, body: r.body, createdAt: r.created_at })) };
+}
+
+// --------------------------------------------------------------------- P.S.
+
+/** A P.S. is short: anything longer belongs in a follow-up. */
+export const PS_MAX_WORDS = 150;
+const PS_MAX_CHARS = 1_500;
+
+export type Postscript = { id: string; body: string; createdAt: string };
+
+const wordsIn = (text: string) => text.split(/\s+/).filter(Boolean).length;
+
+/** Add a P.S. under one of your pieces. It can't be edited or removed. */
+export async function addPostscript(publisher: Publisher, id: string, input: Record<string, unknown>): Promise<Postscript> {
+	const author = requireAuthor(publisher);
+	if (input.pledge !== true) throw new PublishError(400, "A P.S. needs your promise that you wrote it yourself.");
+	if (typeof input.body !== "string" || !input.body.trim()) throw new PublishError(400, "Write the P.S. first.");
+	const body = input.body
+		.replace(/\r\n?/g, "\n")
+		.replace(/\n{3,}/g, "\n\n")
+		.trim();
+	if (wordsIn(body) > PS_MAX_WORDS || body.length > PS_MAX_CHARS) {
+		throw new PublishError(400, `A P.S. is at most ${PS_MAX_WORDS} words. For more, publish a follow-up.`);
+	}
+	const row = await ownPost(author, postId(id));
+	if (!row) throw new PublishError(404, "This piece isn't on the site.");
+
+	const postscript = { id: randomId(10), body, createdAt: new Date().toISOString() };
+	await db()
+		.prepare("INSERT INTO postscripts (id, post_id, body, pledged_at, created_at) VALUES (?1, ?2, ?3, ?4, ?4)")
+		.bind(postscript.id, row.id, body, postscript.createdAt)
+		.run();
+	return postscript;
 }
 
 /** Take one of your posts down, with its reactions and comments. */

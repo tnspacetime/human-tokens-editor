@@ -296,7 +296,6 @@ struct EditorWindow: View {
             switch command {
             case "start": flow.start()
             case "pledge": flow.pledged = true
-            case "debate": flow.allowDebate = true
             case "publish": flow.publish()
             case "unpublish": flow.unpublish()
             case "disconnect": flow.disconnect()

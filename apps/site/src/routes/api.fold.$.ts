@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
+	addPostscript,
 	becomeAuthor,
 	preview,
 	PublishError,
@@ -19,6 +20,8 @@ import {
 //   PUT    /api/fold/posts           { sourceId, markdown, allowDebate, pledge: true }: publish, or fix
 //                                    (only for 15 minutes, and until anyone reacts or comments; then 423)
 //   GET    /api/fold/posts/<id>      one of your posts as it stands, with fixableUntil (null once locked)
+//                                    and its postscripts
+//   POST   /api/fold/posts/<id>/ps   { body, pledge: true }: add a P.S. under it (at most 150 words; never edited)
 //   DELETE /api/fold/posts/<id>      unpublish it
 //
 // Connecting itself is Better Auth's: POST /api/auth/device/code and
@@ -60,6 +63,9 @@ async function handle(request: Request, path = "") {
 				await unpublish(publisher, parts[1]);
 				return reply({ ok: true });
 			}
+		}
+		if (parts[0] === "posts" && parts.length === 3 && parts[2] === "ps" && method === "POST") {
+			return reply({ postscript: await addPostscript(publisher, parts[1], await body(request)) }, 201);
 		}
 		return reply({ error: "Not found." }, 404);
 	} catch (error) {

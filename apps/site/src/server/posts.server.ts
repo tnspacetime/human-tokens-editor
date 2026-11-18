@@ -19,7 +19,7 @@ export async function loadPost(id: string, user: User | null): Promise<PostPage 
 		.first<PostRow & { markdown: string; author_user_id: string | null }>();
 	if (!row) return null;
 
-	const [counts, mine, comments] = await Promise.all([
+	const [counts, mine, comments, postscripts] = await Promise.all([
 		qualityCounts([id]),
 		user
 			? db()
@@ -34,6 +34,10 @@ export async function loadPost(id: string, user: User | null): Promise<PostPage 
 			)
 			.bind(id)
 			.all<{ id: string; user_id: string; name: string; body: string; author_note: string | null; created_at: string }>(),
+		db()
+			.prepare("SELECT id, body, created_at FROM postscripts WHERE post_id = ? ORDER BY created_at")
+			.bind(id)
+			.all<{ id: string; body: string; created_at: string }>(),
 	]);
 
 	return {
@@ -41,6 +45,7 @@ export async function loadPost(id: string, user: User | null): Promise<PostPage 
 		html: renderer.render(row.markdown),
 		allowDebate: row.allow_debate === 1,
 		mine: mine.results.map((r) => r.quality),
+		postscripts: postscripts.results.map((ps) => ({ id: ps.id, html: renderer.render(ps.body), createdAt: ps.created_at })),
 		commentList: comments.results.map((c) => ({
 			id: c.id,
 			name: c.name,
