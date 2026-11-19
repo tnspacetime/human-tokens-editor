@@ -16,22 +16,43 @@ import AppKit
 final class MarkdownHighlighter {
     /// The chunks' text when they were last styled, in order.
     private var styled: [NSString] = []
+    /// The characters changed since then, as macOS reports them. Comparing
+    /// text alone can't tell which of two identical blank lines is the new
+    /// one (it carries the attributes of what it was typed after), so the
+    /// chunks around a real edit are always styled again.
+    private var edited: NSRange?
+    private weak var watched: NSTextStorage?
+    nonisolated(unsafe) private var observer: (any NSObjectProtocol)?
 
-    private let fence = regex(#"^(```|~~~)[^\n]*\n[\s\S]*?(?:^\1[ \t]*$|\z)"#)
+    deinit {
+        if let observer { NotificationCenter.default.removeObserver(observer) }
+    }
+
+    // A fence may be indented up to three spaces, like the page allows.
+    private let fence = regex(#"^ {0,3}(```|~~~)[^\n]*\n[\s\S]*?(?:^ {0,3}\1[ \t]*$|\z)"#)
     private let mathBlock = regex(#"^\$\$[\s\S]*?\$\$[ \t]*$"#)
     private let heading = regex(#"^(#{1,6})[ \t]+.*$"#)
     private let quote = regex(#"^[ \t]*>.*$"#)
     private let rule = regex(#"^[ \t]*([-*_])(?:[ \t]*\1){2,}[ \t]*$"#)
     private let listMarker = regex(#"^[ \t]*([-*+]|\d+[.)])[ \t]+"#)
-    private let inlineCode = regex(#"(`)([^`\n]+)(`)"#)
-    private let inlineMath = regex(#"(?<![\\$])(\$)(?=\S)([^$\n]*?\S)(\$)(?!\d)"#)
+    /// - [ ] and - [x]: the page shows a checkbox.
+    private let taskBox = regex(#"^[ \t]*(?:[-*+]|\d+[.)])[ \t]+(\[[ xX]\])(?=[ \t]|$)"#)
+    // A delimiter after a backslash is just the character (\* \_ \` \$).
+    private let inlineCode = regex(#"(?<!\\)(`)([^`\n]+)(`)"#)
+    private let inlineMath = regex(#"(?<![\\$])(\$)(?=\S)((?:\\\$|[^$\n])*?[^\s\\])(\$)(?!\d)"#)
     private let link = regex(#"(!?\[)([^\]\n]*)(\]\()([^)\n]*)(\))"#)
-    private let bold = regex(#"(\*\*|__)(?=\S)(.+?)(?<=\S)\1"#)
-    private let italic = regex(#"(?<![*_\w])([*_])(?=[^\s*_])([^*_\n]*?[^\s*_])\1(?![*_\w])"#)
+    // ** and * work inside a word (un**believ**able); __ and _ don't
+    // (snake_case_name stays plain), as on the page.
+    private let boldStars = regex(#"(?<![\\*])(\*\*)(?=[^\s*])(.+?)(?<=[^\s\\*])\*\*"#)
+    private let boldUnderscores = regex(#"(?<![\\\w_])(__)(?=[^\s_])(.+?)(?<=[^\s\\_])__(?![\w_])"#)
+    private let italicStar = regex(#"(?<![\\*])(\*)(?=[^\s*])([^*\n]*?[^\s*\\])\*(?!\*)"#)
+    private let italicUnderscore = regex(#"(?<![\\\w_])(_)(?=[^\s_])([^_\n]*?[^\s_\\])_(?![\w_])"#)
+    private let strike = regex(#"(?<![\\~])(~~)(?=[^\s~])(.+?)(?<=[^\s\\~])~~(?!~)"#)
 
     /// Styles what changed since the last call; `everything` restyles the
     /// whole text (first load, a new text size).
     func apply(to storage: NSTextStorage, everything: Bool = false) {
+        watch(storage)
         let ns = storage.string as NSString
         let ranges = Self.chunks(ns)
         let texts = ranges.map { ns.substring(with: $0) as NSString }
@@ -43,13 +64,46 @@ final class MarkdownHighlighter {
             while same < min(texts.count, styled.count) - first,
                   texts[texts.count - 1 - same].isEqual(to: styled[styled.count - 1 - same] as String) { same += 1 }
             last = texts.count - same
+            if let edited {
+                for (index, range) in ranges.enumerated()
+                where range.location <= NSMaxRange(edited) && NSMaxRange(range) >= edited.location {
+                    first = min(first, index)
+                    last = max(last, index + 1)
+                }
+            }
         }
+        edited = nil
         styled = texts
         guard first < last else { return }
-        let start = ranges[first].location
-        let region = NSRange(location: start, length: NSMaxRange(ranges[last - 1]) - start)
-        guard region.length > 0 else { return }
-        style(storage, in: region)
+        // Each chunk on its own, whether styling everything or a few: so
+        // the result can't depend on which chunks were styled together.
+        storage.beginEditing()
+        defer { storage.endEditing() }
+        for range in ranges[first..<last] where range.length > 0 {
+            style(storage, in: range)
+        }
+    }
+
+    private func watch(_ storage: NSTextStorage) {
+        guard watched !== storage else { return }
+        if let observer { NotificationCenter.default.removeObserver(observer) }
+        watched = storage
+        observer = NotificationCenter.default.addObserver(forName: NSTextStorage.didProcessEditingNotification, object: storage, queue: nil) { [weak self] note in
+            guard let storage = note.object as? NSTextStorage, storage.editedMask.contains(.editedCharacters) else { return }
+            let range = storage.editedRange
+            let delta = storage.changeInLength
+            let length = storage.length
+            MainActor.assumeIsolated { self?.noteEdit(range, changeInLength: delta, length: length) }
+        }
+    }
+
+    /// Several edits before the next styling: cover them all (generously;
+    /// styling a little more than needed is harmless).
+    private func noteEdit(_ range: NSRange, changeInLength delta: Int, length: Int) {
+        guard let old = edited else { edited = range; return }
+        let start = min(old.location, range.location)
+        let end = min(length, max(NSMaxRange(old) + max(0, delta), NSMaxRange(range)))
+        edited = NSRange(location: start, length: max(0, end - start))
     }
 
     /// Splits the text into chunks that start at line starts: a chunk ends
@@ -80,14 +134,16 @@ final class MarkdownHighlighter {
                 var trimmedEnd = contentsEnd // without trailing spaces and tabs
                 while trimmedEnd > position, chars[trimmedEnd - 1] == space || chars[trimmedEnd - 1] == tab { trimmedEnd -= 1 }
                 let endsWithMath = trimmedEnd - position >= 2 && chars[trimmedEnd - 1] == dollar && chars[trimmedEnd - 2] == dollar
+                var indented = position // up to three spaces, as fences may be
+                while indented < min(position + 3, contentsEnd), chars[indented] == space { indented += 1 }
                 if let marker = fence {
                     // Closed by the same marker alone on its line.
-                    if trimmedEnd - position == 3, opens(position, trimmedEnd, marker) { fence = nil }
+                    if trimmedEnd - indented == 3, opens(indented, trimmedEnd, marker) { fence = nil }
                 } else if math {
                     if endsWithMath { math = false }
-                } else if opens(position, contentsEnd, backtick) {
+                } else if opens(indented, contentsEnd, backtick) {
                     fence = backtick
-                } else if opens(position, contentsEnd, tilde) {
+                } else if opens(indented, contentsEnd, tilde) {
                     fence = tilde
                 } else if contentsEnd - position >= 2, chars[position] == dollar, chars[position + 1] == dollar,
                           !(trimmedEnd - position >= 4 && endsWithMath) {
@@ -104,12 +160,11 @@ final class MarkdownHighlighter {
         }
     }
 
+    /// One chunk (`full`): its rules see only its own text.
     private func style(_ storage: NSTextStorage, in full: NSRange) {
         let text = storage.string
         let ns = text as NSString
 
-        storage.beginEditing()
-        defer { storage.endEditing() }
         storage.setAttributes(Theme.baseAttributes, range: full)
 
         // Ranges that inline rules must not touch (code, math).
@@ -121,25 +176,30 @@ final class MarkdownHighlighter {
             re.matches(in: text, range: full)
         }
 
-        for m in matches(fence) {
-            storage.addAttribute(.font, value: Theme.mono, range: m.range)
-            let opening = ns.lineRange(for: NSRange(location: m.range.location, length: 0))
-            storage.addAttribute(.foregroundColor, value: Theme.marker, range: NSIntersectionRange(opening, m.range))
-            let closing = ns.lineRange(for: NSRange(location: max(m.range.location, NSMaxRange(m.range) - 1), length: 0))
-            if closing.location != opening.location {
-                storage.addAttribute(.foregroundColor, value: Theme.marker, range: NSIntersectionRange(closing, m.range))
+        // Code and $$ math blocks, whichever starts first: a ``` inside a
+        // math block is part of the math, and $$ inside code is code.
+        let blocks = (matches(fence).map { ($0, true) } + matches(mathBlock).map { ($0, false) })
+            .sorted { $0.0.range.location < $1.0.range.location }
+        for (m, isFence) in blocks where isFree(m.range) {
+            if isFence {
+                storage.addAttribute(.font, value: Theme.mono, range: m.range)
+                let opening = ns.lineRange(for: NSRange(location: m.range.location, length: 0))
+                storage.addAttribute(.foregroundColor, value: Theme.marker, range: NSIntersectionRange(opening, m.range))
+                let closing = ns.lineRange(for: NSRange(location: max(m.range.location, NSMaxRange(m.range) - 1), length: 0))
+                if closing.location != opening.location {
+                    storage.addAttribute(.foregroundColor, value: Theme.marker, range: NSIntersectionRange(closing, m.range))
+                }
+            } else {
+                storage.addAttributes([.font: Theme.mono, .foregroundColor: Theme.math], range: m.range)
             }
-            blocked.append(m.range)
-        }
-
-        for m in matches(mathBlock) where isFree(m.range) {
-            storage.addAttributes([.font: Theme.mono, .foregroundColor: Theme.math], range: m.range)
             blocked.append(m.range)
         }
 
         for m in matches(heading) where isFree(m.range) {
             let marks = m.range(at: 1)
             storage.addAttribute(.font, value: Theme.heading(level: marks.length), range: m.range)
+            storage.addAttribute(.paragraphStyle, value: Theme.headingParagraph(level: marks.length),
+                                 range: NSIntersectionRange(ns.paragraphRange(for: m.range), full))
             storage.addAttribute(.foregroundColor, value: Theme.marker, range: marks)
         }
 
@@ -153,6 +213,10 @@ final class MarkdownHighlighter {
 
         for m in matches(listMarker) where isFree(m.range) {
             storage.addAttribute(.foregroundColor, value: Theme.listMarker, range: m.range(at: 1))
+        }
+
+        for m in matches(taskBox) where isFree(m.range) {
+            storage.addAttributes([.font: Theme.mono, .foregroundColor: Theme.listMarker], range: m.range(at: 1))
         }
 
         for m in matches(inlineCode) where isFree(m.range) {
@@ -172,13 +236,20 @@ final class MarkdownHighlighter {
             dim(storage, m.range(at: 1), m.range(at: 3), m.range(at: 4), m.range(at: 5))
         }
 
-        for m in matches(bold) where isFree(m.range) {
+        for m in matches(boldStars) + matches(boldUnderscores) where isFree(m.range) {
             addTrait(.boldFontMask, to: storage, in: m.range)
             dimDelimiters(storage, m)
         }
 
-        for m in matches(italic) where isFree(m.range) {
+        for m in matches(italicStar) + matches(italicUnderscore) where isFree(m.range) {
             addTrait(.italicFontMask, to: storage, in: m.range)
+            dimDelimiters(storage, m)
+        }
+
+        for m in matches(strike) where isFree(m.range) {
+            let open = m.range(at: 1)
+            let words = NSRange(location: NSMaxRange(open), length: m.range.length - open.length * 2)
+            storage.addAttribute(.strikethroughStyle, value: NSUnderlineStyle.single.rawValue, range: words)
             dimDelimiters(storage, m)
         }
     }

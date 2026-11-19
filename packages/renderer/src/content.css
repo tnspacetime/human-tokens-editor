@@ -42,6 +42,35 @@
 :where(.fold-content) p { margin: 0.6em 0; }
 :where(.fold-content) ul, :where(.fold-content) ol { margin: 0.6em 0; padding-left: 1.5em; }
 :where(.fold-content) li { margin: 0.2em 0; }
+/* Task lists: - [ ] and - [x] */
+:where(.fold-content) ul.task-list { list-style: none; padding-left: 0.2em; }
+:where(.fold-content) li.task > p:first-child { margin-top: 0; }
+:where(.fold-content) .task-box {
+  /* Drawn here: the browser's own box looks greyed out when it can't be clicked. */
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  box-sizing: border-box;
+  margin: 0 0.5em 0 0;
+  vertical-align: -0.1em;
+  width: 0.95em;
+  height: 0.95em;
+  border: 1.5px solid currentColor;
+  border-radius: 0.2em;
+  opacity: 0.75;
+}
+:where(.fold-content) .task-box:checked { background: currentColor; opacity: 0.9; }
+:where(.fold-content) .task-box:checked::after {
+  content: "";
+  position: absolute;
+  left: 0.27em;
+  top: 0.08em;
+  width: 0.22em;
+  height: 0.48em;
+  border: solid Canvas;
+  border-width: 0 0.12em 0.12em 0;
+  transform: rotate(45deg);
+}
 :where(.fold-content) a { color: var(--accent); text-decoration: none; }
 :where(.fold-content) a:hover { text-decoration: underline; }
 :where(.fold-content) img { max-width: 100%; border-radius: 6px; }

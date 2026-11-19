@@ -90,6 +90,33 @@ export function createRenderer(options = {}) {
       tokens[i + 1].children = parts;
     }
   });
+  // Task lists: a list item that starts with [ ] or [x] gets a checkbox
+  // (shown, not clickable), and its list loses the bullets.
+  md.core.ruler.push("task_lists", (state) => {
+    const tokens = state.tokens;
+    for (let i = 2; i < tokens.length; i++) {
+      if (tokens[i].type !== "inline" || tokens[i - 1].type !== "paragraph_open" || tokens[i - 2].type !== "list_item_open") continue;
+      const first = tokens[i].children?.[0];
+      const box = first?.type === "text" ? /^\[([ xX])\](?=\s|$)\s*/.exec(first.content) : null;
+      if (!box) continue;
+      const done = box[1] !== " ";
+      first.content = first.content.slice(box[0].length);
+      const input = new state.Token("html_inline", "", 0);
+      input.content = `<input class="task-box" type="checkbox" disabled${done ? " checked" : ""}> `;
+      tokens[i].children.unshift(input);
+      tokens[i - 2].attrJoin("class", done ? "task done" : "task");
+      // The list that holds it.
+      for (let j = i - 3, depth = 0; j >= 0; j--) {
+        if (tokens[j].nesting === -1) depth++;
+        else if (tokens[j].nesting === 1 && depth > 0) depth--;
+        else if (tokens[j].nesting === 1 && (tokens[j].type === "bullet_list_open" || tokens[j].type === "ordered_list_open")) {
+          if (!tokens[j].attrGet("class")) tokens[j].attrSet("class", "task-list");
+          break;
+        }
+      }
+    }
+  });
+
   const rule = (name) => md.renderer.rules[name] ?? ((tokens, idx, opts, env, self) => self.renderToken(tokens, idx, opts));
   const paragraphOpen = rule("paragraph_open");
   const paragraphClose = rule("paragraph_close");

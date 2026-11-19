@@ -55,9 +55,11 @@ struct EditorWindow: View {
     /// Fold GPUI; narrower, the page is scaled down to fit. (A new key: the
     /// old one remembered 620-ish widths, from when that was the default.)
     @AppStorage("page.width.2") private var preferredPageWidth = 760.0
-    @AppStorage("sheet.open") private var sheetOpen = true
-    @AppStorage("sheet.height") private var sheetHeight = 220.0
-    @AppStorage("sheet.mode") private var mode: DrawerMode = .under
+    // The sheet belongs to this window: hiding it here leaves the others
+    // alone. A new window starts the way you last left one.
+    @State private var sheetOpen = UserDefaults.standard.object(forKey: "sheet.open") as? Bool ?? true
+    @State private var sheetHeight = UserDefaults.standard.object(forKey: "sheet.height") as? Double ?? 220
+    @State private var mode = UserDefaults.standard.string(forKey: "sheet.mode").flatMap(DrawerMode.init(rawValue:)) ?? .under
     @AppStorage(AppearanceMode.key) private var appearance: AppearanceMode = .system
     // Read so the text size buttons enable and disable as it changes.
     @AppStorage(TextSize.key) private var textSize = Double(TextSize.standard)
@@ -157,9 +159,16 @@ struct EditorWindow: View {
                 for series in SeriesLibrary.shared.series(containing: fileURL) { SeriesLibrary.shared.touch(series.id) }
             }
         }
-        .onChange(of: mode, initial: true) { _, mode in sheet.setMode(mode) }
+        .onChange(of: mode, initial: true) { _, mode in
+            sheet.setMode(mode)
+            UserDefaults.standard.set(mode.rawValue, forKey: "sheet.mode")
+        }
+        .onChange(of: sheetHeight) { _, height in UserDefaults.standard.set(height, forKey: "sheet.height") }
         .onChange(of: pageAnchor, initial: true) { _, y in page.setAnchor(y) }
-        .onChange(of: sheetOpen, initial: true) { _, open in sheet.isActive = open }
+        .onChange(of: sheetOpen, initial: true) { _, open in
+            sheet.isActive = open
+            UserDefaults.standard.set(open, forKey: "sheet.open")
+        }
         .onChange(of: sheetMotion.value) { old, new in
             // Once you've pulled the sheet, it covers the text rather than
             // pushing it: the text stays still and the edge slides over it.
@@ -1064,14 +1073,18 @@ struct SheetHandle: View {
     @State private var hovering = false
 
     var body: some View {
+        // The sheet dissolves into the page through a short gradient rather
+        // than ending in a hard shadow, and the grip stays faint until the
+        // pointer comes near.
         ZStack {
-            Color(nsColor: Theme.sheet)
+            LinearGradient(colors: [Color(nsColor: Theme.sheet), Color(nsColor: .textBackgroundColor)],
+                           startPoint: .top, endPoint: .bottom)
             Capsule()
-                .fill(Color.secondary.opacity(hovering || dragStart != nil ? 0.6 : 0.3))
-                .frame(width: 38, height: 4)
+                .fill(Color.secondary.opacity(dragStart != nil ? 0.6 : hovering ? 0.5 : 0.14))
+                .frame(width: 36, height: 4)
+                .animation(.easeOut(duration: 0.15), value: hovering)
         }
         .frame(height: 12)
-        .shadow(color: .black.opacity(0.12), radius: 4, y: 2)
         .contentShape(Rectangle())
         .onHover { hovering = $0 }
         .pointerStyle(.rowResize)

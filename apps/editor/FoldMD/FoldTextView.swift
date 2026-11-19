@@ -243,7 +243,13 @@ final class FoldTextView: NSTextView {
     /// Photos, or from a web page) are copied next to this document and linked.
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
         let pasteboard = sender.draggingPasteboard
-        let at = NSRange(location: characterIndexForInsertion(at: convert(sender.draggingLocation, from: nil)), length: 0)
+        // At the end of the line under the pointer, so a dropped picture
+        // never splits a sentence.
+        let pointer = characterIndexForInsertion(at: convert(sender.draggingLocation, from: nil))
+        var lineEnd = 0
+        (string as NSString).getLineStart(nil, end: nil, contentsEnd: &lineEnd,
+                                          for: NSRange(location: min(pointer, (string as NSString).length), length: 0))
+        let at = NSRange(location: lineEnd, length: 0)
         let urls = fileURLs(on: pasteboard)
         let documents = urls.filter(SeriesLibrary.isMarkdown)
         let images = urls.filter(ImageImporter.isImage)

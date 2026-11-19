@@ -20,6 +20,17 @@ enum Theme {
         return style
     }
 
+    /// A heading's line, with air above it as a typesetter would leave:
+    /// 0.6 of its size for #, 0.5 for ##, 0.4 below that. (The first line
+    /// of the document gets none: TextKit leaves it out at the top.)
+    static func headingParagraph(level: Int) -> NSParagraphStyle {
+        let style = NSMutableParagraphStyle()
+        style.lineHeightMultiple = 1.35
+        let share: CGFloat = level == 1 ? 0.6 : level == 2 ? 0.5 : 0.4
+        style.paragraphSpacingBefore = (heading(level: level).pointSize * share).rounded()
+        return style
+    }
+
     static var text: NSColor { .labelColor }
     static var marker: NSColor { .tertiaryLabelColor }
     static var quote: NSColor { .secondaryLabelColor }
