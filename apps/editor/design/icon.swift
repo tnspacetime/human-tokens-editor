@@ -2,10 +2,10 @@
 //
 //   swift design/icon.swift
 //
-// A black tile with a few warm lines of text. The top half is a sheet of
+// A white tile with a few warm lines of text. The top half is a sheet of
 // frosted glass folded down over them, the way the app's sheet folds down
 // over your writing: below the glass the lines are crisp, under it they glow.
-// "md" sits on the glass.
+// "md" sits on the glass, in ink.
 
 import AppKit
 import CoreImage
@@ -21,10 +21,11 @@ func rgb(_ hex: UInt32, _ alpha: CGFloat = 1) -> CGColor {
             blue: CGFloat(hex & 0xFF) / 255, alpha: alpha)
 }
 
-let backgroundTop = rgb(0x1E1E21)
-let backgroundBottom = rgb(0x050506)
-let lineStart = rgb(0xFFB340)
-let lineEnd = rgb(0xFF7A1A)
+let backgroundTop = rgb(0xFFFFFF)
+let backgroundBottom = rgb(0xF0F0F3)
+let lineStart = rgb(0xF8A21C)
+let lineEnd = rgb(0xEC5E12)
+let ink = rgb(0x1D1D1F)
 
 // MARK: Geometry (1024 canvas, top-left origin)
 
@@ -114,9 +115,9 @@ func draw(_ cg: CGContext, pixels: Int) {
     let shape = squircle(in: body)
     let glassRect = CGRect(x: 0, y: 0, width: canvas, height: glassBottom)
 
-    // 1. The black tile, with the soft drop shadow of the macOS grid.
+    // 1. The white tile, with the soft drop shadow of the macOS grid.
     cg.saveGState()
-    shadow(cg, dy: 10, blur: 24, alpha: 0.32)
+    shadow(cg, dy: 10, blur: 24, alpha: 0.22)
     cg.addPath(shape)
     cg.setFillColor(backgroundBottom)
     cg.fillPath()
@@ -133,8 +134,8 @@ func draw(_ cg: CGContext, pixels: Int) {
 
     // 3. The glass casts a shadow onto what's below its edge.
     cg.saveGState()
-    shadow(cg, dy: 14, blur: 30, alpha: 0.7)
-    cg.setFillColor(rgb(0x000000))
+    shadow(cg, dy: 12, blur: 30, alpha: 0.16)
+    cg.setFillColor(backgroundTop)
     cg.fill(glassRect)
     cg.restoreGState()
 
@@ -144,41 +145,41 @@ func draw(_ cg: CGContext, pixels: Int) {
     cg.setFillColor(backgroundTop)
     cg.fill(glassRect)
     // Frosting: the lines blurred twice over (a wide glow and a closer one),
-    // a whisper of white, and a sheen brightest at the top.
+    // milky white over them, and a sheen brightest at the top.
     place(cg, blurred(lines, radius: 46 * unit))
     place(cg, blurred(lines, radius: 22 * unit))
-    cg.setFillColor(rgb(0xFFFFFF, 0.05))
+    cg.setFillColor(rgb(0xFFFFFF, 0.42))
     cg.fill(glassRect)
-    cg.drawLinearGradient(gradient([rgb(0xFFFFFF, 0.16), rgb(0xFFFFFF, 0.02), rgb(0xFFFFFF, 0.07)], [0, 0.72, 1]),
+    cg.drawLinearGradient(gradient([rgb(0xFFFFFF, 0.55), rgb(0xFFFFFF, 0.05), rgb(0xFFFFFF, 0.25)], [0, 0.72, 1]),
                           start: CGPoint(x: 0, y: body.minY), end: CGPoint(x: 0, y: glassBottom), options: [])
     cg.restoreGState()
 
-    // 5. The glass edges: light catching the folded edge, and the top rim.
-    cg.setFillColor(rgb(0xFFFFFF, 0.55))
-    cg.fill(CGRect(x: 0, y: glassBottom - 3, width: canvas, height: 3))
-    cg.setFillColor(rgb(0xFFFFFF, 0.12))
-    cg.fill(CGRect(x: 0, y: glassBottom - 10, width: canvas, height: 7))
+    // 5. The glass edges: the folded edge, a fine line with light above it.
+    cg.setFillColor(rgb(0x000000, 0.10))
+    cg.fill(CGRect(x: 0, y: glassBottom - 2, width: canvas, height: 2))
+    cg.setFillColor(rgb(0xFFFFFF, 0.9))
+    cg.fill(CGRect(x: 0, y: glassBottom - 6, width: canvas, height: 4))
     cg.restoreGState() // end tile clip
 
+    // A fine edge all round, so the white tile holds its shape on a white desktop.
     cg.saveGState()
     cg.addPath(shape)
     cg.clip()
-    cg.clip(to: glassRect)
-    cg.addPath(squircle(in: body.insetBy(dx: 2, dy: 2)))
-    cg.setStrokeColor(rgb(0xFFFFFF, 0.28))
-    cg.setLineWidth(4)
+    cg.addPath(squircle(in: body.insetBy(dx: 1, dy: 1)))
+    cg.setStrokeColor(rgb(0x000000, 0.08))
+    cg.setLineWidth(2)
     cg.strokePath()
     cg.restoreGState()
 
     // 6. "md" on the glass.
     let font = NSFont.systemFont(ofSize: detailed ? 236 : 300, weight: .bold).withRoundedDesign()
-    let md = NSAttributedString(string: "md", attributes: [.font: font, .foregroundColor: NSColor.white, .kern: -6])
+    let md = NSAttributedString(string: "md", attributes: [.font: font, .foregroundColor: NSColor(cgColor: ink)!, .kern: -6])
     let size = md.size()
     let origin = CGPoint(x: (canvas - size.width) / 2, y: body.minY + (glassBottom - body.minY - size.height) / 2 - 6)
     NSGraphicsContext.saveGraphicsState()
     NSGraphicsContext.current = NSGraphicsContext(cgContext: cg, flipped: true)
     cg.saveGState()
-    shadow(cg, dy: 4, blur: 14, alpha: 0.25)
+    shadow(cg, dy: 3, blur: 10, alpha: 0.10)
     md.draw(at: origin)
     cg.restoreGState()
     NSGraphicsContext.restoreGraphicsState()
