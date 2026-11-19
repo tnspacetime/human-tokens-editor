@@ -1,5 +1,4 @@
-import { useRouter } from "@tanstack/react-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { QUALITIES } from "../../lib/qualities";
 import type { PostPage } from "../../lib/types";
 import { CommentComposer, CommentList } from "../Comments";
@@ -11,18 +10,15 @@ import { RollingNumber } from "../RollingNumber";
 import { Sheet } from "../Sheet";
 import { useDismiss } from "./useDismiss";
 
-const REFRESH_MS = 20_000;
-
 // Reading a piece: a second, smaller island under the first, with what
 // readers made of it. The qualities chosen and their counts open a sheet to
 // say how it read to you; the comment count opens the comments, with yours
 // to write at the foot. Once the author has added a P.S., a P.S. button
 // slides it down under the island, without losing your place, and once
 // others have written pieces in reply, a Replies button slides those down. The counts roll like the live
-// board's, and catch up on their own every so often while the page is in
-// front of you.
+// board's when they change. They're as of when the page opened (or of
+// your own last choice or comment); reloading the page brings the latest.
 export function ReaderIsland({ post }: { post: PostPage }) {
-	const router = useRouter();
 	const [open, setOpen] = useState<"qualities" | "comments" | "ps" | "replies" | null>(null);
 	const close = () => setOpen(null);
 	const dock = useRef<HTMLDivElement>(null);
@@ -34,14 +30,6 @@ export function ReaderIsland({ post }: { post: PostPage }) {
 	const comments = post.comments;
 	const postscripts = post.postscripts.length;
 	const replies = post.replies.length;
-
-	// Not while a sheet is open: nothing should shift under your hand.
-	useEffect(() => {
-		const timer = setInterval(() => {
-			if (document.visibilityState === "visible" && !document.querySelector("dialog[open]")) router.invalidate();
-		}, REFRESH_MS);
-		return () => clearInterval(timer);
-	}, [router]);
 
 	return (
 		<div ref={dock} className="reader-dock">

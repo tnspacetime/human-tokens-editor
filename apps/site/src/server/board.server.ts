@@ -1,6 +1,6 @@
 import { QUALITIES, type Quality } from "../lib/qualities";
 import type { Board, BoardEntry, BoardWindow } from "../lib/types";
-import { db } from "./rows.server";
+import { batches, db, marks } from "./rows.server";
 
 const WINDOWS: { id: BoardWindow["id"]; label: string; hours: number }[] = [
 	{ id: "1h", label: "Last hour", hours: 1 },
@@ -66,15 +66,17 @@ async function countBoard(now: number): Promise<Board> {
 	// Fill in the posts every list mentions, in one query.
 	const ids = [...new Set(counted.flatMap((w) => [...w.top.values()].flat().map((e) => e.postId)))];
 	const posts = new Map<string, BoardEntry["post"]>();
-	if (ids.length > 0) {
-		const { results } = await db()
-			.prepare(
-				`SELECT p.id, p.slug, p.title, a.name AS author FROM posts p JOIN authors a ON a.id = p.author_id WHERE p.id IN (${ids.map(() => "?").join(", ")})`,
-			)
-			.bind(...ids)
-			.all<BoardEntry["post"]>();
-		for (const post of results) posts.set(post.id, post);
-	}
+	// Up to 200 of them (four windows, five lists of ten): in pieces, as D1
+	// takes at most 100 values in a query.
+	const found = await Promise.all(
+		batches(ids).map((piece) =>
+			db()
+				.prepare(`SELECT p.id, p.slug, p.title, a.name AS author FROM posts p JOIN authors a ON a.id = p.author_id WHERE p.id IN (${marks(piece)})`)
+				.bind(...piece)
+				.all<BoardEntry["post"]>(),
+		),
+	);
+	for (const { results } of found) for (const post of results) posts.set(post.id, post);
 	const entries = (list: { postId: string; votes: number }[] = []) =>
 		list.flatMap((e) => {
 			const post = posts.get(e.postId);

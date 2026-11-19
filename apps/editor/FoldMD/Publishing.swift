@@ -64,6 +64,24 @@ enum SiteAPI {
         let minutes: Int
         /// Why you can't publish a new piece just now (too many lately), or nil.
         let limitReached: String?
+        /// One of your posts with the same title or opening, or nil.
+        let duplicate: Duplicate?
+    }
+
+    /// A post of yours that a new one looks like.
+    struct Duplicate: Decodable, Equatable {
+        let id: String
+        let title: String
+        let url: URL
+        let publishedAt: String
+
+        /// "12 Nov 2026".
+        var shownDate: String {
+            let format = ISO8601DateFormatter()
+            format.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            let date = format.date(from: publishedAt) ?? ISO8601DateFormatter().date(from: publishedAt)
+            return date?.formatted(date: .abbreviated, time: .omitted) ?? publishedAt
+        }
     }
 
     struct Post: Decodable, Equatable {
@@ -214,6 +232,16 @@ enum SiteAPI {
         let _: Done? = try? await send("POST", "api/auth/sign-out", body: [:], token: token)
     }
 
+    /// "Fold MD/1.0 (Ana's MacBook Air)": the site lists where Fold MD is
+    /// connected by it, so you can disconnect a Mac you don't use any more.
+    /// Only plain letters go as they are; the rest is %-encoded.
+    private static let userAgent: String = {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1"
+        let name = Host.current().localizedName ?? "Mac"
+        let plain = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 -_.")
+        return "Fold MD/\(version) (\(name.addingPercentEncoding(withAllowedCharacters: plain) ?? "Mac"))"
+    }()
+
     /// `body` goes as JSON; `upload` as the bytes they are, of that type.
     private static func send<T: Decodable>(_ method: String, _ path: String, body: [String: Any]? = nil,
                                            upload: (data: Data, type: String)? = nil,
@@ -229,6 +257,7 @@ enum SiteAPI {
             request.httpBody = upload.data
         }
         if let token { request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
+        request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
         // No cookies: only the token says who's publishing.
         request.httpShouldHandleCookies = false
 
@@ -297,7 +326,8 @@ enum PublishToken {
 // MARK: - What a file remembers
 
 /// The post a file (or a series) became, kept in Fold MD's own folder
-/// (see PublishedFiles), so your folders hold only your markdown.
+/// (see PublishedFiles), so your folders hold only your markdown. Only for
+/// its fix window: then it's removed, and the file is just a file.
 struct PublishRecord: Codable, Equatable {
     var version = 1
     /// The site it's published on.
@@ -307,12 +337,16 @@ struct PublishRecord: Codable, Equatable {
     var postID: String
     var url: URL
     var title: String
-    /// The text as published (a SHA-256), to tell when it has changed since.
+    /// The text and its pictures as published (PublishFlow.fingerprint), to
+    /// tell when either has changed since.
     var publishedHash: String
     var publishedAt: Date
     /// Until when it can still be fixed, as the site last said; nil once
-    /// it's locked (or for records from before the fix window).
+    /// it's locked.
     var fixableUntil: Date?
+
+    /// Still in its fix window.
+    var isFixable: Bool { (fixableUntil ?? .distantPast) > .now }
     /// The file it was published from: where it was last seen, and a macOS
     /// bookmark that keeps finding it after it's renamed or moved. (None
     /// for a series, whose record is named after it.)
@@ -415,12 +449,19 @@ enum PublishedFiles {
         location.lastPathComponent.hasPrefix("file-") && location.pathExtension == "json"
     }
 
+    /// The records of posts that can still be fixed. The rest (and those of
+    /// series) are removed as they're found: Fold MD lets go of a post once
+    /// its fix window has closed.
     private static func all() -> [URL: PublishRecord] {
         if let cache { return cache }
         let urls = (try? FileManager.default.contentsOfDirectory(at: PublishRecord.folder, includingPropertiesForKeys: nil)) ?? []
         var found: [URL: PublishRecord] = [:]
-        for url in urls where isFileRecord(url) {
-            if let record = PublishRecord.read(at: url) { found[url] = record }
+        for url in urls where url.pathExtension == "json" {
+            guard let record = PublishRecord.read(at: url), record.isFixable else {
+                PublishRecord.remove(at: url)
+                continue
+            }
+            if isFileRecord(url) { found[url] = record }
         }
         cache = found
         return found

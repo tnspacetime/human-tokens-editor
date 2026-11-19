@@ -317,12 +317,16 @@ struct EditorWindow: View {
             switch command {
             case "start": flow.start()
             case "pledge": flow.pledged = true; flow.picturesPledged = true
+            case "anyway": flow.duplicateConfirmed = true
             case "publish": flow.publish()
             case "unpublish": flow.unpublish()
             case "disconnect": flow.disconnect()
             case "cancel": flow.cancel()
             default:
-                if command.hasPrefix("author ") {
+                if command.hasPrefix("ps ") {
+                    flow.start(.postscript)
+                    flow.postscriptLink = String(command.dropFirst(3))
+                } else if command.hasPrefix("author ") {
                     let fields = command.dropFirst(7).split(separator: ",").map(String.init)
                     flow.authorName = fields.first ?? ""
                     flow.handle = fields.count > 1 ? fields[1] : ""
@@ -331,7 +335,7 @@ struct EditorWindow: View {
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                 let record = flow.record.map { "\($0.postID) \($0.url.absoluteString)" } ?? "none"
-                testLog("publish: [\(fileURL?.lastPathComponent ?? "untitled")] \(command) → pill=\(flow.pill) step=\(String(describing: flow.step)) error=\(flow.error ?? "-") title=\(flow.preview?.title ?? "-") record=\(record)")
+                testLog("publish: [\(fileURL?.lastPathComponent ?? "untitled")] \(command) → pill=\(flow.pill) step=\(String(describing: flow.step)) making=\(flow.making.rawValue) error=\(flow.error ?? "-") title=\(flow.preview?.title ?? "-") duplicate=\(flow.preview?.duplicate?.title ?? "-") psTarget=\(flow.postscriptTarget?.title ?? flow.postscriptProblem ?? "-") canPublish=\(flow.canPublish) record=\(record)")
             }
         }
     }

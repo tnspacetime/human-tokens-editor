@@ -83,7 +83,6 @@ export async function loadPost(id: string, user: User | null): Promise<PostPage 
 	return {
 		...toFeedItem(row, counts.get(id) ?? {}),
 		...chapters(renderer.render(row.markdown), row.parts),
-		allowDebate: row.allow_debate === 1,
 		mine: mine.results.map((r) => r.quality),
 		respondsTo: respondsTo ? { ...pieceLink(respondsTo), own: respondsTo.own === 1 } : null,
 		followUps: responses.results.filter((r) => r.own === 1).map(pieceLink),

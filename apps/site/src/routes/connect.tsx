@@ -62,10 +62,10 @@ function Body({ state, onDecided }: { state: ConnectState; onDecided: (state: Co
 		case "other-account":
 			return (
 				<>
-					<h1 className="empty-title">Signed in as someone else</h1>
+					<h1 className="empty-title">Answered by someone else</h1>
 					<p className="auth-lede">
-						<Code code={state.code} /> was opened by another account. Sign out from your account at the top of the
-						page, sign in as yourself, and open the link from Fold MD again.
+						Another account already answered <Code code={state.code} />. Ask Fold MD to connect again for a new
+						code.
 					</p>
 				</>
 			);

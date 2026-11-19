@@ -10,9 +10,13 @@ import UniformTypeIdentifiers
 /// the time. Photos go as JPEG (HEIC included: most browsers can't show
 /// it), screenshots and drawings as PNG, animated GIFs as they are.
 ///
+/// Pictures on the web (https: links, and data: ones) are fetched and go
+/// the same way: a picture another website shows could change after the
+/// post is locked, and would see every reader.
+///
 /// The site stores each picture under the SHA-256 of its bytes, and the
 /// markdown sent links it as /img/<hash>. The file on your Mac keeps its
-/// links as you wrote them. Web links (https:) go as they are.
+/// links as you wrote them.
 enum PublishPictures {
     static let maxSide = 2000
     // The site's limits (apps/site/src/server/images.server.ts).
@@ -33,6 +37,7 @@ enum PublishPictures {
         case tooBig(String)
         case tooMany(Int)
         case tooMuch(Int)
+        case unreachable(String)
 
         var errorDescription: String? {
             switch self {
@@ -42,6 +47,7 @@ enum PublishPictures {
             case .tooBig(let name): "“\(name)” is still more than \(maxBytes / 1_000_000) MB once made smaller. Try saving it as a JPEG."
             case .tooMany(let count): "A post can have at most \(perPiece) pictures. This one has \(count)."
             case .tooMuch(let bytes): "The pictures in a post can come to at most \(perPieceBytes / 1_000_000) MB. These come to \(Int((Double(bytes) / 1_000_000).rounded())) MB."
+            case .unreachable(let link): "Couldn't get the picture at \(link). Check the link, or save the picture on your Mac and link that."
             }
         }
     }
@@ -68,16 +74,90 @@ enum PublishPictures {
         }
     }
 
-    /// Every local picture in `markdown` made ready, and the markdown to
+    /// The local pictures `markdown` links as they are now: each file's
+    /// size and when it was saved. It changes when one is replaced, cropped,
+    /// added or removed. Cheap: no picture is read.
+    static func stamp(in markdown: String, base: URL?) -> String {
+        var files = Set<String>()
+        _ = rewriteLinks(in: markdown) { link in
+            if let file = localFile(link, base: base) { files.insert(file.path) }
+            return nil
+        }
+        return files.sorted().map { path in
+            let values = try? URL(fileURLWithPath: path).resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey])
+            return "\(path)|\(values?.fileSize ?? -1)|\(values?.contentModificationDate?.timeIntervalSince1970 ?? 0)"
+        }.joined(separator: "\n")
+    }
+
+    /// A picture link that's on the web (or written into the link itself).
+    static func isWebPicture(_ link: String) -> Bool {
+        let lower = link.lowercased()
+        return lower.hasPrefix("https://") || lower.hasPrefix("http://") || lower.hasPrefix("data:image/")
+    }
+
+    /// The largest a picture from the web can be before it's made smaller.
+    static let maxFetchBytes = 30_000_000
+
+    /// Every picture `markdown` shows from the web, fetched and made ready
+    /// like one on this Mac, by its link. `progress` says what it's doing.
+    static func fetchWebPictures(in markdown: String, progress: @escaping @MainActor (String) -> Void) async throws -> [String: Picture] {
+        var links: [String] = []
+        _ = rewriteLinks(in: markdown) { link in
+            if isWebPicture(link), !links.contains(link) { links.append(link) }
+            return nil
+        }
+        var pictures: [String: Picture] = [:]
+        for (index, link) in links.enumerated() {
+            await progress(links.count == 1 ? "Getting the picture from the web…" : "Getting pictures from the web (\(index + 1) of \(links.count))…")
+            let data = try await fetch(link)
+            let name = URL(string: link)?.lastPathComponent.nilIfEmpty ?? "picture"
+            pictures[link] = try await Task.detached(priority: .userInitiated) {
+                let file = FileManager.default.temporaryDirectory.appending(path: "fold-web-\(UUID().uuidString)")
+                try data.write(to: file)
+                defer { try? FileManager.default.removeItem(at: file) }
+                return try prepare(file, name: name)
+            }.value
+        }
+        return pictures
+    }
+
+    private static func fetch(_ link: String) async throws -> Data {
+        let shown = link.count > 80 ? String(link.prefix(77)) + "…" : link
+        if link.lowercased().hasPrefix("data:") {
+            guard let comma = link.firstIndex(of: ","), link[..<comma].lowercased().hasSuffix(";base64"),
+                  let data = Data(base64Encoded: String(link[link.index(after: comma)...]), options: .ignoreUnknownCharacters)
+            else { throw Problem.unreachable(shown) }
+            return data
+        }
+        guard let url = URL(string: link) else { throw Problem.unreachable(shown) }
+        var request = URLRequest(url: url, timeoutInterval: 30)
+        request.httpShouldHandleCookies = false
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              let status = (response as? HTTPURLResponse)?.statusCode, (200..<300).contains(status)
+        else { throw Problem.unreachable(shown) }
+        guard data.count <= maxFetchBytes else { throw Problem.tooBig(url.lastPathComponent) }
+        return data
+    }
+
+    /// Every picture in `markdown` made ready (on this Mac, and from the
+    /// web: `web`, by link, from fetchWebPictures), and the markdown to
     /// send, with each linked as /img/<hash>. Slow for big photos: call it
     /// off the main thread.
-    static func ready(_ markdown: String, base: URL?) throws -> (markdown: String, pictures: [Picture]) {
+    static func ready(_ markdown: String, base: URL?, web: [String: Picture] = [:]) throws -> (markdown: String, pictures: [Picture]) {
         var byFile: [String: Picture] = [:]
         var pictures: [Picture] = []
         var problem: Error?
         let sent = rewriteLinks(in: markdown) { link in
             guard problem == nil else { return nil }
-            guard let file = localFile(link, base: base) else { return nil }
+            if let picture = web[link] {
+                if !pictures.contains(where: { $0.hash == picture.hash }) { pictures.append(picture) }
+                return "/img/\(picture.hash)"
+            }
+            guard let file = localFile(link, base: base) else {
+                // A link Fold MD can't find a picture for: the site would refuse it.
+                problem = Problem.missing(link)
+                return nil
+            }
             do {
                 let picture: Picture
                 if let known = byFile[file.path] {
@@ -206,10 +286,11 @@ enum PublishPictures {
 
     // MARK: Pictures
 
-    /// One picture, ready to send.
-    static func prepare(_ file: URL) throws -> Picture {
-        let name = file.lastPathComponent
-        if file.pathExtension.lowercased() == "svg" { throw Problem.svg(name) }
+    /// One picture, ready to send. `name`: what to call it in a problem
+    /// (the file's own name when nil).
+    static func prepare(_ file: URL, name: String? = nil) throws -> Picture {
+        let name = name ?? file.lastPathComponent
+        if file.pathExtension.lowercased() == "svg" || name.lowercased().hasSuffix(".svg") { throw Problem.svg(name) }
         guard let source = CGImageSourceCreateWithURL(file as CFURL, nil), CGImageSourceGetCount(source) > 0 else {
             throw Problem.unreadable(name)
         }
@@ -264,4 +345,8 @@ enum PublishPictures {
     private static func hash(_ data: Data) -> String {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
+}
+
+private extension String {
+    var nilIfEmpty: String? { isEmpty ? nil : self }
 }

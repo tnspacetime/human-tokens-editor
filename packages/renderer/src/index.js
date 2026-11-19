@@ -12,6 +12,8 @@
 //   outline(text)                the piece's shape, block by block, for
 //                                the cover drawn on its feed tile
 //   opening(text)                its first paragraphs as plain text
+//   imageSources(text)           every picture's link, as written (not
+//                                ones inside code, or in plain links)
 //
 // Wrap the output in an element with class "fold-content" and include
 // "@human-tokens/renderer/content.css".
@@ -68,6 +70,8 @@ export function createRenderer(options = {}) {
     token.attrSet("data-src", src);
     token.attrSet("loading", "lazy");
     token.attrSet("decoding", "async");
+    // A picture from another website isn't told which page it's on.
+    token.attrSet("referrerpolicy", "no-referrer");
     if (title) token.attrs = token.attrs.filter(([name]) => name !== "title");
     return defaultImage(tokens, idx, opts, env, self) + caption;
   };
@@ -320,6 +324,19 @@ export function opening(src, { words = 90 } = {}) {
     count += parts.length;
   }
   return paragraphs;
+}
+
+/** Every picture's link (![alt](src) and reference pictures), as the page reads them. */
+export function imageSources(src) {
+  const sources = [];
+  const walk = (tokens) => {
+    for (const token of tokens) {
+      if (token.type === "image") sources.push(token.attrGet("src") ?? "");
+      if (token.children) walk(token.children);
+    }
+  };
+  walk(plain.parse(src, {}));
+  return sources;
 }
 
 function inlineText(token) {

@@ -39,6 +39,9 @@ export type ShapeBlock =
 export function outline(src: string): ShapeBlock[];
 
 /** The first paragraphs as plain text, up to about `words` words. */
+/** Every picture's link (![alt](src) and reference pictures), as the page reads them. */
+export function imageSources(text: string): string[];
+
 export function opening(src: string, options?: { words?: number }): string[];
 
 export function escapeHTML(value: unknown): string;

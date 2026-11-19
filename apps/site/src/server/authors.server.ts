@@ -1,7 +1,8 @@
 import type { Quality, QualityCounts } from "../lib/qualities";
 import type { AuthorPage } from "../lib/types";
 import type { User } from "./auth.server";
-import { db, POST_COLUMNS, type PostRow, qualityCounts, toFeedItem } from "./rows.server";
+import { db, POST_COLUMNS, type PostRow, qualityCountsByAuthor, toFeedItem } from "./rows.server";
+import { forgetBoard } from "./board.server";
 import { picturesOf, sweepPictures } from "./images.server";
 
 /**
@@ -31,7 +32,8 @@ export async function loadAuthorPage(handle: string, user: User | null): Promise
 			.bind(author.id)
 			.first<{ n: number }>(),
 	]);
-	const counts = await qualityCounts(rows.results.map((r) => r.id));
+	// By author, not by a list of ids: an author can have hundreds of posts.
+	const counts = await qualityCountsByAuthor(author.id);
 
 	// What readers made of all of it, together.
 	const qualities: QualityCounts = {};
@@ -58,6 +60,9 @@ export async function deleteOwnPost(id: string, user: User): Promise<boolean> {
 		.prepare("DELETE FROM posts WHERE id = ? AND author_id IN (SELECT id FROM authors WHERE user_id = ?)")
 		.bind(id, user.id)
 		.run();
-	if (meta.changes > 0) await sweepPictures(pictures);
+	if (meta.changes > 0) {
+		forgetBoard();
+		await sweepPictures(pictures);
+	}
 	return meta.changes > 0;
 }

@@ -7,8 +7,7 @@ import { SignInPrompt } from "./SignIn";
 
 // One comment per person, no replies. Signed out, you can read them; the
 // foot asks you to sign in to write one. To argue with a post, write your
-// own and respond (later: "Write a response"), or join its debate if the
-// author allows one.
+// own and respond to it.
 //
 // In the comments sheet: the others' comments in the middle (CommentList),
 // and yours, or the box to write it, pinned at the foot (CommentComposer).
@@ -18,7 +17,6 @@ export function CommentList({ post }: { post: PostPage }) {
 		<>
 			<p className="sheet-lede">
 				One comment each, and no replies. Say what you think of the post.
-				{post.allowDebate && " The author has opened this post to debate."}
 			</p>
 			{others.length === 0 ? (
 				<p className="comments-empty">No one else has commented yet.</p>

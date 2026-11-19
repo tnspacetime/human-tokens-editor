@@ -65,28 +65,30 @@ Open the publishing surface (⌥⌘P); its strip of the toolbar has a **Publish*
    Your password is only ever typed on Google's or GitHub's own page.
 2. **Your first publish.** Choose your author name (filled in from your account) and a handle.
 3. **Publish.** The sheet shows the title and opening lines as the feed will, and the pledge: *I wrote this myself. No AI wrote or rewrote any of it.* Publishing needs the pledge every time.
+   If it looks like a post you've already published (the same title, or the same opening), the sheet says which, with a link, and publishes it as a new post only once you tick *Publish this as a new post anyway*. The site is what knows: it checks your posts.
 4. **Published · View** opens the post on the site, where you have the author's tools.
-   Once a post is published, the pill also sits in the window's own toolbar while the publishing surface is closed.
-5. **Fix, for a short while.** For 15 minutes after publishing, and only until someone reacts or comments, you can still fix the post: change the file and the pill reads **Fix**.
+   While the post can still be fixed, the pill also sits in the window's own toolbar when the publishing surface is closed.
+5. **Fix, for a short while.** For 15 minutes after publishing, and only until someone reacts or comments, you can still fix the post: change the file, or a picture it shows (or, for a series, save a part), and the pill reads **Fix**.
    After that its text is locked, so what readers reacted to stays what's there. The site enforces it (`423 Locked`).
-6. **Respond to a post.** When you publish a new post, paste the link of the post it responds to where the sheet asks (*Copy Link* is in a post's pill menu, or copy it from the site).
+   Then Fold MD lets go of the post: the file is just a file again, and the pill reads **Publish**. Your posts are on your author page.
+6. **Respond to a post.** When you publish a new post, paste the link of the post it responds to where the sheet asks (*Copy Link* is in the pill's menu while the post can be fixed, or copy it from the site).
    One of your own posts makes it a **follow-up**: it says *Follows …* under its byline, and the earlier post, which stays as it was, points forward to it.
    Anyone else's makes it a **reply**: it says *In reply to … by …*, and the post it answers lists it under *Replies*, at its foot and in the reader island. Anyone can reply to any post, and every reply shows.
-7. **Pictures.** Drag or paste a picture into a post: Fold MD copies it into an `images` folder beside the file and links it. When you publish, Fold MD gets each picture ready on your Mac first: at most 2000 pixels on its long side, the right way up, photos as JPEG (iPhone HEIC included) and screenshots as PNG, written afresh so nothing else in the file goes along (not where it was taken, not the camera). Then it sends the ones the site doesn't have yet, and the button says how far it's got.
+7. **Pictures.** Drag or paste a picture into a post: Fold MD copies it into an `images` folder beside the file and links it. A picture linked from another website goes up too: Fold MD fetches it as you publish, so it can't change once the post is locked, and that website never sees your readers. When you publish, Fold MD gets each picture ready on your Mac first: at most 2000 pixels on its long side, the right way up, photos as JPEG (iPhone HEIC included) and screenshots as PNG, written afresh so nothing else in the file goes along (not where it was taken, not the camera). Then it sends the ones the site doesn't have yet, and the button says how far it's got.
    A post can have up to 20 pictures, 5 MB each and 10 MB in all; SVGs can't go up yet. With pictures, the pledge adds that they're yours or you're free to share them (how they were made doesn't matter).
    On the site they're kept in Cloudflare R2 under the SHA-256 of their bytes and shown at `/img/<hash>`, so a picture is stored once however often it's used. Your file keeps its links as you wrote them. Pictures are locked with the text, and go when their post goes.
-8. **Add a P.S.** From the pill's menu, add a short note (at most 150 words) at the end of the post, dated, with the pledge.
-   It's how you add a correction or a thought once the text is locked. A P.S. can't be changed or removed.
+8. **Add a P.S.** Write it in a document (at most 150 words, words only), then in the publish sheet choose **P.S.** instead of *New post* and paste the link of the post it goes under (one of yours); *Add as a P.S. to One of Your Posts…* in the pill's menu opens it that way.
+   It goes at the end of the post, dated, with the pledge. It's how you add a correction or a thought once the text is locked. A P.S. can't be changed or removed, and the same one can't go twice.
 
 An author can publish at most 50 new posts in 30 days: plenty for writing every day, and a stop on anyone flooding the site. Fixes and P.S.es don't count; a deleted post still does. When you've reached it, the publish sheet says so, and when you can publish again.
 
 Every author has a page listing their posts, newest first: `/@handle`. Click the name in a byline, or your own name in the island's account panel.
-Publishing the same text twice makes two posts, as on any social site; delete the one you don't want.
 To delete a post, open it while signed in as its author: **Delete…** is at its foot (it takes the post's reactions, comments and P.S.es with it).
-**Unpublish** in the pill's menu does the same from Fold MD, and *Disconnect* is there too.
+**Unpublish** in the pill's menu does the same from Fold MD while the post can be fixed, and *Disconnect* is there too.
+On the site, **Fold MD** in the island's account panel lists the Macs Fold MD is connected on (by the Mac's name), each with **Disconnect**: for a Mac you don't use any more, or one you've lost.
 
 Only the file's markdown is sent. Self-notes stay in their own hidden file and never leave your Mac.
-Fold MD remembers which post each file became in its own folder, `Application Support/Fold MD/published/`, so your folders hold only your markdown. It finds the file again after you rename or move it. (Older versions kept a hidden `.Name.md.published` beside the file; Fold MD moves those in the first time it opens the file.)
+While a post can be fixed, Fold MD remembers which file it came from in its own folder, `Application Support/Fold MD/published/`, so your folders hold only your markdown. It finds the file again after you rename or move it, and removes the record once the fix window closes.
 A debug build of Fold MD publishes to `http://localhost:3100`; run the site first (`bun run dev` in `apps/site`).
 A **series** is published whole, as one post: open it in the series sidebar (⌃⌘S) and use the **Publish** pill at its foot.
 The parts are joined in the sidebar's order, each part a chapter (its `# Title` becomes the chapter's heading), and on the site a small island at the foot of the page shows the part you're in and opens the list of parts.
@@ -94,7 +96,7 @@ It then follows the same rules as any post: the fix window, P.S. and follow-ups.
 
 How it works: Better Auth's [device authorization](https://www.better-auth.com/docs/plugins/device-authorization) (`client_id` `fold-md`) and `bearer` plugins, with the device codes in `migrations/0005_publishing.sql`.
 Fold MD then calls `/api/fold/*` (`apps/site/src/routes/api.fold.$.ts`) with `Authorization: Bearer <token>`; that API ignores cookies, so no web page can publish in your name.
-Each file sends a stable id with every publish, so publishing it again (a fix) changes its post instead of making a second one.
+During the fix window a file sends the same id with every publish, so publishing it again (a fix) changes its post instead of making a second one.
 
 ## Run the editor
 

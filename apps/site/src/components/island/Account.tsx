@@ -2,6 +2,7 @@ import { Link, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { authClient } from "../../lib/auth-client";
 import { SignInLinks, type SignInOptions } from "../SignIn";
+import { FoldConnections } from "./FoldConnections";
 import { Slot } from "./Slot";
 
 export type Viewer = {
@@ -10,8 +11,8 @@ export type Viewer = {
 };
 
 // You. Signed out, the panel offers the ways in (Google, GitHub); signed
-// in, it shows who you are (an author's name opens their page) and lets
-// you sign out.
+// in, it shows who you are (an author's name opens their page), where Fold
+// MD is connected (to disconnect a Mac), and lets you sign out.
 export function Account({ viewer, open, onToggle }: { viewer: Viewer; open: boolean; onToggle: () => void }) {
 	const router = useRouter();
 	const [leaving, setLeaving] = useState(false);
@@ -64,6 +65,7 @@ export function Account({ viewer, open, onToggle }: { viewer: Viewer; open: bool
 							) : (
 								<span className="island-who">{user.name}</span>
 							)}
+							<FoldConnections open={open} />
 							<button type="button" onClick={signOut} disabled={leaving}>
 								Sign out
 							</button>

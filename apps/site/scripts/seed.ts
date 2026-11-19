@@ -13,7 +13,7 @@ import { deriveFromMarkdown } from "../src/server/derive";
 
 type Seed = {
 	authors: { id: string; handle: string; name: string; bio: string }[];
-	posts: { file: string; author: string; publishedAt: string; allowDebate?: boolean }[];
+	posts: { file: string; author: string; publishedAt: string }[];
 	reactions: { file: string; qualities: Record<string, number> }[];
 	comments: { file: string; name: string; body: string; authorNote?: string }[];
 };
@@ -61,7 +61,7 @@ for (const p of seed.posts) {
 	postIds.set(p.file, id);
 	const name = derived.title ?? p.file.replace(/\.md$/, "");
 	sql.push(
-		`INSERT INTO posts (id, author_id, slug, title, excerpt, markdown, word_count, shape, opening, allow_debate, published_at, updated_at) VALUES (${q(id)}, ${q(p.author)}, ${q(slugify(name))}, ${q(name)}, ${q(derived.excerpt)}, ${q(markdown)}, ${derived.wordCount}, ${q(derived.shape)}, ${q(derived.opening)}, ${p.allowDebate ? 1 : 0}, ${q(p.publishedAt)}, ${q(p.publishedAt)});`,
+		`INSERT INTO posts (id, author_id, slug, title, excerpt, markdown, word_count, shape, opening, published_at, updated_at) VALUES (${q(id)}, ${q(p.author)}, ${q(slugify(name))}, ${q(name)}, ${q(derived.excerpt)}, ${q(markdown)}, ${derived.wordCount}, ${q(derived.shape)}, ${q(derived.opening)}, ${q(p.publishedAt)}, ${q(p.publishedAt)});`,
 	);
 }
 

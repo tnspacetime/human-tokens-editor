@@ -7,12 +7,12 @@
   "posts": [
     { "file": "01 Getting Started.md", "author": "a_tobi", "publishedAt": "2026-10-20T09:00:00Z" },
     { "file": "02 Values and Types.md", "author": "a_tobi", "publishedAt": "2026-10-24T09:00:00Z" },
-    { "file": "03 Closures Explained.md", "author": "a_tobi", "publishedAt": "2026-10-29T09:00:00Z", "allowDebate": true },
-    { "file": "04 Structs and Classes.md", "author": "a_tobi", "publishedAt": "2026-11-03T09:00:00Z", "allowDebate": true },
+    { "file": "03 Closures Explained.md", "author": "a_tobi", "publishedAt": "2026-10-29T09:00:00Z" },
+    { "file": "04 Structs and Classes.md", "author": "a_tobi", "publishedAt": "2026-11-03T09:00:00Z" },
     { "file": "05 Concurrency.md", "author": "a_tobi", "publishedAt": "2026-11-08T09:00:00Z" },
     { "file": "Kitchen Notes.md", "author": "a_mara", "publishedAt": "2026-11-05T18:30:00Z" },
     { "file": "On Walking.md", "author": "a_mara", "publishedAt": "2026-11-09T07:15:00Z" },
-    { "file": "Slow Software.md", "author": "a_jun", "publishedAt": "2026-11-10T21:00:00Z", "allowDebate": true },
+    { "file": "Slow Software.md", "author": "a_jun", "publishedAt": "2026-11-10T21:00:00Z" },
     { "file": "Night Train.md", "author": "a_mara", "publishedAt": "2026-11-07T23:40:00Z" },
     { "file": "Writing by Hand First.md", "author": "a_jun", "publishedAt": "2026-11-06T12:00:00Z" }
   ],

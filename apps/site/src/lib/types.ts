@@ -71,7 +71,6 @@ export type PieceLink = { id: string; slug: string; title: string; author: { nam
 /** A piece as its own page shows it. */
 export type PostPage = FeedItem & {
 	html: string;
-	allowDebate: boolean;
 	/** The qualities the viewer chose (none when signed out). */
 	mine: Quality[];
 	/** A whole series published as one piece: its chapters, for the contents (none for a single piece). */

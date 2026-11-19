@@ -24,8 +24,9 @@ enum SeriesJoin {
     }
 
     /// The series as one piece, from its parts as they are now (open
-    /// documents with unsaved changes are saved first).
-    static func join(_ id: Series.ID) async throws -> (markdown: String, parts: Int) {
+    /// documents with unsaved changes are saved first, unless `saveOpen` is
+    /// false: then as they are on disk).
+    static func join(_ id: Series.ID, saveOpen: Bool = true) async throws -> (markdown: String, parts: Int) {
         let library = SeriesLibrary.shared
         guard let series = library.series(id), !series.parts.isEmpty else { throw Problem.empty }
         let urls = series.parts.map { library.url(for: $0) }
@@ -33,7 +34,7 @@ enum SeriesJoin {
             .map { URL(fileURLWithPath: $0.0.lastKnownPath).deletingPathExtension().lastPathComponent }
         guard missing.isEmpty else { throw Problem.missing(missing) }
 
-        await saveOpenParts(urls.compactMap { $0 })
+        if saveOpen { await saveOpenParts(urls.compactMap { $0 }) }
         var chapters: [String] = []
         for url in urls.compactMap({ $0 }) {
             let text = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
@@ -43,6 +44,19 @@ enum SeriesJoin {
         }
         let markdown = "# \(series.title)\n\n" + chapters.joined(separator: "\n\n")
         return (markdown, chapters.count)
+    }
+
+    /// The series' parts as files (which, and when each was last saved): it
+    /// changes when a part is saved, added, removed or moved. Cheap: no
+    /// file is read.
+    static func stamp(_ id: Series.ID) -> String {
+        let library = SeriesLibrary.shared
+        guard let series = library.series(id) else { return "" }
+        return series.parts.map { part -> String in
+            guard let url = library.url(for: part) else { return "missing" }
+            let saved = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+            return "\(url.path)|\(saved?.timeIntervalSince1970 ?? 0)"
+        }.joined(separator: "\n")
     }
 
     /// Open parts with unsaved changes: save them, so what's published is

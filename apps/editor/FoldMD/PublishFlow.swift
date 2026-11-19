@@ -6,17 +6,21 @@ import SwiftUI
 /// first publish ever), then the pledge and Publish. Only the document's
 /// text is ever sent: self-notes live in their own file and never are.
 ///
-/// Once published, a piece can be fixed only in its fix window (15 minutes,
+/// What you publish is a new post, or a P.S. under one of your posts (paste
+/// its link). A new post can be fixed only in its fix window (15 minutes,
 /// and until anyone reacts or comments); then its text is locked, so what
-/// readers reacted to stays what's there. The site enforces it. To say more
-/// after that, you write a new piece and, as you publish it, paste the
-/// earlier piece's link: the new one is then its follow-up.
+/// readers reacted to stays what's there. The site enforces it.
+///
+/// Fold MD remembers which post a file became only for that window, to
+/// offer Fix. After it, the file is just a file again: the site is what
+/// knows what you've published, and says so when you publish something
+/// that looks like a post you already have.
 @MainActor @Observable
 final class PublishFlow {
     /// What the pill says.
     enum Pill: Equatable {
         case publish
-        /// Up, and either unchanged or locked.
+        /// Up, in its fix window, and unchanged.
         case published(URL)
         /// Changed since, and still in its fix window.
         case fix(URL)
@@ -24,8 +28,6 @@ final class PublishFlow {
 
     /// Where the sheet is. nil: no sheet.
     enum Step: Equatable {
-        /// An untitled document has nowhere to remember its post yet.
-        case save
         /// Talking to the site.
         case working(String)
         /// Showing the code, waiting for Allow on the site.
@@ -34,44 +36,65 @@ final class PublishFlow {
         case notConnected(String)
         /// Your first publish: how you appear on the site.
         case author
-        /// The pledge, and Publish (or Fix).
+        /// The pledge, and Publish (or Fix, or Add P.S.).
         case publish
         /// You tried to fix it, but its text is locked now.
         case locked
-        /// Writing a P.S. under the published piece.
-        case postscript
         /// The P.S. is up.
         case postscriptAdded
         /// Something went wrong before the sheet could do anything.
         case failed(String)
     }
 
+    /// What publishing makes.
+    enum Kind: String, CaseIterable {
+        case post = "New post"
+        case postscript = "P.S."
+    }
+
     private(set) var fileURL: URL?
-    /// Where this file's (or series') record of its post lives.
+    /// Where this file's (or series') record of its post lives, while it
+    /// has one. nil for an untitled document: its record stays in memory.
     private(set) var recordURL: URL?
 
-    /// Publishing a whole series: how many parts, and how to put them
-    /// together into one piece (read fresh each time). nil for a file.
+    /// Publishing a whole series as one piece: which series, and how many
+    /// parts it had when last put together. nil for a file.
+    private(set) var seriesID: Series.ID?
     private(set) var parts: Int?
-    @ObservationIgnored private var joinParts: (() async throws -> (markdown: String, parts: Int))?
-    var isSeries: Bool { joinParts != nil }
+    var isSeries: Bool { seriesID != nil }
+    /// The post this file (or series) became, only while it can be fixed.
     private(set) var record: PublishRecord?
-    /// The text's fingerprint, to tell whether it changed since it was
-    /// published. Worked out when asked (only a published post asks), not
-    /// on every keystroke.
-    @ObservationIgnored private var hashed: (text: String, hash: String)?
-    private var textHash: String {
-        if let hashed, hashed.text == text { return hashed.hash }
-        let hash = PublishRecord.hash(text)
-        hashed = (text, hash)
-        return hash
-    }
+    /// The post it was, once Fold MD has let go of it: for the Locked step's
+    /// words and its Copy Link.
+    private(set) var lastPost: (title: String, url: URL)?
+
     /// The document's text, as it is now.
     var text = "" {
         didSet {
             guard text != oldValue, record != nil else { return }
             if case .fix = pill { checkFixWindow() }
         }
+    }
+    /// Its pictures on this Mac as they are now (their sizes and times), so
+    /// replacing or cropping one also offers Fix. Looked at every few
+    /// seconds, and only while there's something to fix.
+    private(set) var pictureStamp = ""
+    /// The parts' files as they are now, for a series.
+    @ObservationIgnored private var partsStamp = ""
+
+    /// The text and its pictures, to tell whether either changed since it
+    /// was published. Worked out when asked (only a post in its fix window
+    /// asks), not on every keystroke.
+    @ObservationIgnored private var printed: (text: String, stamp: String, hash: String)?
+    private var fingerprint: String {
+        if let printed, printed.text == text, printed.stamp == pictureStamp { return printed.hash }
+        let hash = Self.fingerprint(text, pictureStamp)
+        printed = (text, pictureStamp, hash)
+        return hash
+    }
+
+    static func fingerprint(_ text: String, _ pictures: String) -> String {
+        PublishRecord.hash(pictures.isEmpty ? text : text + "\u{0}" + pictures)
     }
 
     var step: Step?
@@ -81,10 +104,12 @@ final class PublishFlow {
     /// What a long publish is doing now (its pictures), for the button.
     private(set) var progress: String?
 
-    /// The pictures on this Mac the piece links (each file once).
-    var pictureCount: Int {
-        PublishPictures.count(in: text, base: isSeries ? nil : fileURL?.deletingLastPathComponent())
-    }
+    /// Where the document's relative picture links start (a series' parts
+    /// link theirs absolutely).
+    private var pictureBase: URL? { isSeries ? nil : fileURL?.deletingLastPathComponent() }
+
+    /// The pictures the piece shows, on this Mac or on the web (each once).
+    var pictureCount: Int { PublishPictures.count(in: text, base: pictureBase) }
 
     // The author step.
     var accountName = ""
@@ -92,53 +117,60 @@ final class PublishFlow {
     var handle = ""
 
     // The publish step.
+    /// A new post or a P.S.: chosen in the sheet (a fix and a series are always a post).
+    var kind = Kind.post
+    var making: Kind { fixing != nil || isSeries ? .post : kind }
     var preview: SiteAPI.Preview?
     var pledged = false
     /// The pictures' own promise (copyright only), asked when there are any.
     var picturesPledged = false
+    /// It looks like a post you've already published, and you said to
+    /// publish it as a new one anyway.
+    var duplicateConfirmed = false
+    /// The post being fixed, as it stood when the sheet opened: if its
+    /// window closes meanwhile, Fix still fixes it (and hears it's locked),
+    /// never makes a new post.
+    private(set) var fixing: PublishRecord?
+    var isFix: Bool { fixing != nil }
 
     // A response: the link of the piece this new one responds to
     // (optional): one of yours makes it a follow-up, anyone else's a reply.
     // Then that piece, once the site has found it.
     var respondsToLink = "" {
-        didSet { if respondsToLink != oldValue { findPiece() } }
+        didSet { if respondsToLink != oldValue { findResponseTarget() } }
     }
     private(set) var respondsTo: SiteAPI.Piece?
     private(set) var respondsToProblem: String?
     private var finding: Task<Void, Never>?
 
-    // The P.S. step. What you've typed stays until it's added.
-    var postscript = ""
-    var postscriptPledged = false
+    // A P.S.: the document's text, under the post this link is (yours).
+    var postscriptLink = "" {
+        didSet { if postscriptLink != oldValue { findPostscriptTarget() } }
+    }
+    private(set) var postscriptTarget: SiteAPI.Piece?
+    private(set) var postscriptProblem: String?
+    private var findingPostscript: Task<Void, Never>?
+    /// The post the last P.S. went under, for the step that says it's up.
+    private(set) var postscriptAddedTo: SiteAPI.Piece?
     /// A P.S. is short: anything longer belongs in a follow-up.
     static let postscriptMaxWords = 150
-    var postscriptWords: Int { postscript.split(whereSeparator: \.isWhitespace).count }
-
-    /// Where the sheet goes once connected.
-    private enum Goal { case publish, postscript }
-    private var goal = Goal.publish
+    var postscriptWords: Int { text.split(whereSeparator: \.isWhitespace).count }
 
     /// Who you publish as, once known.
     private(set) var author: SiteAPI.Author?
     private var polling: Task<Void, Never>?
 
-    /// Still in the fix window, as far as Fold MD knows. Turns false on its
-    /// own when the window's time runs out; the site can close it sooner
-    /// (a reaction or a comment), which Fold MD hears when it checks.
+    /// In the fix window, as far as Fold MD knows. Turns false on its own
+    /// when the window's time runs out; the site can close it sooner (a
+    /// reaction or a comment), which Fold MD hears when it checks.
     private(set) var fixable = false
     private var windowClosing: Task<Void, Never>?
+    private var watching: Task<Void, Never>?
     private var lastCheck = Date.distantPast
 
     var pill: Pill {
-        guard let record else { return .publish }
-        if record.publishedHash == textHash || !fixable { return .published(record.url) }
-        return .fix(record.url)
-    }
-
-    /// Published, changed since, and locked: the changes stay on this Mac.
-    var hasLockedChanges: Bool {
-        guard let record else { return false }
-        return record.publishedHash != textHash && !fixable
+        guard let record, fixable else { return .publish }
+        return record.publishedHash == fingerprint ? .published(record.url) : .fix(record.url)
     }
 
     /// Published, and not changed since.
@@ -147,38 +179,52 @@ final class PublishFlow {
     }
 
     var isConnected: Bool { PublishToken.current != nil }
-    /// Publishing again fixes the piece it already is.
-    var isFix: Bool { record != nil }
 
     /// When the fix window closes, if it's still open.
     var fixableUntil: Date? { fixable ? record?.fixableUntil : nil }
 
     // MARK: The file
 
-    /// The document's file changed: find what it was published as, or note
-    /// where the file is now when it was renamed or moved.
+    /// The document's file changed: find the post it became (if it can
+    /// still be fixed), or carry what it published to where it is now: it
+    /// was renamed or moved, or an untitled document was saved.
     func setFileURL(_ url: URL?) {
         guard url != fileURL else { return }
         let previous = fileURL
         fileURL = url
-        guard let url else { recordURL = nil; record = nil; updateFixable(); return }
-        if previous != nil, let record, let recordURL {
-            keep(record, at: recordURL)
-        } else {
-            let found = PublishedFiles.find(for: url, site: PublishSite.base.absoluteString)
-            recordURL = found?.location ?? PublishedFiles.newLocation()
-            record = found?.record
+        if let url {
+            if let record {
+                if recordURL == nil { recordURL = PublishedFiles.newLocation() }
+                keep(record, at: recordURL)
+            } else {
+                let found = PublishedFiles.find(for: url, site: PublishSite.base.absoluteString)
+                recordURL = found?.location ?? PublishedFiles.newLocation()
+                record = found?.record
+            }
+        } else if previous != nil {
+            recordURL = nil
+            record = nil
         }
         updateFixable()
-        if step == .save { start() }
     }
 
-    /// Save the record, noting where its file is now (a file's, not a series').
-    private func keep(_ record: PublishRecord, at location: URL) {
+    /// Save the record (when it has somewhere to go), noting where its file
+    /// is now (a file's, not a series').
+    private func keep(_ record: PublishRecord, at location: URL?) {
         var record = record
         if !isSeries, let fileURL { PublishedFiles.stamp(&record, file: fileURL) }
-        PublishedFiles.write(record, to: location)
+        if let location { PublishedFiles.write(record, to: location) }
         self.record = record
+    }
+
+    /// Done with the post: its fix window closed, it was unpublished, or
+    /// it's gone from the site. The file is just a file again.
+    private func forget() {
+        if let record { lastPost = (record.title, record.url) }
+        if let recordURL { PublishedFiles.remove(at: recordURL) }
+        // A file's next post gets a record of its own (a series' stays where it is).
+        if !isSeries { recordURL = fileURL == nil ? nil : PublishedFiles.newLocation() }
+        record = nil
     }
 
     // MARK: A series
@@ -186,40 +232,33 @@ final class PublishFlow {
     /// A flow for publishing a whole series, set up from the start.
     convenience init(series id: Series.ID) {
         self.init()
-        setSeries(id) { try await SeriesJoin.join(id) }
-    }
-
-    /// Publish a whole series as one piece: `join` puts its parts together.
-    func setSeries(_ id: Series.ID, join: @escaping () async throws -> (markdown: String, parts: Int)) {
-        let location = PublishRecord.fileURL(forSeries: id)
-        joinParts = join
-        guard location != recordURL else { return }
-        recordURL = location
-        record = PublishRecord.read(at: location).flatMap { $0.site == PublishSite.base.absoluteString ? $0 : nil }
+        seriesID = id
+        recordURL = PublishRecord.fileURL(forSeries: id)
+        record = PublishRecord.read(at: PublishRecord.fileURL(forSeries: id))
+            .flatMap { $0.site == PublishSite.base.absoluteString ? $0 : nil }
         updateFixable()
     }
 
-    /// Put the series' parts together again, to tell whether it's changed
-    /// since it was published.
+    /// Put the series' parts together again (as saved), to tell whether
+    /// it's changed since it was published.
     func refreshSeries() async {
-        guard let joinParts, let joined = try? await joinParts() else { return }
+        guard let seriesID, let joined = try? await SeriesJoin.join(seriesID, saveOpen: false) else { return }
         text = joined.markdown
         parts = joined.parts
     }
 
     // MARK: The pill
 
-    /// Publish, or Fix.
-    func start() {
-        goal = .publish
+    /// Publish (or Fix), or a P.S.
+    func start(_ kind: Kind = .post) {
+        self.kind = kind
         error = nil
-        guard recordURL != nil else { step = .save; return }
-        if let joinParts {
+        if let seriesID {
             // A series: put the parts together first, as they are now.
             step = .working("Putting the parts together…")
             Task {
                 do {
-                    let joined = try await joinParts()
+                    let joined = try await SeriesJoin.join(seriesID)
                     text = joined.markdown
                     parts = joined.parts
                 } catch {
@@ -235,19 +274,19 @@ final class PublishFlow {
     }
 
     private func continueStart() {
-        if record != nil && !fixable { step = .locked; return }
         guard let token = PublishToken.current else { connect(); return }
         step = .working("Checking your account…")
         Task { await afterConnecting(token) }
     }
 
     func view() {
-        if let url = record?.url { NSWorkspace.shared.open(url) }
+        if let url = record?.url ?? lastPost?.url { NSWorkspace.shared.open(url) }
     }
 
-    /// The piece's link, to paste where a new piece asks what it responds to.
+    /// The post's link, to paste where a new post asks what it responds to,
+    /// or where a P.S. asks which post it goes under.
     func copyLink() {
-        guard let url = record?.url else { return }
+        guard let url = record?.url ?? lastPost?.url else { return }
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(url.absoluteString, forType: .string)
     }
@@ -271,14 +310,14 @@ final class PublishFlow {
     }
 
     func unpublish() {
-        guard let record, let recordURL, let token = PublishToken.current else { return }
+        guard let record, let token = PublishToken.current else { return }
         busy = true
         Task {
             defer { busy = false }
             do {
                 try await SiteAPI.unpublish(token, postID: record.postID)
-                PublishedFiles.remove(at: recordURL)
-                self.record = nil
+                forget()
+                lastPost = nil
                 updateFixable()
             } catch SiteAPI.Failure.notConnected {
                 PublishToken.forget()
@@ -353,10 +392,7 @@ final class PublishFlow {
             let me = try await SiteAPI.me(token)
             guard step != nil else { return }
             author = me.author
-            if goal == .postscript, me.author != nil {
-                goal = .publish
-                showPostscript()
-            } else if me.author == nil {
+            if me.author == nil {
                 accountName = me.user.name
                 if authorName.isEmpty { authorName = me.user.name }
                 if handle.isEmpty { handle = Self.suggestedHandle(me.user.name) }
@@ -372,7 +408,7 @@ final class PublishFlow {
         }
     }
 
-    // MARK: A response
+    // MARK: Links to posts
 
     /// The post id in a link like https://human-tokens.dev/p/AbC123xy/its-title.
     static func postID(in link: String) -> String? {
@@ -381,76 +417,51 @@ final class PublishFlow {
         return String(match.1)
     }
 
-    /// Look up the pasted link: any piece on the site.
-    private func findPiece() {
+    /// Look a pasted link up on the site: the piece, or what's wrong.
+    private static func lookUp(_ link: String) async -> (piece: SiteAPI.Piece?, problem: String?)? {
+        let link = link.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !link.isEmpty else { return nil }
+        guard let id = postID(in: link) else { return (nil, "Paste the link of a post, like \(PublishSite.name)/p/…") }
+        guard let token = PublishToken.current else { return nil }
+        try? await Task.sleep(for: .milliseconds(300))
+        guard !Task.isCancelled else { return nil }
+        do {
+            return (try await SiteAPI.piece(token, postID: id), nil)
+        } catch let failure as SiteAPI.Failure where failure.isGone {
+            return (nil, "That post isn't on \(PublishSite.name).")
+        } catch {
+            return (nil, error.localizedDescription)
+        }
+    }
+
+    /// The post a new one responds to: anyone's.
+    private func findResponseTarget() {
         finding?.cancel()
         respondsTo = nil
         respondsToProblem = nil
-        let link = respondsToLink.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !link.isEmpty else { return }
-        guard let id = Self.postID(in: link) else {
-            respondsToProblem = "Paste the link of a post, like \(PublishSite.name)/p/…"
-            return
-        }
-        guard let token = PublishToken.current else { return }
+        let link = respondsToLink
         finding = Task {
-            try? await Task.sleep(for: .milliseconds(300))
-            guard !Task.isCancelled else { return }
-            do {
-                let piece = try await SiteAPI.piece(token, postID: id)
-                guard !Task.isCancelled else { return }
-                respondsTo = piece
-            } catch let failure as SiteAPI.Failure where failure.isGone {
-                if !Task.isCancelled { respondsToProblem = "That post isn't on \(PublishSite.name)." }
-            } catch {
-                if !Task.isCancelled { respondsToProblem = error.localizedDescription }
-            }
+            let found = await Self.lookUp(link)
+            guard !Task.isCancelled, let found else { return }
+            respondsTo = found.piece
+            respondsToProblem = found.problem
         }
     }
 
-    // MARK: A P.S.
-
-    /// Add a P.S. under the published piece.
-    func startPostscript() {
-        guard record != nil else { return }
-        goal = .postscript
-        error = nil
-        guard let token = PublishToken.current else { connect(); return }
-        step = .working("Checking your account…")
-        Task { await afterConnecting(token) }
-    }
-
-    private func showPostscript() {
-        postscriptPledged = false
-        error = nil
-        step = .postscript
-    }
-
-    var canAddPostscript: Bool {
-        postscriptPledged && !busy && postscriptWords > 0 && postscriptWords <= Self.postscriptMaxWords
-    }
-
-    func addPostscript() {
-        guard canAddPostscript, let record, let token = PublishToken.current else { return }
-        let body = postscript
-        busy = true
-        error = nil
-        Task {
-            defer { busy = false }
-            do {
-                _ = try await SiteAPI.addPostscript(token, postID: record.postID, body: body)
-                postscript = ""
-                postscriptPledged = false
-                step = .postscriptAdded
-            } catch SiteAPI.Failure.notConnected {
-                PublishToken.forget()
-                goal = .postscript
-                connect()
-            } catch let failure as SiteAPI.Failure where failure.isGone {
-                forgetGonePost()
-                step = .failed("This post isn't on the site any more, so the P.S. couldn't be added.")
-            } catch {
-                self.error = error.localizedDescription
+    /// The post a P.S. goes under: one of yours.
+    private func findPostscriptTarget() {
+        findingPostscript?.cancel()
+        postscriptTarget = nil
+        postscriptProblem = nil
+        let link = postscriptLink
+        findingPostscript = Task {
+            let found = await Self.lookUp(link)
+            guard !Task.isCancelled, let found else { return }
+            if let piece = found.piece, !piece.yours {
+                postscriptProblem = "That's \(piece.author.name)'s post. A P.S. goes under one of yours; to answer theirs, publish a new post that responds to it."
+            } else {
+                postscriptTarget = found.piece
+                postscriptProblem = found.problem
             }
         }
     }
@@ -484,28 +495,55 @@ final class PublishFlow {
 
     // MARK: The fix window
 
+    /// Open while its time lasts; once it's over, let the post go.
     private func updateFixable() {
         windowClosing?.cancel()
-        guard let until = record?.fixableUntil, until > .now else { fixable = false; return }
+        guard let until = record?.fixableUntil, until > .now else {
+            if record != nil { forget() }
+            fixable = false
+            watching?.cancel()
+            watching = nil
+            return
+        }
         fixable = true
         windowClosing = Task { [weak self] in
             try? await Task.sleep(for: .seconds(until.timeIntervalSinceNow + 0.5))
             guard !Task.isCancelled else { return }
             self?.updateFixable()
         }
+        watch()
     }
 
-    /// Remember what the site says about the piece now.
+    /// While it can be fixed, look every couple of seconds at what the
+    /// text can't show: its pictures, and a series' saved parts.
+    private func watch() {
+        guard watching == nil else { return }
+        watching = Task { [weak self] in
+            while !Task.isCancelled {
+                guard await self?.look() == true else { return }
+                try? await Task.sleep(for: .seconds(2))
+            }
+        }
+    }
+
+    private func look() async -> Bool {
+        guard fixable else { watching = nil; return false }
+        if let seriesID {
+            let stamp = SeriesJoin.stamp(seriesID)
+            if stamp != partsStamp {
+                partsStamp = stamp
+                await refreshSeries()
+            }
+        }
+        let stamp = PublishPictures.stamp(in: text, base: pictureBase)
+        if stamp != pictureStamp { pictureStamp = stamp }
+        return fixable
+    }
+
+    /// Remember what the site says about the post now.
     private func apply(_ post: SiteAPI.Post) {
-        guard var record, let recordURL, record.postID == post.id else { return }
+        guard var record, record.postID == post.id else { return }
         record.fixableUntil = post.fixableUntilDate
-        keep(record, at: recordURL)
-        updateFixable()
-    }
-
-    private func markLocked() {
-        guard var record, let recordURL else { return }
-        record.fixableUntil = nil
         keep(record, at: recordURL)
         updateFixable()
     }
@@ -526,20 +564,21 @@ final class PublishFlow {
 
     /// Unpublished on the site: this file can be published afresh.
     private func forgetGonePost() {
-        guard let recordURL else { return }
-        PublishedFiles.remove(at: recordURL)
-        record = nil
+        forget()
+        lastPost = nil
         updateFixable()
     }
 
     // MARK: Publishing
 
     private func showPublish(_ token: String) async {
-        if let record {
+        fixing = nil
+        if kind == .post, let record {
             // Fixing: make sure it still can be.
             do {
                 apply(try await SiteAPI.post(token, postID: record.postID))
-                if !fixable { step = .locked; return }
+                guard self.record != nil else { step = .locked; return }
+                fixing = self.record
             } catch let failure as SiteAPI.Failure where failure.isGone {
                 forgetGonePost()
             } catch {
@@ -549,6 +588,7 @@ final class PublishFlow {
         }
         pledged = false
         picturesPledged = false
+        duplicateConfirmed = false
         preview = nil
         error = nil
         step = .publish
@@ -559,33 +599,53 @@ final class PublishFlow {
         }
     }
 
+    /// Why a P.S. can't go as it is, or nil.
+    var postscriptIssue: String? {
+        let words = postscriptWords, max = Self.postscriptMaxWords
+        if words == 0 { return "Write the P.S. in this document first." }
+        if words > max { return "\(words) of \(max) words. For more, publish a new post that responds to it." }
+        if pictureCount > 0 { return "A P.S. is words only. For pictures, publish a new post that responds to it." }
+        return nil
+    }
+
     var canPublish: Bool {
-        // A pasted link has to be found first (or cleared).
-        let respondsToReady = isFix || respondsToLink.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || respondsTo != nil
-        // A fix doesn't count as a new piece.
-        let underLimit = isFix || preview?.limitReached == nil
-        let picturesReady = picturesPledged || pictureCount == 0
-        return pledged && picturesReady && !busy && preview?.title != nil && respondsToReady && underLimit
+        guard pledged, !busy else { return false }
+        switch making {
+        case .postscript:
+            return postscriptTarget?.yours == true && postscriptIssue == nil
+        case .post:
+            // A pasted link has to be found first (or cleared).
+            let respondsToReady = isFix || respondsToLink.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || respondsTo != nil
+            // A fix doesn't count as a new post, and isn't a duplicate.
+            let underLimit = isFix || preview?.limitReached == nil
+            let notDuplicate = isFix || preview?.duplicate == nil || duplicateConfirmed
+            let picturesReady = picturesPledged || pictureCount == 0
+            return picturesReady && preview?.title != nil && respondsToReady && underLimit && notDuplicate
+        }
     }
 
     func publish() {
-        guard canPublish, let recordURL, let token = PublishToken.current else { return }
+        guard canPublish, let token = PublishToken.current else { return }
+        if making == .postscript { addPostscript(token); return }
         let markdown = text
-        // A series' parts link their pictures absolutely (SeriesJoin).
-        let base = isSeries ? nil : fileURL?.deletingLastPathComponent()
-        let sourceID = record?.sourceID ?? UUID().uuidString
-        // Only a new piece can respond to another.
-        let respondsToID = isFix ? nil : respondsTo?.id
+        let base = pictureBase
+        let fixing = self.fixing
+        let sourceID = fixing?.sourceID ?? UUID().uuidString
+        // Only a new post can respond to another.
+        let respondsToID = fixing == nil ? respondsTo?.id : nil
+        let parts = self.parts
         busy = true
         error = nil
         Task {
             defer { busy = false; progress = nil }
             do {
-                // Pictures first: made ready on this Mac, then the ones the
-                // site doesn't have yet are sent. The piece links them by hash.
+                // Pictures first: pictures from the web fetched, then all of
+                // them made ready on this Mac, then the ones the site
+                // doesn't have yet are sent. The post links them by hash.
+                let web = try await PublishPictures.fetchWebPictures(in: markdown) { [weak self] in self?.progress = $0 }
                 if pictureCount > 0 { progress = "Getting pictures ready…" }
                 let ready = try await Task.detached(priority: .userInitiated) {
-                    try PublishPictures.ready(markdown, base: base)
+                    try PublishPictures.ready(markdown, base: base, web: web)
                 }.value
                 if !ready.pictures.isEmpty {
                     let missing = Set(try await SiteAPI.missingPictures(token, hashes: ready.pictures.map(\.hash)))
@@ -597,11 +657,15 @@ final class PublishFlow {
                     progress = nil
                 }
                 let post = try await SiteAPI.publish(token, sourceID: sourceID, markdown: ready.markdown, respondsTo: respondsToID, parts: parts)
+                let stamp = PublishPictures.stamp(in: markdown, base: base)
+                pictureStamp = stamp
                 let record = PublishRecord(site: PublishSite.base.absoluteString, sourceID: sourceID, postID: post.id,
                                            url: post.url, title: post.title,
-                                           publishedHash: PublishRecord.hash(markdown), publishedAt: Date(),
+                                           publishedHash: Self.fingerprint(markdown, stamp), publishedAt: Date(),
                                            fixableUntil: post.fixableUntilDate)
                 keep(record, at: recordURL)
+                self.fixing = nil
+                lastPost = nil
                 updateFixable()
                 respondsToLink = ""
                 step = nil
@@ -609,8 +673,36 @@ final class PublishFlow {
                 PublishToken.forget()
                 connect()
             } catch let failure as SiteAPI.Failure where failure.isLocked {
-                markLocked()
+                if let fixing { lastPost = (fixing.title, fixing.url) }
+                self.fixing = nil
+                if record != nil { forget() }
+                updateFixable()
                 step = .locked
+            } catch {
+                self.error = error.localizedDescription
+            }
+        }
+    }
+
+    /// The document's text, as a P.S. under the post its link names.
+    private func addPostscript(_ token: String) {
+        guard let target = postscriptTarget else { return }
+        let body = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        busy = true
+        error = nil
+        Task {
+            defer { busy = false }
+            do {
+                _ = try await SiteAPI.addPostscript(token, postID: target.id, body: body)
+                postscriptAddedTo = target
+                postscriptLink = ""
+                pledged = false
+                step = .postscriptAdded
+            } catch SiteAPI.Failure.notConnected {
+                PublishToken.forget()
+                connect()
+            } catch let failure as SiteAPI.Failure where failure.isGone {
+                self.error = "That post isn't on \(PublishSite.name) any more."
             } catch {
                 self.error = error.localizedDescription
             }
@@ -620,9 +712,10 @@ final class PublishFlow {
 
 // MARK: - The pill
 
-/// In the publishing surface's strip: Publish; once it's up, Published ·
-/// View, or Fix when the text has changed in its fix window. Its menu has
-/// View and Unpublish.
+/// In the publishing surface's strip: Publish; once it's up, and for its
+/// fix window, Published · View, or Fix when it has changed. Its menu has
+/// View, Copy Link and Unpublish while Fold MD remembers the post, and a
+/// P.S. under one of your posts.
 struct PublishPill: View {
     @Bindable var flow: PublishFlow
     /// Large in the toolbar; smaller at the foot of the series sidebar.
@@ -651,9 +744,7 @@ struct PublishPill: View {
                     } primaryAction: {
                         flow.view()
                     }
-                    .help(flow.hasLockedChanges
-                          ? "Open it on \(PublishSite.name). Its text is locked, so your changes since publishing stay on your Mac."
-                          : "Open it on \(PublishSite.name). Hold for more.")
+                    .help(publishedHelp)
                 case .fix:
                     Menu {
                         menuItems
@@ -672,6 +763,11 @@ struct PublishPill: View {
         .publishPillStyle(prominent: !flow.isUpToDate, size: size)
     }
 
+    private var publishedHelp: String {
+        let until = flow.fixableUntil.map { " Until \($0.formatted(date: .omitted, time: .shortened)), you can still fix it." } ?? ""
+        return "Open it on \(PublishSite.name).\(until) Hold for more."
+    }
+
     private var fixHelp: String {
         let until = flow.fixableUntil.map { " until \($0.formatted(date: .omitted, time: .shortened))" } ?? ""
         return "You've changed it since publishing. Nobody has reacted or commented yet, so you can still fix it\(until)."
@@ -681,15 +777,13 @@ struct PublishPill: View {
         if flow.record != nil {
             Button("View on \(PublishSite.name)") { flow.view() }
             Button("Copy Link") { flow.copyLink() }
-            Button("Add a P.S.…") { flow.startPostscript() }
-            if flow.hasLockedChanges {
-                Button("Its text is locked: your changes stay on your Mac") {}
-                    .disabled(true)
-            }
             Divider()
             Button("Unpublish…") { flow.confirmUnpublish() }
         } else {
             Button("Publish…") { flow.start() }
+        }
+        if !flow.isSeries {
+            Button("Add as a P.S. to One of Your Posts…") { flow.start(.postscript) }
         }
         if flow.isConnected {
             Divider()
@@ -699,7 +793,7 @@ struct PublishPill: View {
 }
 
 /// The pill in the window's own toolbar, while the publishing surface is
-/// closed: only once the piece is published (Published · View, or Fix).
+/// closed: only while the post can be fixed (Published · View, or Fix).
 /// It shrinks and fades away as the surface opens, and back when it closes.
 struct ToolbarPublishPill: View {
     @Bindable var flow: PublishFlow

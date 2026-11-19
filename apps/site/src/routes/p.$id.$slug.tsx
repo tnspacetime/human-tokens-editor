@@ -34,8 +34,9 @@ export const Route = createFileRoute("/p/$id/$slug")({
 function PostRoute() {
 	const post = Route.useLoaderData();
 	// The piece's own "# Title" becomes the page's headline (what readers
-	// made of it rides in the island, see ReaderIsland).
-	const body = post.html.replace(/^<h1>[\s\S]*?<\/h1>\n?/, "");
+	// made of it rides in the island, see ReaderIsland): its first one,
+	// wherever it is (a picture or a quote can come before it).
+	const body = post.html.replace(/<h1>[\s\S]*?<\/h1>\n?/, "");
 	return (
 		<>
 		<main className="post">

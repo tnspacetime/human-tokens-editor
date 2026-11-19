@@ -1,6 +1,8 @@
+import { imageSources } from "@human-tokens/renderer";
 import { env } from "cloudflare:workers";
+import { SITE } from "../lib/share";
 import { PublishError, type Publisher } from "./publish.server";
-import { db } from "./rows.server";
+import { db, marks } from "./rows.server";
 
 // Pictures in pieces (migrations/0010_pictures.sql). Fold MD gets each one
 // ready on the Mac (shrunk, and without the place it was taken), asks which
@@ -16,16 +18,33 @@ export const PICTURES = {
 	perPiece: 20,
 	/** All the pictures in one piece together. */
 	perPieceBytes: 10_000_000,
+	/**
+	 * Uploaded but not in a post yet, per hour: three posts' worth, so
+	 * swapping pictures before publishing doesn't lock you out, while
+	 * nobody can fill the store without publishing.
+	 */
+	waitingBytes: 30_000_000,
 } as const;
 
 const mb = (bytes: number) => `${Math.round(bytes / 1_000_000)} MB`;
 const HASH = /^[0-9a-f]{64}$/;
 const bucket = () => env.IMAGES;
-const marks = (values: unknown[]) => values.map(() => "?").join(", ");
+/** /img/<hash>, or the same on this site's own address. */
+const PICTURE_LINK = new RegExp(`^(?:${SITE.url.replace(/[.]/g, "\\.")})?/img/([0-9a-f]{64})$`);
 
-/** The pictures a piece's markdown links, each once. */
+/**
+ * The pictures a piece shows, each once: real pictures only, as the page
+ * reads them. A /img/... address written inside code, or in a plain link,
+ * isn't one.
+ */
 export function picturesIn(markdown: string): string[] {
-	return [...new Set([...markdown.matchAll(/\/img\/([0-9a-f]{64})\b/g)].map((m) => m[1]))];
+	const hashes = imageSources(markdown).flatMap((src) => PICTURE_LINK.exec(src)?.[1] ?? []);
+	return [...new Set(hashes)];
+}
+
+/** Whether a piece shows any picture that isn't one of the site's own. */
+export function outsidePictures(markdown: string): boolean {
+	return imageSources(markdown).some((src) => !PICTURE_LINK.test(src));
 }
 
 /** Of these pictures, the ones the site doesn't have yet. */
@@ -63,9 +82,8 @@ export async function uploadPicture(publisher: Publisher, hash: string, request:
 	const declared = Number(request.headers.get("content-length") ?? 0);
 	const tooBig = `A picture can be at most ${mb(PICTURES.maxBytes)}.`;
 	if (declared > PICTURES.maxBytes) throw new PublishError(413, tooBig);
-	const buffer = await request.arrayBuffer();
-	if (buffer.byteLength > PICTURES.maxBytes) throw new PublishError(413, tooBig);
-	const bytes = new Uint8Array(buffer);
+	const bytes = await readUpTo(request, PICTURES.maxBytes, tooBig);
+	const buffer = bytes.buffer as ArrayBuffer;
 	const type = sniff(bytes);
 	if (!type) throw new PublishError(415, "Pictures go up as JPEG, PNG or GIF.");
 	if (hex(await crypto.subtle.digest("SHA-256", buffer)) !== hash) {
@@ -84,14 +102,52 @@ export async function uploadPicture(publisher: Publisher, hash: string, request:
 		)
 		.bind(publisher.id, hourAgo)
 		.first<{ bytes: number }>();
-	if ((waiting?.bytes ?? 0) + bytes.byteLength > PICTURES.perPieceBytes) {
-		throw new PublishError(429, "These pictures come to more than one post can hold. Publish the post, then try again in an hour.");
+	if ((waiting?.bytes ?? 0) + bytes.byteLength > PICTURES.waitingBytes) {
+		throw new PublishError(429, "That's a lot of pictures waiting for a post. Publish it, then try again in an hour.");
 	}
-	await bucket().put(hash, bytes, { httpMetadata: { contentType: type } });
-	await db()
+	// The row first, then the file: if storing the file fails, the row goes
+	// again; if anything stops in between, the row is unplaced and the
+	// sweep removes it (and the file) a day later. A file is never left
+	// without a row that would clean it up.
+	const { meta } = await db()
 		.prepare("INSERT OR IGNORE INTO images (hash, type, bytes, uploaded_by, created_at) VALUES (?, ?, ?, ?, ?)")
 		.bind(hash, type, bytes.byteLength, publisher.id, new Date().toISOString())
 		.run();
+	if (!meta.changes) return; // arrived meanwhile, from another upload
+	try {
+		await bucket().put(hash, bytes, { httpMetadata: { contentType: type } });
+	} catch (error) {
+		await db().prepare("DELETE FROM images WHERE hash = ? AND placed = 0").bind(hash).run();
+		throw error;
+	}
+}
+
+/**
+ * The request's body, read no further than `limit` bytes: a sender that
+ * doesn't say how big it is can't make the server hold more than that.
+ */
+async function readUpTo(request: Request, limit: number, tooBig: string): Promise<Uint8Array> {
+	if (!request.body) return new Uint8Array();
+	const reader = request.body.getReader();
+	const chunks: Uint8Array[] = [];
+	let size = 0;
+	for (;;) {
+		const { done, value } = await reader.read();
+		if (done) break;
+		size += value.byteLength;
+		if (size > limit) {
+			await reader.cancel();
+			throw new PublishError(413, tooBig);
+		}
+		chunks.push(value);
+	}
+	const bytes = new Uint8Array(size);
+	let at = 0;
+	for (const chunk of chunks) {
+		bytes.set(chunk, at);
+		at += chunk.byteLength;
+	}
+	return bytes;
 }
 
 /** Before a piece goes up: its pictures are all here, and within the limits. */
@@ -119,15 +175,22 @@ export async function picturesOf(postId: string): Promise<string[]> {
 
 const UNUSED = "NOT EXISTS (SELECT 1 FROM post_images WHERE hash = images.hash)";
 
-/** Record which pictures a piece uses, then let go of the ones it no longer does. */
-export async function attachPictures(postId: string, hashes: string[]): Promise<void> {
-	const before = await picturesOf(postId);
-	await db().batch([
-		db().prepare("DELETE FROM post_images WHERE post_id = ?").bind(postId),
-		...hashes.map((hash) => db().prepare("INSERT INTO post_images (post_id, hash) VALUES (?, ?)").bind(postId, hash)),
-		...(hashes.length ? [db().prepare(`UPDATE images SET placed = 1 WHERE hash IN (${marks(hashes)})`).bind(...hashes)] : []),
-	]);
-	await sweepPictures(before.filter((h) => !hashes.includes(h)));
+/**
+ * The statements that record which pictures a piece uses, for the same
+ * batch (one transaction) as the piece itself. Each runs only if `written`
+ * holds, a condition true only when that batch's write of the piece went
+ * through. Afterwards, sweep the ones it no longer uses.
+ */
+export function pictureStatements(postId: string, hashes: string[], written: { sql: string; values: unknown[] }) {
+	return [
+		db().prepare(`DELETE FROM post_images WHERE post_id = ? AND ${written.sql}`).bind(postId, ...written.values),
+		...hashes.map((hash) =>
+			db().prepare(`INSERT INTO post_images (post_id, hash) SELECT ?, ? WHERE ${written.sql}`).bind(postId, hash, ...written.values),
+		),
+		...(hashes.length
+			? [db().prepare(`UPDATE images SET placed = 1 WHERE hash IN (${marks(hashes)}) AND ${written.sql}`).bind(...hashes, ...written.values)]
+			: []),
+	];
 }
 
 /**

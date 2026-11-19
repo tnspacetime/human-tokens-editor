@@ -7,7 +7,7 @@ import type { FeedItem } from "../lib/types";
 
 export const db = () => env.DB;
 
-export const POST_COLUMNS = `p.id, p.slug, p.title, p.excerpt, p.word_count, p.allow_debate, p.published_at,
+export const POST_COLUMNS = `p.id, p.slug, p.title, p.excerpt, p.word_count, p.published_at,
 	p.shape, p.opening, a.name AS author_name, a.handle AS author_handle,
 	(SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) AS comment_count`;
 
@@ -17,7 +17,6 @@ export type PostRow = {
 	title: string;
 	excerpt: string | null;
 	word_count: number;
-	allow_debate: number;
 	published_at: string;
 	shape: string;
 	opening: string;
@@ -52,19 +51,57 @@ export function toFeedItem(row: PostRow, qualities: QualityCounts): FeedItem {
 	};
 }
 
+/**
+ * D1 takes at most 100 values in one query (SQLite on your Mac takes far
+ * more, so going over only shows on the live site). Lists of ids go in
+ * pieces of this size.
+ */
+export const MAX_BOUND = 90;
+
+/** `ids` in pieces of at most MAX_BOUND. */
+export function batches<T>(ids: T[], size = MAX_BOUND): T[][] {
+	const out: T[][] = [];
+	for (let i = 0; i < ids.length; i += size) out.push(ids.slice(i, i + size));
+	return out;
+}
+
+/** "?, ?, ?" for each value. */
+export const marks = (values: unknown[]) => values.map(() => "?").join(", ");
+
+type CountRow = { post_id: string; quality: Quality; n: number };
+
+function collectCounts(rows: CountRow[], into = new Map<string, QualityCounts>()) {
+	for (const row of rows) {
+		const counts = into.get(row.post_id) ?? {};
+		counts[row.quality] = row.n;
+		into.set(row.post_id, counts);
+	}
+	return into;
+}
+
 /** How many readers chose each quality, for each of these posts. */
 export async function qualityCounts(postIds: string[]): Promise<Map<string, QualityCounts>> {
 	const result = new Map<string, QualityCounts>();
-	if (postIds.length === 0) return result;
-	const marks = postIds.map(() => "?").join(", ");
-	const { results } = await db()
-		.prepare(`SELECT post_id, quality, COUNT(*) AS n FROM reactions WHERE post_id IN (${marks}) GROUP BY post_id, quality`)
-		.bind(...postIds)
-		.all<{ post_id: string; quality: Quality; n: number }>();
-	for (const row of results) {
-		const counts = result.get(row.post_id) ?? {};
-		counts[row.quality] = row.n;
-		result.set(row.post_id, counts);
-	}
+	const pieces = await Promise.all(
+		batches(postIds).map((ids) =>
+			db()
+				.prepare(`SELECT post_id, quality, COUNT(*) AS n FROM reactions WHERE post_id IN (${marks(ids)}) GROUP BY post_id, quality`)
+				.bind(...ids)
+				.all<CountRow>(),
+		),
+	);
+	for (const { results } of pieces) collectCounts(results, result);
 	return result;
+}
+
+/** The same, for every post by one author: one value, however many posts. */
+export async function qualityCountsByAuthor(authorId: string): Promise<Map<string, QualityCounts>> {
+	const { results } = await db()
+		.prepare(
+			`SELECT r.post_id, r.quality, COUNT(*) AS n FROM reactions r JOIN posts p ON p.id = r.post_id
+			 WHERE p.author_id = ? GROUP BY r.post_id, r.quality`,
+		)
+		.bind(authorId)
+		.all<CountRow>();
+	return collectCounts(results);
 }

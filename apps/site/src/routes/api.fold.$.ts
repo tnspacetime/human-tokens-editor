@@ -18,12 +18,14 @@ import {
 //
 //   GET    /api/fold/me              who you are, and your author name if you have one
 //   POST   /api/fold/author          { name, handle }: become an author (once)
-//   POST   /api/fold/preview         { markdown }: the title and opening lines the feed will show, and
-//                                    limitReached: why you can't publish a new piece just now, or null
+//   POST   /api/fold/preview         { markdown }: the title and opening lines the feed will show,
+//                                    limitReached: why you can't publish a new piece just now, or null, and
+//                                    duplicate: one of your posts with the same title or opening, or null
 //   POST   /api/fold/images          { hashes }: of a piece's pictures (hex SHA-256 of their bytes), the
 //                                    ones the site doesn't have yet: { missing }
 //   PUT    /api/fold/images/<hash>   a picture's bytes (JPEG, PNG or GIF, at most 5 MB); the piece then
-//                                    links it as /img/<hash>. At most 20 pictures, 10 MB, in a piece.
+//                                    links it as /img/<hash>. At most 20 pictures, 10 MB, in a piece; every
+//                                    picture a piece shows is one of these (no links to other websites).
 //   PUT    /api/fold/posts           { sourceId, markdown, respondsTo?, parts?, pledge: true }: publish, or fix;
 //                                    respondsTo: the id of the piece this new one responds to, yours (a
 //                                    follow-up) or anyone's (a reply);
@@ -32,7 +34,8 @@ import {
 //                                    At most 50 new pieces in 30 days (then 429)
 //   GET    /api/fold/posts/<id>      one of your posts as it stands, with fixableUntil (null once locked)
 //                                    and its postscripts
-//   POST   /api/fold/posts/<id>/ps   { body, pledge: true }: add a P.S. under it (at most 150 words; never edited)
+//   POST   /api/fold/posts/<id>/ps   { body, pledge: true }: add a P.S. under it (at most 150 words, no
+//                                    pictures; never edited; the same one twice is 409)
 //   DELETE /api/fold/posts/<id>      unpublish it
 //   GET    /api/fold/pieces/<id>     any piece, to respond to: its title, url, author, and whether it's yours
 //
@@ -63,7 +66,7 @@ async function handle(request: Request, path = "") {
 			return reply({ author: await becomeAuthor(publisher, await body(request)) });
 		}
 		if (parts[0] === "preview" && parts.length === 1 && method === "POST") {
-			return reply(await preview(publisher, await body(request)));
+			return reply(await preview(publisher, await body(request), origin));
 		}
 		if (parts[0] === "images" && parts.length === 1 && method === "POST") {
 			return reply({ missing: await missingPictures(publisher, await body(request)) });

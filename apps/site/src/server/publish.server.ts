@@ -1,6 +1,8 @@
 import { auth } from "./auth.server";
+import { imageSources } from "@human-tokens/renderer";
 import { deriveFromMarkdown } from "./derive";
-import { attachPictures, checkPictures, picturesIn, picturesOf, sweepPictures } from "./images.server";
+import { forgetBoard } from "./board.server";
+import { checkPictures, outsidePictures, pictureStatements, picturesIn, picturesOf, sweepPictures } from "./images.server";
 import { db } from "./rows.server";
 
 // Publishing from Fold MD: who is asking (by the token Fold MD got when you
@@ -104,7 +106,7 @@ function markdownFrom(value: unknown) {
  * when you've published as many new pieces as you can for now, why
  * (`limitReached`), so Fold MD can say so before you publish.
  */
-export async function preview(publisher: Publisher, input: Record<string, unknown>) {
+export async function preview(publisher: Publisher, input: Record<string, unknown>, origin: string) {
 	const markdown = markdownFrom(input.markdown);
 	const derived = deriveFromMarkdown(markdown);
 	return {
@@ -113,7 +115,26 @@ export async function preview(publisher: Publisher, input: Record<string, unknow
 		words: derived.wordCount,
 		minutes: minutes(derived.wordCount),
 		limitReached: publisher.author ? await limitReached(publisher.author) : null,
+		duplicate: publisher.author ? await alreadyPublished(publisher.author, derived, origin) : null,
 	};
+}
+
+/**
+ * One of your posts that this looks like (the same title, or the same
+ * opening), so publishing it again as a new post is a choice, not an
+ * accident. The site is what knows: Fold MD forgets a post once its fix
+ * window closes.
+ */
+async function alreadyPublished(author: Author, derived: { title: string | null; opening: string }, origin: string) {
+	const row = await db()
+		.prepare(
+			`SELECT id, slug, title, published_at FROM posts
+			 WHERE author_id = ?1 AND (lower(title) = lower(?2) OR (opening = ?3 AND ?3 <> '[]'))
+			 ORDER BY published_at DESC LIMIT 1`,
+		)
+		.bind(author.id, derived.title ?? "", derived.opening)
+		.first<{ id: string; slug: string; title: string; published_at: string }>();
+	return row && { id: row.id, title: row.title, url: `${origin}/p/${row.id}/${row.slug}`, publishedAt: row.published_at };
 }
 
 /**
@@ -154,7 +175,6 @@ export type Published = {
 	slug: string;
 	url: string;
 	title: string;
-	allowDebate: boolean;
 	publishedAt: string;
 	updatedAt: string;
 	/** Until when its text can still be fixed; null once it's locked. */
@@ -165,7 +185,6 @@ type PostRow = {
 	id: string;
 	slug: string;
 	title: string;
-	allow_debate: number;
 	published_at: string;
 	updated_at: string;
 	/** 1 once anyone has reacted or commented. */
@@ -183,7 +202,6 @@ const toPublished = (row: PostRow, origin: string): Published => ({
 	slug: row.slug,
 	url: `${origin}/p/${row.id}/${row.slug}`,
 	title: row.title,
-	allowDebate: row.allow_debate === 1,
 	publishedAt: row.published_at,
 	updatedAt: row.updated_at,
 	fixableUntil: fixableUntil(row),
@@ -208,9 +226,13 @@ export async function publish(
 	const derived = deriveFromMarkdown(markdown);
 	if (!derived.title) throw new PublishError(400, "Give the post a title: a first line like “# My title”.");
 	// Its pictures were uploaded first (images.server.ts); they're all here, within the limits.
+	// A picture from another website could change after the post is locked,
+	// and would see every reader: Fold MD sends those along too.
+	if (outsidePictures(markdown)) {
+		throw new PublishError(400, "Every picture goes up with the post. Update Fold MD, then publish again.");
+	}
 	const pictures = picturesIn(markdown);
 	await checkPictures(pictures);
-	const allowDebate = input.allowDebate === true ? 1 : 0;
 	const now = new Date().toISOString();
 
 	// A whole series, joined into one piece by Fold MD: how many chapters.
@@ -243,16 +265,22 @@ export async function publish(
 		if (reached) throw new PublishError(429, reached);
 	}
 	const id = existing?.id ?? randomId(8);
+	const before = existing ? await picturesOf(id) : [];
 
+	// One batch, one transaction: the post, its pictures and (for a new
+	// post) the count towards the monthly limit all save, or none does.
+	// The statements after the first run only if it wrote the post: its
+	// updated_at is then this publish's own time.
+	const written = { sql: "EXISTS (SELECT 1 FROM posts WHERE id = ? AND updated_at = ?)", values: [id, now] };
 	// The fix window is checked again in the write itself, so a reaction
 	// that lands in between still locks it.
-	const { meta } = await db()
+	const save = db()
 		.prepare(
-			`INSERT INTO posts (id, author_id, source_id, slug, title, excerpt, markdown, word_count, shape, opening, allow_debate, pledged_at, published_at, updated_at, responds_to, parts)
-			 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?12, ?12, ?14, ?15)
+			`INSERT INTO posts (id, author_id, source_id, slug, title, excerpt, markdown, word_count, shape, opening, pledged_at, published_at, updated_at, responds_to, parts)
+			 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?11, ?11, ?13, ?14)
 			 ON CONFLICT (id) DO UPDATE SET slug = ?4, title = ?5, excerpt = ?6, markdown = ?7, word_count = ?8,
-			   shape = ?9, opening = ?10, allow_debate = ?11, pledged_at = ?12, updated_at = ?12, parts = ?15
-			 WHERE posts.author_id = ?2 AND posts.published_at > ?13
+			   shape = ?9, opening = ?10, pledged_at = ?11, updated_at = ?11, parts = ?14
+			 WHERE posts.author_id = ?2 AND posts.published_at > ?12
 			   AND NOT EXISTS (SELECT 1 FROM reactions WHERE post_id = posts.id)
 			   AND NOT EXISTS (SELECT 1 FROM comments WHERE post_id = posts.id)`,
 		)
@@ -267,17 +295,36 @@ export async function publish(
 			derived.wordCount,
 			derived.shape,
 			derived.opening,
-			allowDebate,
 			now,
 			new Date(Date.parse(now) - FIX_WINDOW_MS).toISOString(),
 			respondsTo,
 			parts,
-		)
-		.run();
-	if (!meta.changes) throw new PublishError(existing ? 423 : 500, existing ? LOCKED : "The post didn't save. Try again.");
+		);
+	let results: D1Result[];
+	try {
+		results = await db().batch([
+			save,
+			...pictureStatements(id, pictures, written),
+			...(existing
+				? []
+				: [db().prepare(`INSERT INTO publishes (author_id, created_at) SELECT ?, ? WHERE ${written.sql}`).bind(author.id, now, ...written.values)]),
+		]);
+	} catch (error) {
+		// The same new post sent twice at once (a retry while the first was
+		// still saving): the first one saved it, so answer with that.
+		if (!existing && String(error).includes("posts.source_id")) {
+			const first = await db()
+				.prepare(`SELECT id, slug, title, published_at, updated_at, ${TOUCHED} AS touched FROM posts p WHERE author_id = ? AND source_id = ?`)
+				.bind(author.id, input.sourceId)
+				.first<PostRow>();
+			if (first) return { ...toPublished(first, origin), created: false };
+		}
+		throw error;
+	}
+	if (!results[0].meta.changes) throw new PublishError(existing ? 423 : 500, existing ? LOCKED : "The post didn't save. Try again.");
 
-	await attachPictures(id, pictures);
-	if (!existing) await db().prepare("INSERT INTO publishes (author_id, created_at) VALUES (?, ?)").bind(author.id, now).run();
+	await sweepPictures(before.filter((h) => !pictures.includes(h)));
+	forgetBoard();
 	const row = await ownPost(author, id);
 	if (!row) throw new PublishError(500, "The post didn't save. Try again.");
 	return { ...toPublished(row, origin), created: !existing };
@@ -312,7 +359,7 @@ export async function piece(publisher: Publisher, id: string, origin: string) {
 
 async function ownPost(author: Author, id: string) {
 	return db()
-		.prepare(`SELECT id, slug, title, allow_debate, published_at, updated_at, ${TOUCHED} AS touched FROM posts p WHERE id = ? AND author_id = ?`)
+		.prepare(`SELECT id, slug, title, published_at, updated_at, ${TOUCHED} AS touched FROM posts p WHERE id = ? AND author_id = ?`)
 		.bind(id, author.id)
 		.first<PostRow>();
 }
@@ -359,8 +406,12 @@ export async function addPostscript(publisher: Publisher, id: string, input: Rec
 	if (wordsIn(body) > PS_MAX_WORDS || body.length > PS_MAX_CHARS) {
 		throw new PublishError(400, `A P.S. is at most ${PS_MAX_WORDS} words. For more, publish a follow-up.`);
 	}
+	if (imageSources(body).length > 0) throw new PublishError(400, "A P.S. is words only. For pictures, publish a follow-up.");
 	const row = await ownPost(author, postId(id));
 	if (!row) throw new PublishError(404, "This post isn't on the site.");
+	// Sent twice (Publish clicked again): it's there already.
+	const same = await db().prepare("SELECT 1 FROM postscripts WHERE post_id = ? AND body = ?").bind(row.id, body).first();
+	if (same) throw new PublishError(409, "This P.S. is already under the post.");
 
 	const postscript = { id: randomId(10), body, createdAt: new Date().toISOString() };
 	await db()
@@ -376,6 +427,7 @@ export async function unpublish(publisher: Publisher, id: string): Promise<void>
 	const pictures = await picturesOf(postId(id));
 	const { meta } = await db().prepare("DELETE FROM posts WHERE id = ? AND author_id = ?").bind(postId(id), author.id).run();
 	if (!meta.changes) throw new PublishError(404, "This post isn't on the site.");
+	forgetBoard();
 	await sweepPictures(pictures);
 }
 

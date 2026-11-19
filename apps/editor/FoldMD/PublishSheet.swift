@@ -8,14 +8,12 @@ struct PublishSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             switch flow.step {
-            case .save: save
             case .working(let message): working(message)
             case .connect(let code): connect(code)
             case .notConnected(let reason): notConnected(reason)
             case .author: author
             case .publish: publish
             case .locked: locked
-            case .postscript: postscript
             case .postscriptAdded: postscriptAdded
             case .failed(let message): failed(message)
             case nil: EmptyView()
@@ -27,15 +25,6 @@ struct PublishSheet: View {
     }
 
     // MARK: Steps
-
-    private var save: some View {
-        StepLayout(title: "Save it first",
-                   message: "Fold MD remembers which post each file becomes, so it needs a file. Save this document, then publish it.") {
-            Button("Cancel", role: .cancel) { flow.cancel() }
-            Button("Save…") { NSApp.sendAction(#selector(NSDocument.save(_:)), to: nil, from: nil) }
-                .keyboardShortcut(.defaultAction)
-        }
-    }
 
     private func working(_ message: String) -> some View {
         StepLayout(title: nil, message: nil) {
@@ -108,58 +97,130 @@ struct PublishSheet: View {
     }
 
     private var publish: some View {
-        let title = flow.isFix ? "Fix" : "Publish"
+        let postscript = flow.making == .postscript
+        let title = postscript ? "Add a P.S." : flow.isFix ? "Fix" : "Publish"
         let until = flow.fixableUntil.map { " until \($0.formatted(date: .omitted, time: .shortened))" } ?? ""
-        let message = flow.isFix
+        let message = postscript
+            ? "This document, as a short note at the end of one of your posts, dated today. It can't be changed or removed afterwards."
+            : flow.isFix
             ? "Nobody has reacted or commented yet, so you can still fix it\(until). After that its text is locked."
             : flow.isSeries
             ? "All \(flow.parts ?? 0) parts, joined into one post in the sidebar's order, each part a chapter. For 15 minutes after you publish, until someone reacts or comments, you can still fix it. Then its text is locked."
             : "This is how it starts in the feed. For 15 minutes after you publish, until someone reacts or comments, you can still fix it. Then its text is locked, so it stays as readers saw it."
+        let working = postscript ? "Adding…" : flow.progress ?? (flow.isFix ? "Fixing…" : "Publishing…")
         return StepLayout(title: title, message: message) {
             Button("Cancel", role: .cancel) { flow.cancel() }
-            Button(flow.busy ? (flow.progress ?? (flow.isFix ? "Fixing…" : "Publishing…")) : title) { flow.publish() }
+            Button(flow.busy ? working : postscript ? "Add P.S." : title) { flow.publish() }
                 .keyboardShortcut(.defaultAction)
                 .disabled(!flow.canPublish)
         } content: {
-            PreviewCard(preview: flow.preview, author: flow.author)
-            if let preview = flow.preview, preview.title == nil {
-                Text("Give it a title first: a first line like “# My title”.")
-                    .font(.callout)
-                    .foregroundStyle(.orange)
-            }
-            if !flow.isFix, let reason = flow.preview?.limitReached {
-                Text(reason)
-                    .font(.callout)
-                    .foregroundStyle(.orange)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            let pictures = flow.pictureCount
-            VStack(alignment: .leading, spacing: 12) {
-                Toggle(isOn: $flow.pledged) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("I wrote this myself. No AI wrote or rewrote any of it.")
-                            .fontWeight(.medium)
-                        Link("Read the rules", destination: PublishSite.rules)
-                            .font(.caption)
-                    }
+            // A new post or a P.S. (a fix and a series are always a post).
+            if !flow.isFix && !flow.isSeries {
+                Picker("Publish as", selection: $flow.kind) {
+                    ForEach(PublishFlow.Kind.allCases, id: \.self) { Text($0.rawValue) }
                 }
-                // A promise of its own, about copyright only: pictures may
-                // be made any way, AI included.
-                if pictures > 0 {
-                    Toggle(isOn: $flow.picturesPledged) {
-                        Text(pictures == 1
-                             ? "The picture is mine, or I'm free to share it."
-                             : "The \(pictures) pictures are mine, or I'm free to share them.")
-                            .fontWeight(.medium)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .disabled(flow.busy)
             }
-            .toggleStyle(.checkbox)
-            .disabled(flow.busy)
-            if !flow.isFix { respondsToField }
+            if postscript { postscriptFields } else { postFields }
+            pledges(postscript: postscript)
+            if !postscript && !flow.isFix { respondsToField }
             ErrorLine(flow.error)
         }
+    }
+
+    @ViewBuilder private var postFields: some View {
+        PreviewCard(preview: flow.preview, author: flow.author)
+        if let preview = flow.preview, preview.title == nil {
+            Text("Give it a title first: a first line like “# My title”.")
+                .font(.callout)
+                .foregroundStyle(.orange)
+        }
+        if !flow.isFix, let reason = flow.preview?.limitReached {
+            Text(reason)
+                .font(.callout)
+                .foregroundStyle(.orange)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        // The site knows what you've published: one like this already?
+        if !flow.isFix, let duplicate = flow.preview?.duplicate {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 4) {
+                    Text("You published “\(duplicate.title)” on \(duplicate.shownDate).")
+                    Link("View it", destination: duplicate.url)
+                }
+                .font(.callout)
+                .fixedSize(horizontal: false, vertical: true)
+                Toggle("Publish this as a new post anyway", isOn: $flow.duplicateConfirmed)
+                    .toggleStyle(.checkbox)
+                    .disabled(flow.busy)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 10).fill(Color.orange.opacity(0.12)))
+        }
+    }
+
+    /// A P.S.: which of your posts it goes under, and how long it is.
+    @ViewBuilder private var postscriptFields: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Under which of your posts?")
+                .font(.callout)
+            TextField("Paste its link", text: $flow.postscriptLink)
+                .textFieldStyle(.roundedBorder)
+                .disabled(flow.busy)
+            if let piece = flow.postscriptTarget {
+                Label("At the end of your “\(piece.title)”.", systemImage: "checkmark.circle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.green)
+            } else if let problem = flow.postscriptProblem {
+                Text(problem)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        let words = flow.postscriptWords, max = PublishFlow.postscriptMaxWords
+        if let issue = flow.postscriptIssue {
+            Text(issue)
+                .font(.callout)
+                .monospacedDigit()
+                .foregroundStyle(.orange)
+                .fixedSize(horizontal: false, vertical: true)
+        } else {
+            Text("\(words) of \(max) words")
+                .font(.caption)
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func pledges(postscript: Bool) -> some View {
+        let pictures = postscript ? 0 : flow.pictureCount
+        return VStack(alignment: .leading, spacing: 12) {
+            Toggle(isOn: $flow.pledged) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("I wrote this myself. No AI wrote or rewrote any of it.")
+                        .fontWeight(.medium)
+                    Link("Read the rules", destination: PublishSite.rules)
+                        .font(.caption)
+                }
+            }
+            // A promise of its own, about copyright only: pictures may
+            // be made any way, AI included.
+            if pictures > 0 {
+                Toggle(isOn: $flow.picturesPledged) {
+                    Text(pictures == 1
+                         ? "The picture is mine, or I'm free to share it."
+                         : "The \(pictures) pictures are mine, or I'm free to share them.")
+                        .fontWeight(.medium)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .toggleStyle(.checkbox)
+        .disabled(flow.busy)
     }
 
     /// A new piece can respond to another: paste its link. One of yours
@@ -188,52 +249,20 @@ struct PublishSheet: View {
 
     private var locked: some View {
         StepLayout(title: "Its text is locked",
-                   message: "“\(flow.record?.title ?? "This post")” has been up for more than 15 minutes, or someone has reacted or commented, so it stays as readers saw it. Your changes stay on your Mac.\n\nTo say more, add a P.S., or write a new post and paste this one's link when you publish it, as the post it responds to.") {
+                   message: "“\(flow.lastPost?.title ?? "This post")” has been up for more than 15 minutes, or someone has reacted or commented, so it stays as readers saw it. Your changes stay on your Mac.\n\nTo say more, publish a P.S. under it, or a new post that responds to it: copy its link to paste in either.") {
             Button("Copy Link") { flow.copyLink() }
             Button("OK") { flow.cancel() }
                 .keyboardShortcut(.defaultAction)
         }
     }
 
-    private var postscript: some View {
-        let words = flow.postscriptWords, max = PublishFlow.postscriptMaxWords
-        return StepLayout(title: "Add a P.S.",
-                          message: "A short note at the end of “\(flow.record?.title ?? "your post")”, dated today. It can't be changed or removed afterwards.") {
-            Button("Cancel", role: .cancel) { flow.cancel() }
-            Button(flow.busy ? "Adding…" : "Add P.S.") { flow.addPostscript() }
-                .keyboardShortcut(.defaultAction)
-                .disabled(!flow.canAddPostscript)
-        } content: {
-            TextEditor(text: $flow.postscript)
-                .font(.body)
-                .scrollContentBackground(.hidden)
-                .padding(8)
-                .frame(height: 130)
-                .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.05)))
-                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.primary.opacity(0.12)))
-                .disabled(flow.busy)
-            Text(words > max ? "\(words) of \(max) words. For more, publish a follow-up." : "\(words) of \(max) words")
-                .font(.caption)
-                .monospacedDigit()
-                .foregroundStyle(words > max ? .red : .secondary)
-            Toggle(isOn: $flow.postscriptPledged) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("I wrote this myself. No AI wrote or rewrote any of it.")
-                        .fontWeight(.medium)
-                    Link("Read the rules", destination: PublishSite.rules)
-                        .font(.caption)
-                }
-            }
-            .toggleStyle(.checkbox)
-            .disabled(flow.busy)
-            ErrorLine(flow.error)
-        }
-    }
-
     private var postscriptAdded: some View {
         StepLayout(title: "Your P.S. is up",
-                   message: "It's at the end of “\(flow.record?.title ?? "your post")”, with today's date.") {
-            Button("View on \(PublishSite.name)") { flow.view(); flow.cancel() }
+                   message: "It's at the end of “\(flow.postscriptAddedTo?.title ?? "your post")”, with today's date.") {
+            Button("View on \(PublishSite.name)") {
+                if let url = flow.postscriptAddedTo?.url { NSWorkspace.shared.open(url) }
+                flow.cancel()
+            }
             Button("Done") { flow.cancel() }
                 .keyboardShortcut(.defaultAction)
         }
