@@ -1,6 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import { RULES } from "../lib/rules";
 
+type Item = { readonly title: string; readonly line: string };
+
 // On the homepage, the rules are only a small glass pill that says so: it
 // invites a click through to their own page rather than reading them here.
 export function RulesPill() {
@@ -16,18 +18,22 @@ export function RulesPill() {
 	);
 }
 
-export function RuleList({ large }: { large?: boolean }) {
+/** The rules, numbered; or with `plain`, other lines in the same type, unnumbered. */
+export function RuleList({ large, plain, items = RULES }: { large?: boolean; plain?: boolean; items?: readonly Item[] }) {
+	const List = plain ? "ul" : "ol";
 	return (
-		<ol className={large ? "rule-list large" : "rule-list"}>
-			{RULES.map((rule, index) => (
+		<List className={["rule-list", large && "large", plain && "plain"].filter(Boolean).join(" ")}>
+			{items.map((rule, index) => (
 				<li key={rule.title} style={{ ["--n" as string]: index }}>
-					<span className="rule-number" aria-hidden="true">
-						{index + 1}
-					</span>
+					{!plain && (
+						<span className="rule-number" aria-hidden="true">
+							{index + 1}
+						</span>
+					)}
 					<p className="rule-title">{rule.title}</p>
 					<p className="rule-line">{rule.line}</p>
 				</li>
 			))}
-		</ol>
+		</List>
 	);
 }
