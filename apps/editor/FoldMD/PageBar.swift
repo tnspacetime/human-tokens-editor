@@ -67,6 +67,8 @@ final class PageBarModel {
 
 private struct PageBarContent: View {
     @Bindable var model: PageBarModel
+    // Read so the text size buttons enable and disable as it changes.
+    @AppStorage(PageTextSize.key) private var textSize = 1.0
 
     var body: some View {
         HStack(spacing: 0) {
@@ -82,6 +84,24 @@ private struct PageBarContent: View {
                 ContentsList(model: model)
             }
             Spacer(minLength: 12)
+            Button {
+                PageTextSize.shrink()
+            } label: {
+                Label("Smaller Text", systemImage: "textformat.size.smaller").labelStyle(.iconOnly)
+            }
+            .toolbarLikeButton()
+            .disabled(textSize <= PageTextSize.scales.first!)
+            .help("Smaller text on the page")
+            Button {
+                PageTextSize.grow()
+            } label: {
+                Label("Bigger Text", systemImage: "textformat.size.larger").labelStyle(.iconOnly)
+            }
+            .toolbarLikeButton()
+            .disabled(textSize >= PageTextSize.scales.last!)
+            .help("Bigger text on the page")
+            .padding(.leading, 6)
+            .padding(.trailing, 10)
             PublishPill(flow: model.publish)
         }
         .padding(.horizontal, 12)

@@ -59,6 +59,8 @@ struct EditorWindow: View {
     @AppStorage("sheet.height") private var sheetHeight = 220.0
     @AppStorage("sheet.mode") private var mode: DrawerMode = .under
     @AppStorage(AppearanceMode.key) private var appearance: AppearanceMode = .system
+    // Read so the text size buttons enable and disable as it changes.
+    @AppStorage(TextSize.key) private var textSize = Double(TextSize.standard)
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
@@ -870,6 +872,26 @@ struct EditorWindow: View {
             .help("Slide the publishing surface out to the right, or back in (⌥⌘P)")
         }
         ToolbarItem {
+            ControlGroup {
+                Button {
+                    TextSize.shrink()
+                } label: {
+                    Label("Smaller Text", systemImage: "textformat.size.smaller")
+                }
+                .disabled(textSize <= Double(TextSize.sizes.first!))
+                .help("Smaller text (⌘−)")
+                Button {
+                    TextSize.grow()
+                } label: {
+                    Label("Bigger Text", systemImage: "textformat.size.larger")
+                }
+                .disabled(textSize >= Double(TextSize.sizes.last!))
+                .help("Bigger text (⌘+). ⌘0 goes back to the usual size.")
+            } label: {
+                Label("Text Size", systemImage: "textformat.size")
+            }
+        }
+        ToolbarItem {
             Menu {
                 Picker("Appearance", selection: $appearance) {
                     ForEach(AppearanceMode.allCases) { Text($0.title).tag($0) }
@@ -988,6 +1010,12 @@ struct PageSurface: NSViewRepresentable {
             super.init(frame: .zero)
             clipsToBounds = true
             addSubview(content)
+            NotificationCenter.default.addObserver(
+                self, selector: #selector(textSizeChanged(_:)), name: PageTextSize.changed, object: nil)
+        }
+
+        @objc private func textSizeChanged(_ notification: Notification) {
+            positionContent()
         }
 
         required init?(coder: NSCoder) { fatalError("not used") }
@@ -1005,7 +1033,9 @@ struct PageSurface: NSViewRepresentable {
             let width = max(contentWidth, bounds.width)
             content.frame = NSRect(x: bounds.width - width, y: 0, width: width, height: bounds.height)
             if let web = content as? WKWebView, width > 0 {
-                let zoom = min(1, width / Self.columnWidth)
+                // Scaled down to fit, then by the surface's text size (the
+                // page re-wraps, as in a browser).
+                let zoom = min(1, width / Self.columnWidth) * PageTextSize.current
                 if abs(web.pageZoom - zoom) > 0.005 {
                     web.pageZoom = zoom
                     onZoom?(zoom)

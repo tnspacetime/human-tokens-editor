@@ -30,6 +30,8 @@ struct FoldMDApp: App {
             CommandGroup(after: .toolbar) {
                 TypewriterScrollingToggle()
                 Divider()
+                TextSizeMenu()
+                Divider()
                 AppearanceMenu()
             }
         }

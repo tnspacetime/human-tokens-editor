@@ -142,6 +142,17 @@ final class FoldTextView: NSTextView {
         super.keyDown(with: event)
     }
 
+    /// ⌘= as well as ⌘+ for Bigger Text: on most keyboards + is shift-=, and
+    /// people press it without the shift.
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        if flags == .command, event.charactersIgnoringModifiers == "=" {
+            TextSize.grow()
+            return true
+        }
+        return super.performKeyEquivalent(with: event)
+    }
+
     override func resignFirstResponder() -> Bool {
         selectionMenu.hide()
         return super.resignFirstResponder()

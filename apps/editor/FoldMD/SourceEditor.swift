@@ -97,6 +97,9 @@ struct SourceEditor: NSViewRepresentable {
                 self, selector: #selector(scrollFrameChanged(_:)),
                 name: NSView.frameDidChangeNotification, object: scrollView)
 
+            NotificationCenter.default.addObserver(
+                self, selector: #selector(textSizeChanged(_:)), name: TextSize.changed, object: nil)
+
             sheet.onJump = { [weak self] line in self?.jump(toLine: line) }
             page.onJump = { [weak self] line in self?.jump(toLine: line) }
             sheet.shiftEditor = { [weak self] dy in self?.shift(by: dy) }
@@ -139,6 +142,24 @@ struct SourceEditor: NSViewRepresentable {
             lineStarts = Self.lineStarts(of: textView.string)
             reportScroll()
             reportCursor()
+        }
+
+        /// View ▸ Bigger or Smaller Text: restyle at the new size, keeping
+        /// the line at the top of the editor where it was.
+        @objc private func textSizeChanged(_ notification: Notification) {
+            guard let textView, let scrollView, let layout = textView.layoutManager, let container = textView.textContainer else { return }
+            let top = scrollView.contentView.bounds.minY - textView.textContainerInset.height
+            let glyph = layout.glyphIndex(for: NSPoint(x: 0, y: max(0, top)), in: container)
+            let char = layout.characterIndexForGlyph(at: glyph)
+            textView.font = Theme.body
+            textView.typingAttributes = Theme.baseAttributes
+            textChanged()
+            layout.ensureLayout(for: container)
+            textView.setFrameSize(textView.frame.size)
+            if char > 0 {
+                let rect = layout.lineFragmentRect(forGlyphAt: layout.glyphIndexForCharacter(at: char), effectiveRange: nil)
+                textView.scroll(NSPoint(x: 0, y: rect.minY + textView.textContainerInset.height))
+            }
         }
 
         @objc private func clipBoundsChanged(_ notification: Notification) {

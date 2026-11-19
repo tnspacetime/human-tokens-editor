@@ -4,14 +4,14 @@ import AppKit
 /// stylesheet in web/src/renderer.css; keep the two roughly in step.
 @MainActor
 enum Theme {
-    static let bodySize: CGFloat = 16
+    /// At the standard text size; View ▸ Bigger Text scales them all (TextSize).
     static let headingSizes: [CGFloat] = [27, 22, 19, 17, 16, 16]
 
-    static var body: NSFont { .systemFont(ofSize: bodySize) }
-    static var mono: NSFont { .monospacedSystemFont(ofSize: 14, weight: .regular) }
+    static var body: NSFont { .systemFont(ofSize: TextSize.current) }
+    static var mono: NSFont { .monospacedSystemFont(ofSize: (14 * TextSize.scale).rounded(), weight: .regular) }
 
     static func heading(level: Int) -> NSFont {
-        .systemFont(ofSize: headingSizes[min(max(level, 1), 6) - 1], weight: .bold)
+        .systemFont(ofSize: (headingSizes[min(max(level, 1), 6) - 1] * TextSize.scale).rounded(), weight: .bold)
     }
 
     static var paragraph: NSParagraphStyle {
