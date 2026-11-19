@@ -14,6 +14,11 @@ import AppKit
 /// into code: those chunks all change.
 @MainActor
 final class MarkdownHighlighter {
+    /// Marks text that isn't prose (code, math, a link's address), so the
+    /// editor leaves its spelling alone (FoldTextView). Like the rest of the
+    /// styling it's redone with the chunk, so it never outlives the code.
+    nonisolated static let notProse = NSAttributedString.Key("FoldNotProse")
+
     /// The chunks' text when they were last styled, in order.
     private var styled: [NSString] = []
     /// The characters changed since then, as macOS reports them. Comparing
@@ -192,6 +197,7 @@ final class MarkdownHighlighter {
             } else {
                 storage.addAttributes([.font: Theme.mono, .foregroundColor: Theme.math], range: m.range)
             }
+            storage.addAttribute(Self.notProse, value: true, range: m.range)
             blocked.append(m.range)
         }
 
@@ -220,13 +226,13 @@ final class MarkdownHighlighter {
         }
 
         for m in matches(inlineCode) where isFree(m.range) {
-            storage.addAttribute(.font, value: Theme.mono, range: m.range)
+            storage.addAttributes([.font: Theme.mono, Self.notProse: true], range: m.range)
             dim(storage, m.range(at: 1), m.range(at: 3))
             blocked.append(m.range)
         }
 
         for m in matches(inlineMath) where isFree(m.range) {
-            storage.addAttributes([.font: Theme.mono, .foregroundColor: Theme.math], range: m.range)
+            storage.addAttributes([.font: Theme.mono, .foregroundColor: Theme.math, Self.notProse: true], range: m.range)
             dim(storage, m.range(at: 1), m.range(at: 3))
             blocked.append(m.range)
         }
@@ -234,6 +240,8 @@ final class MarkdownHighlighter {
         for m in matches(link) where isFree(m.range) {
             storage.addAttribute(.foregroundColor, value: Theme.link, range: m.range(at: 2))
             dim(storage, m.range(at: 1), m.range(at: 3), m.range(at: 4), m.range(at: 5))
+            // The address is not words; the link's text still is.
+            if m.range(at: 4).length > 0 { storage.addAttribute(Self.notProse, value: true, range: m.range(at: 4)) }
         }
 
         for m in matches(boldStars) + matches(boldUnderscores) where isFree(m.range) {

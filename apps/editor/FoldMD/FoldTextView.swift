@@ -185,6 +185,45 @@ final class FoldTextView: NSTextView {
         return super.resignFirstResponder()
     }
 
+    // MARK: Spelling only in prose
+
+    /// Whether any of `range` is code, math or a link's address
+    /// (MarkdownHighlighter.notProse).
+    private func touchesNotProse(_ range: NSRange) -> Bool {
+        guard let storage = textStorage, range.location != NSNotFound, range.length > 0,
+              NSMaxRange(range) <= storage.length else { return false }
+        var found = false
+        storage.enumerateAttribute(MarkdownHighlighter.notProse, in: range) { value, _, stop in
+            if value != nil { found = true; stop.pointee = true }
+        }
+        return found
+    }
+
+    /// Checking as you type: misspellings and grammar in code and math are
+    /// dropped before macOS underlines them. Everything else is as macOS has it.
+    override func handleTextCheckingResults(_ results: [NSTextCheckingResult], forRange range: NSRange,
+                                            types checkingTypes: NSTextCheckingTypes,
+                                            options: [NSSpellChecker.OptionKey: Any] = [:],
+                                            orthography: NSOrthography, wordCount: Int) {
+        let prose = results.filter { result in
+            !((result.resultType == .spelling || result.resultType == .grammar) && touchesNotProse(result.range))
+        }
+        super.handleTextCheckingResults(prose, forRange: range, types: checkingTypes, options: options,
+                                        orthography: orthography, wordCount: wordCount)
+    }
+
+    /// Any other way macOS marks a word (Check Document Now…): never in code
+    /// or math. Clearing a mark always goes through.
+    override func setSpellingState(_ value: Int, range: NSRange) {
+        guard value != 0, touchesNotProse(range), let storage = textStorage else {
+            super.setSpellingState(value, range: range)
+            return
+        }
+        storage.enumerateAttribute(MarkdownHighlighter.notProse, in: range) { mark, run, _ in
+            if mark == nil { super.setSpellingState(value, range: run) }
+        }
+    }
+
     /// Right-click: Add Note first.
     override func menu(for event: NSEvent) -> NSMenu? {
         selectionMenu.hide()
