@@ -42,7 +42,7 @@ export function DeletePiece({ post }: { post: PostPage }) {
 	return (
 		<>
 			<div className="author-tools">
-				<span>Your piece</span>
+				<span>Your post</span>
 				<button type="button" className="link-button author-tools-delete" onClick={() => setAsking(true)}>
 					Delete…
 				</button>
@@ -50,7 +50,7 @@ export function DeletePiece({ post }: { post: PostPage }) {
 			<Sheet
 				open={asking}
 				onClose={close}
-				title="Delete this piece?"
+				title="Delete this post?"
 				footer={
 					<div className="comment-form-actions">
 						{error && <span className="delete-error">{error}</span>}
@@ -66,7 +66,7 @@ export function DeletePiece({ post }: { post: PostPage }) {
 				<p className="sheet-lede">
 					“{post.title}” comes off the site for good{goes.length > 0 ? `, with its ${goes.join(", ")}` : ""}. This can't be undone.
 				</p>
-				<p className="sheet-lede">Your file in Fold MD stays as it is, so you can publish it again as a new piece.</p>
+				<p className="sheet-lede">Your file in Fold MD stays as it is, so you can publish it again as a new post.</p>
 			</Sheet>
 		</>
 	);

@@ -45,7 +45,7 @@ export function ReaderIsland({ post }: { post: PostPage }) {
 
 	return (
 		<div ref={dock} className="reader-dock">
-			<div className="reader-island" role="group" aria-label="What readers made of this piece">
+			<div className="reader-island" role="group" aria-label="What readers made of this post">
 				<button
 					type="button"
 					className="reader-seg"

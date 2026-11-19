@@ -32,7 +32,7 @@ export function AuthorIsland({ page }: { page: AuthorPage }) {
 	const reactions = QUALITIES.reduce((sum, q) => sum + (page.qualities[q.id] ?? 0), 0);
 
 	const stats = [
-		{ value: pieces, label: count(pieces, "piece", "pieces") },
+		{ value: pieces, label: count(pieces, "post", "posts") },
 		{ value: page.words, label: count(page.words, "word", "words") },
 		{ value: page.readers, label: count(page.readers, "reader reacted", "readers reacted") },
 		{ value: page.comments, label: count(page.comments, "comment", "comments") },
@@ -49,7 +49,7 @@ export function AuthorIsland({ page }: { page: AuthorPage }) {
 					onClick={() => setOpen(!open)}
 				>
 					<span className="author-seg-count">
-						{pieces} {count(pieces, "piece", "pieces")}
+						{pieces} {count(pieces, "post", "posts")}
 					</span>
 					{chosen.length > 0 && (
 						<>

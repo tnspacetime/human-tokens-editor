@@ -64,7 +64,7 @@ function DevSignIn() {
 
 			<section className="auth-dev-authors">
 				<h2>As an author</h2>
-				<p>Links that author to you, so you get the author's tools on their pieces.</p>
+				<p>Links that author to you, so you get the author's tools on their posts.</p>
 				<div className="auth-dev-row">
 					{authors.map((author) => (
 						<button

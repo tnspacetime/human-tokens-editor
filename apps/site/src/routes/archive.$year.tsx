@@ -12,8 +12,8 @@ export const Route = createFileRoute("/archive/$year")({
 	},
 	head: ({ params }) =>
 		share({
-			title: `${params.year} · Every piece`,
-			description: `Every piece published on Human Tokens in ${params.year}, by month.`,
+			title: `${params.year} · Every post`,
+			description: `Every post published on Human Tokens in ${params.year}, by month.`,
 			path: `/archive/${params.year}`,
 		}),
 	component: () => <ArchivePage archive={Route.useLoaderData()} />,

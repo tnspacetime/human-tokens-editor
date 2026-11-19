@@ -30,7 +30,7 @@ struct PublishSheet: View {
 
     private var save: some View {
         StepLayout(title: "Save it first",
-                   message: "Fold MD remembers which piece each file becomes, so it needs a file. Save this document, then publish it.") {
+                   message: "Fold MD remembers which post each file becomes, so it needs a file. Save this document, then publish it.") {
             Button("Cancel", role: .cancel) { flow.cancel() }
             Button("Save…") { NSApp.sendAction(#selector(NSDocument.save(_:)), to: nil, from: nil) }
                 .keyboardShortcut(.defaultAction)
@@ -85,7 +85,7 @@ struct PublishSheet: View {
 
     private var author: some View {
         StepLayout(title: "How you'll appear",
-                   message: "This is your first piece on \(PublishSite.name). Choose the name readers see on your pieces, and a short handle.") {
+                   message: "This is your first post on \(PublishSite.name). Choose the name readers see on your posts, and a short handle.") {
             Button("Cancel", role: .cancel) { flow.cancel() }
             Button("Continue") { flow.becomeAuthor() }
                 .keyboardShortcut(.defaultAction)
@@ -113,7 +113,7 @@ struct PublishSheet: View {
         let message = flow.isFix
             ? "Nobody has reacted or commented yet, so you can still fix it\(until). After that its text is locked."
             : flow.isSeries
-            ? "All \(flow.parts ?? 0) parts, joined into one piece in the sidebar's order, each part a chapter. For 15 minutes after you publish, until someone reacts or comments, you can still fix it. Then its text is locked."
+            ? "All \(flow.parts ?? 0) parts, joined into one post in the sidebar's order, each part a chapter. For 15 minutes after you publish, until someone reacts or comments, you can still fix it. Then its text is locked."
             : "This is how it starts in the feed. For 15 minutes after you publish, until someone reacts or comments, you can still fix it. Then its text is locked, so it stays as readers saw it."
         return StepLayout(title: title, message: message) {
             Button("Cancel", role: .cancel) { flow.cancel() }
@@ -162,15 +162,15 @@ struct PublishSheet: View {
     /// makes it a follow-up; anyone else's, a reply.
     private var respondsToField: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Responds to a piece? (optional)")
+            Text("Responds to a post? (optional)")
                 .font(.callout)
             TextField("Paste its link", text: $flow.respondsToLink)
                 .textFieldStyle(.roundedBorder)
                 .disabled(flow.busy)
             if let piece = flow.respondsTo {
                 Label(piece.yours
-                      ? "A follow-up to your “\(piece.title)”. That piece will point forward to this one."
-                      : "A reply to “\(piece.title)” by \(piece.author.name). Their piece will list it under Replies.",
+                      ? "A follow-up to your “\(piece.title)”. That post will point forward to this one."
+                      : "A reply to “\(piece.title)” by \(piece.author.name). Their post will list it under Replies.",
                       systemImage: "checkmark.circle.fill")
                     .font(.caption)
                     .foregroundStyle(.green)
@@ -184,7 +184,7 @@ struct PublishSheet: View {
 
     private var locked: some View {
         StepLayout(title: "Its text is locked",
-                   message: "“\(flow.record?.title ?? "This piece")” has been up for more than 15 minutes, or someone has reacted or commented, so it stays as readers saw it. Your changes stay on your Mac.\n\nTo say more, add a P.S., or write a new piece and paste this one's link when you publish it, as the piece it responds to.") {
+                   message: "“\(flow.record?.title ?? "This post")” has been up for more than 15 minutes, or someone has reacted or commented, so it stays as readers saw it. Your changes stay on your Mac.\n\nTo say more, add a P.S., or write a new post and paste this one's link when you publish it, as the post it responds to.") {
             Button("Copy Link") { flow.copyLink() }
             Button("OK") { flow.cancel() }
                 .keyboardShortcut(.defaultAction)
@@ -194,7 +194,7 @@ struct PublishSheet: View {
     private var postscript: some View {
         let words = flow.postscriptWords, max = PublishFlow.postscriptMaxWords
         return StepLayout(title: "Add a P.S.",
-                          message: "A short note at the end of “\(flow.record?.title ?? "your piece")”, dated today. It can't be changed or removed afterwards.") {
+                          message: "A short note at the end of “\(flow.record?.title ?? "your post")”, dated today. It can't be changed or removed afterwards.") {
             Button("Cancel", role: .cancel) { flow.cancel() }
             Button(flow.busy ? "Adding…" : "Add P.S.") { flow.addPostscript() }
                 .keyboardShortcut(.defaultAction)
@@ -228,7 +228,7 @@ struct PublishSheet: View {
 
     private var postscriptAdded: some View {
         StepLayout(title: "Your P.S. is up",
-                   message: "It's at the end of “\(flow.record?.title ?? "your piece")”, with today's date.") {
+                   message: "It's at the end of “\(flow.record?.title ?? "your post")”, with today's date.") {
             Button("View on \(PublishSite.name)") { flow.view(); flow.cancel() }
             Button("Done") { flow.cancel() }
                 .keyboardShortcut(.defaultAction)

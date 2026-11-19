@@ -33,7 +33,7 @@ export async function missingPictures(publisher: Publisher, input: Record<string
 	if (!publisher.author) throw new PublishError(409, "Choose your author name before your first publish.");
 	const hashes = input.hashes;
 	if (!Array.isArray(hashes) || hashes.length > PICTURES.perPiece || !hashes.every((h) => typeof h === "string" && HASH.test(h))) {
-		throw new PublishError(400, `A piece can have at most ${PICTURES.perPiece} pictures.`);
+		throw new PublishError(400, `A post can have at most ${PICTURES.perPiece} pictures.`);
 	}
 	if (hashes.length === 0) return [];
 	const { results } = await db()
@@ -85,7 +85,7 @@ export async function uploadPicture(publisher: Publisher, hash: string, request:
 		.bind(publisher.id, hourAgo)
 		.first<{ bytes: number }>();
 	if ((waiting?.bytes ?? 0) + bytes.byteLength > PICTURES.perPieceBytes) {
-		throw new PublishError(429, "These pictures come to more than one piece can hold. Publish the piece, then try again in an hour.");
+		throw new PublishError(429, "These pictures come to more than one post can hold. Publish the post, then try again in an hour.");
 	}
 	await bucket().put(hash, bytes, { httpMetadata: { contentType: type } });
 	await db()
@@ -97,7 +97,7 @@ export async function uploadPicture(publisher: Publisher, hash: string, request:
 /** Before a piece goes up: its pictures are all here, and within the limits. */
 export async function checkPictures(hashes: string[]): Promise<void> {
 	if (hashes.length > PICTURES.perPiece) {
-		throw new PublishError(413, `A piece can have at most ${PICTURES.perPiece} pictures. This one has ${hashes.length}.`);
+		throw new PublishError(413, `A post can have at most ${PICTURES.perPiece} pictures. This one has ${hashes.length}.`);
 	}
 	if (hashes.length === 0) return;
 	const { results } = await db()
@@ -107,7 +107,7 @@ export async function checkPictures(hashes: string[]): Promise<void> {
 	if (results.length < hashes.length) throw new PublishError(400, "A picture didn't arrive. Publish again.");
 	const total = results.reduce((sum, r) => sum + r.bytes, 0);
 	if (total > PICTURES.perPieceBytes) {
-		throw new PublishError(413, `The pictures in a piece can come to at most ${mb(PICTURES.perPieceBytes)}. These come to ${mb(total)}.`);
+		throw new PublishError(413, `The pictures in a post can come to at most ${mb(PICTURES.perPieceBytes)}. These come to ${mb(total)}.`);
 	}
 }
 

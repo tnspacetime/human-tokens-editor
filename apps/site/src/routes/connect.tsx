@@ -127,7 +127,7 @@ function Decide({
 			<h1 className="empty-title">Let Fold MD publish as you?</h1>
 			<p className="auth-lede">
 				Check that this is the code Fold MD shows. Once you allow it, Fold MD on your Mac can publish, update and
-				unpublish your pieces as {state.name}.
+				unpublish your posts as {state.name}.
 			</p>
 			<Code code={state.code} large />
 			<div className="connect-actions">

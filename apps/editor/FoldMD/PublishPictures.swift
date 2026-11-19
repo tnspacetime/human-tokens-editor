@@ -36,12 +36,12 @@ enum PublishPictures {
 
         var errorDescription: String? {
             switch self {
-            case .missing(let link): "A picture this piece uses isn't on your Mac: \(link). Put it back, or take it out of the piece."
+            case .missing(let link): "A picture this post uses isn't on your Mac: \(link). Put it back, or take it out of the post."
             case .unreadable(let name): "“\(name)” isn't a picture Fold MD can read."
             case .svg(let name): "SVG pictures can't be published yet: “\(name)”. Export it as a PNG and link that."
             case .tooBig(let name): "“\(name)” is still more than \(maxBytes / 1_000_000) MB once made smaller. Try saving it as a JPEG."
-            case .tooMany(let count): "A piece can have at most \(perPiece) pictures. This one has \(count)."
-            case .tooMuch(let bytes): "The pictures in a piece can come to at most \(perPieceBytes / 1_000_000) MB. These come to \(Int((Double(bytes) / 1_000_000).rounded())) MB."
+            case .tooMany(let count): "A post can have at most \(perPiece) pictures. This one has \(count)."
+            case .tooMuch(let bytes): "The pictures in a post can come to at most \(perPieceBytes / 1_000_000) MB. These come to \(Int((Double(bytes) / 1_000_000).rounded())) MB."
             }
         }
     }

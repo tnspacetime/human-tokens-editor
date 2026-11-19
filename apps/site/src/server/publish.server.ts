@@ -95,7 +95,7 @@ const minutes = (words: number) => Math.max(1, Math.round(words / 220));
 
 function markdownFrom(value: unknown) {
 	if (typeof value !== "string" || !value.trim()) throw new PublishError(400, "There's nothing to publish yet.");
-	if (value.length > MAX_MARKDOWN) throw new PublishError(413, "This piece is too long to publish.");
+	if (value.length > MAX_MARKDOWN) throw new PublishError(413, "This post is too long to publish.");
 	return value;
 }
 
@@ -135,7 +135,7 @@ async function limitReached(author: Author): Promise<string | null> {
 	// A place frees up 30 days after the oldest of those went up.
 	const free = new Date(Date.parse(results[results.length - 1].created_at) + LIMIT_DAYS * 86_400_000);
 	const day = free.toLocaleDateString("en", { month: "long", day: "numeric", timeZone: "UTC" });
-	return `You've published ${PUBLISH_LIMIT} new pieces in the last ${LIMIT_DAYS} days, the most for now. You can publish a new one again on ${day}. You can still fix a piece, or add a P.S.`;
+	return `You've published ${PUBLISH_LIMIT} new posts in the last ${LIMIT_DAYS} days, the most for now. You can publish a new one again on ${day}. You can still fix a post, or add a P.S.`;
 }
 
 /**
@@ -206,7 +206,7 @@ export async function publish(
 	if (typeof input.sourceId !== "string" || !/^[0-9A-Za-z-]{8,64}$/.test(input.sourceId)) throw new PublishError(400, "Missing the file's id.");
 	const markdown = markdownFrom(input.markdown);
 	const derived = deriveFromMarkdown(markdown);
-	if (!derived.title) throw new PublishError(400, "Give the piece a title: a first line like “# My title”.");
+	if (!derived.title) throw new PublishError(400, "Give the post a title: a first line like “# My title”.");
 	// Its pictures were uploaded first (images.server.ts); they're all here, within the limits.
 	const pictures = picturesIn(markdown);
 	await checkPictures(pictures);
@@ -227,7 +227,7 @@ export async function publish(
 	let respondsTo: string | null = null;
 	if (target !== undefined && target !== null) {
 		if (typeof target !== "string" || !(await anyPost(postId(target)))) {
-			throw new PublishError(404, "That piece isn't on the site, so this can't respond to it.");
+			throw new PublishError(404, "That post isn't on the site, so this can't respond to it.");
 		}
 		respondsTo = target;
 	}
@@ -236,7 +236,7 @@ export async function publish(
 		.prepare(`SELECT id, published_at, ${TOUCHED} AS touched FROM posts p WHERE author_id = ? AND source_id = ?`)
 		.bind(author.id, input.sourceId)
 		.first<Pick<PostRow, "id" | "published_at" | "touched">>();
-	if (existing && respondsTo) throw new PublishError(409, "A response is a new piece: it needs a new file id.");
+	if (existing && respondsTo) throw new PublishError(409, "A response is a new post: it needs a new file id.");
 	if (existing && !fixableUntil(existing)) throw new PublishError(423, LOCKED);
 	if (!existing) {
 		const reached = await limitReached(author);
@@ -274,12 +274,12 @@ export async function publish(
 			parts,
 		)
 		.run();
-	if (!meta.changes) throw new PublishError(existing ? 423 : 500, existing ? LOCKED : "The piece didn't save. Try again.");
+	if (!meta.changes) throw new PublishError(existing ? 423 : 500, existing ? LOCKED : "The post didn't save. Try again.");
 
 	await attachPictures(id, pictures);
 	if (!existing) await db().prepare("INSERT INTO publishes (author_id, created_at) VALUES (?, ?)").bind(author.id, now).run();
 	const row = await ownPost(author, id);
-	if (!row) throw new PublishError(500, "The piece didn't save. Try again.");
+	if (!row) throw new PublishError(500, "The post didn't save. Try again.");
 	return { ...toPublished(row, origin), created: !existing };
 }
 
@@ -300,7 +300,7 @@ async function anyPost(id: string) {
  */
 export async function piece(publisher: Publisher, id: string, origin: string) {
 	const row = await anyPost(postId(id));
-	if (!row) throw new PublishError(404, "That piece isn't on the site.");
+	if (!row) throw new PublishError(404, "That post isn't on the site.");
 	return {
 		id: row.id,
 		title: row.title,
@@ -318,7 +318,7 @@ async function ownPost(author: Author, id: string) {
 }
 
 const postId = (value: string) => {
-	if (!/^[0-9A-Za-z]{6,16}$/.test(value)) throw new PublishError(404, "No such piece.");
+	if (!/^[0-9A-Za-z]{6,16}$/.test(value)) throw new PublishError(404, "No such post.");
 	return value;
 };
 
@@ -329,7 +329,7 @@ export async function published(
 	origin: string,
 ): Promise<Published & { postscripts: Postscript[] }> {
 	const row = await ownPost(requireAuthor(publisher), postId(id));
-	if (!row) throw new PublishError(404, "This piece isn't on the site.");
+	if (!row) throw new PublishError(404, "This post isn't on the site.");
 	const { results } = await db()
 		.prepare("SELECT id, body, created_at FROM postscripts WHERE post_id = ? ORDER BY created_at")
 		.bind(row.id)
@@ -360,7 +360,7 @@ export async function addPostscript(publisher: Publisher, id: string, input: Rec
 		throw new PublishError(400, `A P.S. is at most ${PS_MAX_WORDS} words. For more, publish a follow-up.`);
 	}
 	const row = await ownPost(author, postId(id));
-	if (!row) throw new PublishError(404, "This piece isn't on the site.");
+	if (!row) throw new PublishError(404, "This post isn't on the site.");
 
 	const postscript = { id: randomId(10), body, createdAt: new Date().toISOString() };
 	await db()
@@ -375,7 +375,7 @@ export async function unpublish(publisher: Publisher, id: string): Promise<void>
 	const author = requireAuthor(publisher);
 	const pictures = await picturesOf(postId(id));
 	const { meta } = await db().prepare("DELETE FROM posts WHERE id = ? AND author_id = ?").bind(postId(id), author.id).run();
-	if (!meta.changes) throw new PublishError(404, "This piece isn't on the site.");
+	if (!meta.changes) throw new PublishError(404, "This post isn't on the site.");
 	await sweepPictures(pictures);
 }
 

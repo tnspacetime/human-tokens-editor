@@ -206,7 +206,7 @@ private struct SeriesContents: View {
 
                 if !series.parts.isEmpty {
                     PublishPill(flow: publish, size: .regular)
-                        .help("Publish the whole series as one piece, each part a chapter")
+                        .help("Publish the whole series as one post, each part a chapter")
                 }
 
                 Menu {

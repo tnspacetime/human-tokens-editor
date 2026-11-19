@@ -17,11 +17,11 @@ export function ArchivePage({ archive }: { archive: Archive }) {
 		<main className="archive">
 			<header className="archive-head">
 				<p className="archive-eyebrow">Human Tokens</p>
-				<h1>Every piece</h1>
+				<h1>Every post</h1>
 				<p className="archive-intro">
 					{archive.total === 0
 						? "Nothing published yet."
-						: `${plural(archive.total, "piece", "pieces")}, every word written by a person${archive.since ? `, since ${monthYear(archive.since)}` : ""}.`}
+						: `${plural(archive.total, "post", "posts")}, every word written by a person${archive.since ? `, since ${monthYear(archive.since)}` : ""}.`}
 				</p>
 			</header>
 
@@ -69,7 +69,7 @@ export function MonthOfPieces({ id, title, items, byAuthor }: { id: string; titl
 		<section id={id} className="archive-month" aria-labelledby={`${id}-title`}>
 			<h2 id={`${id}-title`}>
 				{title}
-				<span>{plural(items.length, "piece", "pieces")}</span>
+				<span>{plural(items.length, "post", "posts")}</span>
 			</h2>
 			<ol className="archive-list">
 				{items.map((item, i) => (

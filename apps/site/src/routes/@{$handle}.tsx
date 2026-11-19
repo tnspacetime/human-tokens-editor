@@ -16,7 +16,7 @@ export const Route = createFileRoute("/@{$handle}")({
 		loaderData
 			? share({
 					title: loaderData.author.name,
-					description: `Every piece by ${loaderData.author.name} on Human Tokens, written by a person.`,
+					description: `Every post by ${loaderData.author.name} on Human Tokens, written by a person.`,
 					path: `/@${loaderData.author.handle}`,
 					type: "profile",
 				})
@@ -53,10 +53,10 @@ function AuthorRoute() {
 
 			{page.pieces.length === 0 ? (
 				<p className="author-empty">
-					{page.isYou ? "Nothing published yet. Your pieces will be here once you publish from Fold MD." : "Nothing published yet."}
+					{page.isYou ? "Nothing published yet. Your posts will be here once you publish from Fold MD." : "Nothing published yet."}
 				</p>
 			) : (
-				<ul ref={list} className="tiles" aria-label="Pieces">
+				<ul ref={list} className="tiles" aria-label="Posts">
 					{page.pieces.map((post, i) => (
 						<li key={post.id} className={`tiles-item tiles-${sizes[i]}`}>
 							<PostTile post={post} size={sizes[i]} eyebrow={post.parts ? `A series in ${post.parts} parts` : null} />

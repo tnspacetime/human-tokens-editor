@@ -47,7 +47,7 @@ function Root() {
 				<BrandMark />
 				<p>Written by people, published with Fold MD.</p>
 				<Link to="/archive" className="site-footer-link">
-					Every piece
+					Every post
 				</Link>
 				<Link to="/rules" className="site-footer-link">
 					The rules

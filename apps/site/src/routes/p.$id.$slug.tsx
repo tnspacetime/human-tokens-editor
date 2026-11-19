@@ -22,7 +22,7 @@ export const Route = createFileRoute("/p/$id/$slug")({
 		post
 			? share({
 					title: post.title,
-					description: post.excerpt ?? `A piece by ${post.author.name}, written by a person.`,
+					description: post.excerpt ?? `A post by ${post.author.name}, written by a person.`,
 					path: `/p/${post.id}/${post.slug}`,
 					type: "article",
 					article: { publishedAt: post.publishedAt, authorPath: `/@${post.author.handle}` },

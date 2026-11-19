@@ -124,7 +124,7 @@ function Feed() {
 					) : (
 						<Link to="/archive" className="feed-archive">
 							<span className="feed-archive-text">
-								<span className="feed-archive-title">Every piece</span>
+								<span className="feed-archive-title">Every post</span>
 								<span className="feed-archive-line">
 									{home.total > posts.length
 										? `${home.total - posts.length} more, ${home.total} in all, by year and month`

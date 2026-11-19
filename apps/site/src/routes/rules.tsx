@@ -16,7 +16,7 @@ function RulesPage() {
 		<main className="rules-page">
 			<p className="rules-eyebrow">Human Tokens</p>
 			<h1>The rules</h1>
-			<p className="rules-intro">Six, all about the writing. Then how a piece lives here.</p>
+			<p className="rules-intro">Six, all about the writing. Then how a post lives here.</p>
 			<RuleList large />
 			<h2 className="rules-section">How it works</h2>
 			<RuleList large plain items={HOW_IT_WORKS} />

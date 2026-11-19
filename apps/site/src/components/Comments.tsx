@@ -17,7 +17,7 @@ export function CommentList({ post }: { post: PostPage }) {
 	return (
 		<>
 			<p className="sheet-lede">
-				One comment each, and no replies. Say what you think of the piece.
+				One comment each, and no replies. Say what you think of the post.
 				{post.allowDebate && " The author has opened this post to debate."}
 			</p>
 			{others.length === 0 ? (

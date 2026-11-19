@@ -57,7 +57,7 @@ export function LiveBoard({ board }: { board: Board }) {
 				<dl className="live-stats">
 					<Stat value={shown.reactions} label={shown.reactions === 1 ? "reaction" : "reactions"} />
 					<Stat value={shown.readers} label={shown.readers === 1 ? "reader reacting" : "readers reacting"} />
-					<Stat value={shown.pieces} label={shown.pieces === 1 ? "piece published" : "pieces published"} />
+					<Stat value={shown.pieces} label={shown.pieces === 1 ? "post published" : "posts published"} />
 				</dl>
 				<BoardLists id="board-lists" period={shown} expanded={expanded} />
 				<BoardToggle period={shown} expanded={expanded} onToggle={toggle} controls="board-lists" />
@@ -172,7 +172,7 @@ export function BoardLists({
 							{quality.label}
 						</h3>
 						{entries.length === 0 ? (
-							<p className="board-empty">No one yet</p>
+							<p className="board-empty">Nothing yet</p>
 						) : (
 							<ol>{entries.slice(0, 3).map((entry, rank) => row(entry, rank, ready, rank))}</ol>
 						)}

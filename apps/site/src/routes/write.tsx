@@ -37,7 +37,7 @@ function WritePage() {
 				<p className="write-eyebrow">Fold MD for Mac</p>
 				<h1>Write it yourself.</h1>
 				<p className="write-intro">
-					Pieces here are written and published from Fold MD, a quiet markdown editor for the Mac. Write
+					Posts here are written and published from Fold MD, a quiet markdown editor for the Mac. Write
 					there, and publish here when it's ready.
 				</p>
 				<Download />

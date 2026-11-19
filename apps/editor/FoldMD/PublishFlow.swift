@@ -378,7 +378,7 @@ final class PublishFlow {
         let link = respondsToLink.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !link.isEmpty else { return }
         guard let id = Self.postID(in: link) else {
-            respondsToProblem = "Paste the link of a piece, like \(PublishSite.name)/p/…"
+            respondsToProblem = "Paste the link of a post, like \(PublishSite.name)/p/…"
             return
         }
         guard let token = PublishToken.current else { return }
@@ -390,7 +390,7 @@ final class PublishFlow {
                 guard !Task.isCancelled else { return }
                 respondsTo = piece
             } catch let failure as SiteAPI.Failure where failure.isGone {
-                if !Task.isCancelled { respondsToProblem = "That piece isn't on \(PublishSite.name)." }
+                if !Task.isCancelled { respondsToProblem = "That post isn't on \(PublishSite.name)." }
             } catch {
                 if !Task.isCancelled { respondsToProblem = error.localizedDescription }
             }
@@ -437,7 +437,7 @@ final class PublishFlow {
                 connect()
             } catch let failure as SiteAPI.Failure where failure.isGone {
                 forgetGonePost()
-                step = .failed("This piece isn't on the site any more, so the P.S. couldn't be added.")
+                step = .failed("This post isn't on the site any more, so the P.S. couldn't be added.")
             } catch {
                 self.error = error.localizedDescription
             }
@@ -629,7 +629,7 @@ struct PublishPill: View {
                     } primaryAction: {
                         flow.start()
                     }
-                    .help("Publish this piece on \(PublishSite.name)")
+                    .help("Publish this post on \(PublishSite.name)")
                 case .published:
                     Menu {
                         menuItems

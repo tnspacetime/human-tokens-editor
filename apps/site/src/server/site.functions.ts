@@ -108,8 +108,8 @@ export const getAuthorPage = createServerFn({ method: "GET" })
 export const deletePostFn = createServerFn({ method: "POST" })
 	.validator((input: unknown) => ({ id: postId(object(input).id) }))
 	.handler(async ({ data }) => {
-		const user = await requireUser("delete a piece");
-		if (!(await deleteOwnPost(data.id, user))) throw new Error("Only its author can delete a piece");
+		const user = await requireUser("delete a post");
+		if (!(await deleteOwnPost(data.id, user))) throw new Error("Only its author can delete a post");
 	});
 
 export const toggleQualityFn = createServerFn({ method: "POST" })
@@ -119,7 +119,7 @@ export const toggleQualityFn = createServerFn({ method: "POST" })
 		return { id: postId(id), quality };
 	})
 	.handler(async ({ data }) => {
-		await toggleQuality(data.id, data.quality, await requireUser("say how a piece read"));
+		await toggleQuality(data.id, data.quality, await requireUser("say how a post read"));
 	});
 
 export const saveCommentFn = createServerFn({ method: "POST" })
