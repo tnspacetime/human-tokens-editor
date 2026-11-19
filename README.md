@@ -20,7 +20,7 @@ bun run db:reset   # create the local D1 database and load the sample posts
 bun run dev        # http://localhost:3100
 ```
 
-Nothing here talks to Cloudflare yet: the database is local (in `apps/site/.wrangler`).
+Nothing here talks to Cloudflare yet: the database and the stored pictures are local (in `apps/site/.wrangler`).
 `db:reset` also signs everyone out.
 
 ### Sign-in
@@ -69,8 +69,13 @@ Open the publishing surface (⌥⌘P); its strip of the toolbar has a **Publish*
 6. **Respond to a piece.** When you publish a new piece, paste the link of the piece it responds to where the sheet asks (*Copy Link* is in a piece's pill menu, or copy it from the site).
    One of your own pieces makes it a **follow-up**: it says *Follows …* under its byline, and the earlier piece, which stays as it was, points forward to it.
    Anyone else's makes it a **reply**: it says *In reply to … by …*, and the piece it answers lists it under *Replies*, at its foot and in the reader island. Anyone can reply to any piece, and every reply shows.
-7. **Add a P.S.** From the pill's menu, add a short note (at most 150 words) at the end of the piece, dated, with the pledge.
+7. **Pictures.** Drag or paste a picture into a piece: Fold MD copies it into an `images` folder beside the file and links it. When you publish, Fold MD gets each picture ready on your Mac first: at most 2000 pixels on its long side, the right way up, photos as JPEG (iPhone HEIC included) and screenshots as PNG, written afresh so nothing else in the file goes along (not where it was taken, not the camera). Then it sends the ones the site doesn't have yet, and the button says how far it's got.
+   A piece can have up to 20 pictures, 5 MB each and 10 MB in all; SVGs can't go up yet. With pictures, the pledge adds that they're yours or free to share, and none was made by AI.
+   On the site they're kept in Cloudflare R2 under the SHA-256 of their bytes and shown at `/img/<hash>`, so a picture is stored once however often it's used. Your file keeps its links as you wrote them. Pictures are locked with the text, and go when their piece goes.
+8. **Add a P.S.** From the pill's menu, add a short note (at most 150 words) at the end of the piece, dated, with the pledge.
    It's how you add a correction or a thought once the text is locked. A P.S. can't be changed or removed.
+
+An author can publish at most 50 new pieces in 30 days: plenty for writing every day, and a stop on anyone flooding the site. Fixes and P.S.es don't count; a deleted piece still does. When you've reached it, the publish sheet says so, and when you can publish again.
 
 Every author has a page listing their pieces, newest first: `/@handle`. Click the name in a byline, or your own name in the island's account panel.
 Publishing the same text twice makes two pieces, as on any social site; delete the one you don't want.

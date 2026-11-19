@@ -18,6 +18,7 @@ import { Route as ArchiveIndexRouteImport } from './routes/archive.index'
 import { Route as ArchiveYearRouteImport } from './routes/archive.$year'
 import { Route as AuthDevRouteImport } from './routes/auth.dev'
 import { Route as AuthErrorRouteImport } from './routes/auth.error'
+import { Route as ImgHashRouteImport } from './routes/img.$hash'
 import { Route as ApiAuthSplatRouteImport } from './routes/api.auth.$'
 import { Route as ApiFoldSplatRouteImport } from './routes/api.fold.$'
 import { Route as PIdSlugRouteImport } from './routes/p.$id.$slug'
@@ -67,6 +68,11 @@ const AuthErrorRoute = AuthErrorRouteImport.update({
   path: '/auth/error',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ImgHashRoute = ImgHashRouteImport.update({
+  id: '/img/$hash',
+  path: '/img/$hash',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -92,6 +98,7 @@ export interface FileRoutesByFullPath {
   '/archive/$year': typeof ArchiveYearRoute
   '/auth/dev': typeof AuthDevRoute
   '/auth/error': typeof AuthErrorRoute
+  '/img/$hash': typeof ImgHashRoute
   '/archive/': typeof ArchiveIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/fold/$': typeof ApiFoldSplatRoute
@@ -106,6 +113,7 @@ export interface FileRoutesByTo {
   '/archive/$year': typeof ArchiveYearRoute
   '/auth/dev': typeof AuthDevRoute
   '/auth/error': typeof AuthErrorRoute
+  '/img/$hash': typeof ImgHashRoute
   '/archive': typeof ArchiveIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/fold/$': typeof ApiFoldSplatRoute
@@ -121,6 +129,7 @@ export interface FileRoutesById {
   '/archive/$year': typeof ArchiveYearRoute
   '/auth/dev': typeof AuthDevRoute
   '/auth/error': typeof AuthErrorRoute
+  '/img/$hash': typeof ImgHashRoute
   '/archive/': typeof ArchiveIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/fold/$': typeof ApiFoldSplatRoute
@@ -137,6 +146,7 @@ export interface FileRouteTypes {
     | '/archive/$year'
     | '/auth/dev'
     | '/auth/error'
+    | '/img/$hash'
     | '/archive/'
     | '/api/auth/$'
     | '/api/fold/$'
@@ -151,6 +161,7 @@ export interface FileRouteTypes {
     | '/archive/$year'
     | '/auth/dev'
     | '/auth/error'
+    | '/img/$hash'
     | '/archive'
     | '/api/auth/$'
     | '/api/fold/$'
@@ -165,6 +176,7 @@ export interface FileRouteTypes {
     | '/archive/$year'
     | '/auth/dev'
     | '/auth/error'
+    | '/img/$hash'
     | '/archive/'
     | '/api/auth/$'
     | '/api/fold/$'
@@ -180,6 +192,7 @@ export interface RootRouteChildren {
   ArchiveYearRoute: typeof ArchiveYearRoute
   AuthDevRoute: typeof AuthDevRoute
   AuthErrorRoute: typeof AuthErrorRoute
+  ImgHashRoute: typeof ImgHashRoute
   ArchiveIndexRoute: typeof ArchiveIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiFoldSplatRoute: typeof ApiFoldSplatRoute
@@ -251,6 +264,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthErrorRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/img/$hash': {
+      id: '/img/$hash'
+      path: '/img/$hash'
+      fullPath: '/img/$hash'
+      preLoaderRoute: typeof ImgHashRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -284,6 +304,7 @@ const rootRouteChildren: RootRouteChildren = {
   ArchiveYearRoute: ArchiveYearRoute,
   AuthDevRoute: AuthDevRoute,
   AuthErrorRoute: AuthErrorRoute,
+  ImgHashRoute: ImgHashRoute,
   ArchiveIndexRoute: ArchiveIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiFoldSplatRoute: ApiFoldSplatRoute,

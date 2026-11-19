@@ -19,7 +19,7 @@ function RulesPage() {
 		<main className="rules-page">
 			<p className="rules-eyebrow">Human Tokens</p>
 			<h1>The rules</h1>
-			<p className="rules-intro">Five, all about the writing.</p>
+			<p className="rules-intro">Six, all about the writing.</p>
 			<RuleList large />
 			<p className="rules-back">
 				<Link to="/">Read what people wrote</Link>

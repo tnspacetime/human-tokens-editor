@@ -62,6 +62,8 @@ enum SiteAPI {
         let opening: [String]
         let words: Int
         let minutes: Int
+        /// Why you can't publish a new piece just now (too many lately), or nil.
+        let limitReached: String?
     }
 
     struct Post: Decodable, Equatable {
@@ -166,6 +168,20 @@ enum SiteAPI {
         return try await send("PUT", "api/fold/posts", body: body, token: token)
     }
 
+    /// Of a piece's pictures (by hash), the ones the site doesn't have yet.
+    static func missingPictures(_ token: String, hashes: [String]) async throws -> [String] {
+        struct Reply: Decodable { let missing: [String] }
+        let reply: Reply = try await send("POST", "api/fold/images", body: ["hashes": hashes], token: token)
+        return reply.missing
+    }
+
+    /// One picture, ready (PublishPictures), sent before the piece that uses it.
+    static func uploadPicture(_ token: String, _ picture: PublishPictures.Picture) async throws {
+        struct Done: Decodable { let ok: Bool }
+        let _: Done = try await send("PUT", "api/fold/images/\(picture.hash)", upload: (picture.data, picture.type),
+                                     token: token, timeout: 120)
+    }
+
     /// Any piece on the site, to respond to.
     static func piece(_ token: String, postID: String) async throws -> Piece {
         try await send("GET", "api/fold/pieces/\(postID)", token: token)
@@ -198,14 +214,19 @@ enum SiteAPI {
         let _: Done? = try? await send("POST", "api/auth/sign-out", body: [:], token: token)
     }
 
+    /// `body` goes as JSON; `upload` as the bytes they are, of that type.
     private static func send<T: Decodable>(_ method: String, _ path: String, body: [String: Any]? = nil,
-                                           token: String? = nil) async throws -> T {
-        var request = URLRequest(url: PublishSite.base.appending(path: path), timeoutInterval: 20)
+                                           upload: (data: Data, type: String)? = nil,
+                                           token: String? = nil, timeout: TimeInterval = 20) async throws -> T {
+        var request = URLRequest(url: PublishSite.base.appending(path: path), timeoutInterval: timeout)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         if let body {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        } else if let upload {
+            request.setValue(upload.type, forHTTPHeaderField: "Content-Type")
+            request.httpBody = upload.data
         }
         if let token { request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
         // No cookies: only the token says who's publishing.

@@ -4,10 +4,10 @@ import type { PostPage } from "../lib/types";
 import type { User } from "./auth.server";
 import { db, POST_COLUMNS, type PostRow, qualityCounts, toFeedItem } from "./rows.server";
 
-// Images: only web links for now. Images next to the author's file get
-// uploaded with the post later (R2), and resolve to their stored copy.
+// Images: pictures Fold MD uploaded with the piece (/img/<hash>, see
+// images.server.ts), and web links.
 const renderer = createRenderer({
-	resolveImage: (src) => (/^https:\/\//i.test(src) ? src : null),
+	resolveImage: (src) => (/^https:\/\//i.test(src) || /^\/img\/[0-9a-f]{64}$/.test(src) ? src : null),
 	unresolvedImageLabel: "Image not uploaded yet",
 });
 

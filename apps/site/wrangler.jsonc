@@ -13,5 +13,12 @@
 			"migrations_dir": "migrations"
 		}
 	],
+	// Pictures in pieces, under the SHA-256 of their bytes (src/server/images.server.ts).
+	"r2_buckets": [
+		{
+			"binding": "IMAGES",
+			"bucket_name": "human-tokens-images"
+		}
+	],
 	"observability": { "enabled": true }
 }

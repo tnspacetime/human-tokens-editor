@@ -37,7 +37,9 @@ enum SeriesJoin {
         var chapters: [String] = []
         for url in urls.compactMap({ $0 }) {
             let text = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
-            chapters.append(chapter(text, fallbackTitle: url.deletingPathExtension().lastPathComponent))
+            // Its pictures' links start from its own folder.
+            let part = PublishPictures.absolutize(text, base: url.deletingLastPathComponent())
+            chapters.append(chapter(part, fallbackTitle: url.deletingPathExtension().lastPathComponent))
         }
         let markdown = "# \(series.title)\n\n" + chapters.joined(separator: "\n\n")
         return (markdown, chapters.count)

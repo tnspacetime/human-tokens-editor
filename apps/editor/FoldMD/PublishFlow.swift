@@ -70,6 +70,13 @@ final class PublishFlow {
     /// An error shown in the sheet under its fields.
     var error: String?
     var busy = false
+    /// What a long publish is doing now (its pictures), for the button.
+    private(set) var progress: String?
+
+    /// The pictures on this Mac the piece links (each file once).
+    var pictureCount: Int {
+        PublishPictures.count(in: text, base: isSeries ? nil : fileURL?.deletingLastPathComponent())
+    }
 
     // The author step.
     var accountName = ""
@@ -543,21 +550,40 @@ final class PublishFlow {
     var canPublish: Bool {
         // A pasted link has to be found first (or cleared).
         let respondsToReady = isFix || respondsToLink.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || respondsTo != nil
-        return pledged && !busy && preview?.title != nil && respondsToReady
+        // A fix doesn't count as a new piece.
+        let underLimit = isFix || preview?.limitReached == nil
+        return pledged && !busy && preview?.title != nil && respondsToReady && underLimit
     }
 
     func publish() {
         guard canPublish, let recordURL, let token = PublishToken.current else { return }
         let markdown = text
+        // A series' parts link their pictures absolutely (SeriesJoin).
+        let base = isSeries ? nil : fileURL?.deletingLastPathComponent()
         let sourceID = record?.sourceID ?? UUID().uuidString
         // Only a new piece can respond to another.
         let respondsToID = isFix ? nil : respondsTo?.id
         busy = true
         error = nil
         Task {
-            defer { busy = false }
+            defer { busy = false; progress = nil }
             do {
-                let post = try await SiteAPI.publish(token, sourceID: sourceID, markdown: markdown, respondsTo: respondsToID, parts: parts)
+                // Pictures first: made ready on this Mac, then the ones the
+                // site doesn't have yet are sent. The piece links them by hash.
+                if pictureCount > 0 { progress = "Getting pictures ready…" }
+                let ready = try await Task.detached(priority: .userInitiated) {
+                    try PublishPictures.ready(markdown, base: base)
+                }.value
+                if !ready.pictures.isEmpty {
+                    let missing = Set(try await SiteAPI.missingPictures(token, hashes: ready.pictures.map(\.hash)))
+                    let sending = ready.pictures.filter { missing.contains($0.hash) }
+                    for (index, picture) in sending.enumerated() {
+                        progress = sending.count == 1 ? "Sending the picture…" : "Sending pictures (\(index + 1) of \(sending.count))…"
+                        try await SiteAPI.uploadPicture(token, picture)
+                    }
+                    progress = nil
+                }
+                let post = try await SiteAPI.publish(token, sourceID: sourceID, markdown: ready.markdown, respondsTo: respondsToID, parts: parts)
                 let record = PublishRecord(site: PublishSite.base.absoluteString, sourceID: sourceID, postID: post.id,
                                            url: post.url, title: post.title,
                                            publishedHash: PublishRecord.hash(markdown), publishedAt: Date(),

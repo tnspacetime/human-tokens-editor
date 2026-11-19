@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { missingPictures, uploadPicture } from "../server/images.server";
 import {
 	addPostscript,
 	becomeAuthor,
@@ -17,12 +18,18 @@ import {
 //
 //   GET    /api/fold/me              who you are, and your author name if you have one
 //   POST   /api/fold/author          { name, handle }: become an author (once)
-//   POST   /api/fold/preview         { markdown }: the title and opening lines the feed will show
+//   POST   /api/fold/preview         { markdown }: the title and opening lines the feed will show, and
+//                                    limitReached: why you can't publish a new piece just now, or null
+//   POST   /api/fold/images          { hashes }: of a piece's pictures (hex SHA-256 of their bytes), the
+//                                    ones the site doesn't have yet: { missing }
+//   PUT    /api/fold/images/<hash>   a picture's bytes (JPEG, PNG or GIF, at most 5 MB); the piece then
+//                                    links it as /img/<hash>. At most 20 pictures, 10 MB, in a piece.
 //   PUT    /api/fold/posts           { sourceId, markdown, respondsTo?, parts?, pledge: true }: publish, or fix;
 //                                    respondsTo: the id of the piece this new one responds to, yours (a
 //                                    follow-up) or anyone's (a reply);
 //                                    parts: for a whole series joined into one piece, how many chapters (h2s)
-//                                    (only for 15 minutes, and until anyone reacts or comments; then 423)
+//                                    (only for 15 minutes, and until anyone reacts or comments; then 423).
+//                                    At most 50 new pieces in 30 days (then 429)
 //   GET    /api/fold/posts/<id>      one of your posts as it stands, with fixableUntil (null once locked)
 //                                    and its postscripts
 //   POST   /api/fold/posts/<id>/ps   { body, pledge: true }: add a P.S. under it (at most 150 words; never edited)
@@ -56,7 +63,14 @@ async function handle(request: Request, path = "") {
 			return reply({ author: await becomeAuthor(publisher, await body(request)) });
 		}
 		if (parts[0] === "preview" && parts.length === 1 && method === "POST") {
-			return reply(preview(await body(request)));
+			return reply(await preview(publisher, await body(request)));
+		}
+		if (parts[0] === "images" && parts.length === 1 && method === "POST") {
+			return reply({ missing: await missingPictures(publisher, await body(request)) });
+		}
+		if (parts[0] === "images" && parts.length === 2 && method === "PUT") {
+			await uploadPicture(publisher, parts[1], request);
+			return reply({ ok: true });
 		}
 		if (parts[0] === "posts" && parts.length === 1 && method === "PUT") {
 			const post = await publish(publisher, await body(request), origin);

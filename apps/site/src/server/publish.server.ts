@@ -1,5 +1,6 @@
 import { auth } from "./auth.server";
 import { deriveFromMarkdown } from "./derive";
+import { attachPictures, checkPictures, picturesIn, picturesOf, sweepPictures } from "./images.server";
 import { db } from "./rows.server";
 
 // Publishing from Fold MD: who is asking (by the token Fold MD got when you
@@ -98,8 +99,12 @@ function markdownFrom(value: unknown) {
 	return value;
 }
 
-/** What the feed will show of a piece: its title and opening lines. */
-export function preview(input: Record<string, unknown>) {
+/**
+ * What the feed will show of a piece: its title and opening lines. And,
+ * when you've published as many new pieces as you can for now, why
+ * (`limitReached`), so Fold MD can say so before you publish.
+ */
+export async function preview(publisher: Publisher, input: Record<string, unknown>) {
 	const markdown = markdownFrom(input.markdown);
 	const derived = deriveFromMarkdown(markdown);
 	return {
@@ -107,7 +112,30 @@ export function preview(input: Record<string, unknown>) {
 		opening: JSON.parse(derived.opening) as string[],
 		words: derived.wordCount,
 		minutes: minutes(derived.wordCount),
+		limitReached: publisher.author ? await limitReached(publisher.author) : null,
 	};
+}
+
+/**
+ * New pieces an author can publish in 30 days. Writing every day fits
+ * easily; a script publishing thousands doesn't. Fixes and P.S.es don't
+ * count, and a deleted piece still does (migrations/0011_publish_limit.sql).
+ */
+export const PUBLISH_LIMIT = 50;
+const LIMIT_DAYS = 30;
+
+/** Why you can't publish a new piece just now, or null when you can. */
+async function limitReached(author: Author): Promise<string | null> {
+	const since = new Date(Date.now() - LIMIT_DAYS * 86_400_000).toISOString();
+	const { results } = await db()
+		.prepare("SELECT created_at FROM publishes WHERE author_id = ? AND created_at > ? ORDER BY created_at DESC LIMIT ?")
+		.bind(author.id, since, PUBLISH_LIMIT)
+		.all<{ created_at: string }>();
+	if (results.length < PUBLISH_LIMIT) return null;
+	// A place frees up 30 days after the oldest of those went up.
+	const free = new Date(Date.parse(results[results.length - 1].created_at) + LIMIT_DAYS * 86_400_000);
+	const day = free.toLocaleDateString("en", { month: "long", day: "numeric", timeZone: "UTC" });
+	return `You've published ${PUBLISH_LIMIT} new pieces in the last ${LIMIT_DAYS} days, the most for now. You can publish a new one again on ${day}. You can still fix a piece, or add a P.S.`;
 }
 
 /**
@@ -179,6 +207,9 @@ export async function publish(
 	const markdown = markdownFrom(input.markdown);
 	const derived = deriveFromMarkdown(markdown);
 	if (!derived.title) throw new PublishError(400, "Give the piece a title: a first line like “# My title”.");
+	// Its pictures were uploaded first (images.server.ts); they're all here, within the limits.
+	const pictures = picturesIn(markdown);
+	await checkPictures(pictures);
 	const allowDebate = input.allowDebate === true ? 1 : 0;
 	const now = new Date().toISOString();
 
@@ -207,6 +238,10 @@ export async function publish(
 		.first<Pick<PostRow, "id" | "published_at" | "touched">>();
 	if (existing && respondsTo) throw new PublishError(409, "A response is a new piece: it needs a new file id.");
 	if (existing && !fixableUntil(existing)) throw new PublishError(423, LOCKED);
+	if (!existing) {
+		const reached = await limitReached(author);
+		if (reached) throw new PublishError(429, reached);
+	}
 	const id = existing?.id ?? randomId(8);
 
 	// The fix window is checked again in the write itself, so a reaction
@@ -241,6 +276,8 @@ export async function publish(
 		.run();
 	if (!meta.changes) throw new PublishError(existing ? 423 : 500, existing ? LOCKED : "The piece didn't save. Try again.");
 
+	await attachPictures(id, pictures);
+	if (!existing) await db().prepare("INSERT INTO publishes (author_id, created_at) VALUES (?, ?)").bind(author.id, now).run();
 	const row = await ownPost(author, id);
 	if (!row) throw new PublishError(500, "The piece didn't save. Try again.");
 	return { ...toPublished(row, origin), created: !existing };
@@ -333,11 +370,13 @@ export async function addPostscript(publisher: Publisher, id: string, input: Rec
 	return postscript;
 }
 
-/** Take one of your posts down, with its reactions and comments. */
+/** Take one of your posts down, with its reactions, comments and pictures. */
 export async function unpublish(publisher: Publisher, id: string): Promise<void> {
 	const author = requireAuthor(publisher);
+	const pictures = await picturesOf(postId(id));
 	const { meta } = await db().prepare("DELETE FROM posts WHERE id = ? AND author_id = ?").bind(postId(id), author.id).run();
 	if (!meta.changes) throw new PublishError(404, "This piece isn't on the site.");
+	await sweepPictures(pictures);
 }
 
 const ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";

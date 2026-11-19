@@ -118,7 +118,7 @@
 	text-wrap: pretty;
 }
 
-/* Their own page: the same five, large, on the white sheet. */
+/* Their own page: the same rules, large, on the white sheet. */
 html:has(main.rules-page),
 html:has(main.rules-page) body {
 	background: var(--sheet);

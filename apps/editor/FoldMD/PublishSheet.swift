@@ -30,7 +30,7 @@ struct PublishSheet: View {
 
     private var save: some View {
         StepLayout(title: "Save it first",
-                   message: "Fold MD remembers where each file is published, next to the file. Save this document, then publish it.") {
+                   message: "Fold MD remembers which piece each file becomes, so it needs a file. Save this document, then publish it.") {
             Button("Cancel", role: .cancel) { flow.cancel() }
             Button("Save…") { NSApp.sendAction(#selector(NSDocument.save(_:)), to: nil, from: nil) }
                 .keyboardShortcut(.defaultAction)
@@ -117,7 +117,7 @@ struct PublishSheet: View {
             : "This is how it starts in the feed. For 15 minutes after you publish, until someone reacts or comments, you can still fix it. Then its text is locked, so it stays as readers saw it."
         return StepLayout(title: title, message: message) {
             Button("Cancel", role: .cancel) { flow.cancel() }
-            Button(flow.busy ? (flow.isFix ? "Fixing…" : "Publishing…") : title) { flow.publish() }
+            Button(flow.busy ? (flow.progress ?? (flow.isFix ? "Fixing…" : "Publishing…")) : title) { flow.publish() }
                 .keyboardShortcut(.defaultAction)
                 .disabled(!flow.canPublish)
         } content: {
@@ -127,11 +127,25 @@ struct PublishSheet: View {
                     .font(.callout)
                     .foregroundStyle(.orange)
             }
+            if !flow.isFix, let reason = flow.preview?.limitReached {
+                Text(reason)
+                    .font(.callout)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            let pictures = flow.pictureCount
             VStack(alignment: .leading, spacing: 12) {
                 Toggle(isOn: $flow.pledged) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("I wrote this myself. No AI wrote or rewrote any of it.")
                             .fontWeight(.medium)
+                        if pictures > 0 {
+                            Text(pictures == 1
+                                 ? "The picture is mine or free to share, and wasn't made by AI."
+                                 : "The \(pictures) pictures are mine or free to share, and none was made by AI.")
+                                .fontWeight(.medium)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                         Link("Read the rules", destination: PublishSite.rules)
                             .font(.caption)
                     }

@@ -2,6 +2,7 @@ import type { Quality, QualityCounts } from "../lib/qualities";
 import type { AuthorPage } from "../lib/types";
 import type { User } from "./auth.server";
 import { db, POST_COLUMNS, type PostRow, qualityCounts, toFeedItem } from "./rows.server";
+import { picturesOf, sweepPictures } from "./images.server";
 
 /**
  * An author's page: who they are, what readers made of their writing, then
@@ -52,9 +53,11 @@ export async function loadAuthorPage(handle: string, user: User | null): Promise
 
 /** Deletes one of your own pieces, with its reactions, comments and P.S.es. False if it isn't yours. */
 export async function deleteOwnPost(id: string, user: User): Promise<boolean> {
+	const pictures = await picturesOf(id);
 	const { meta } = await db()
 		.prepare("DELETE FROM posts WHERE id = ? AND author_id IN (SELECT id FROM authors WHERE user_id = ?)")
 		.bind(id, user.id)
 		.run();
+	if (meta.changes > 0) await sweepPictures(pictures);
 	return meta.changes > 0;
 }
