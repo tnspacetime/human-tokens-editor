@@ -21,6 +21,7 @@ export const PICTURES = {
 const mb = (bytes: number) => `${Math.round(bytes / 1_000_000)} MB`;
 const HASH = /^[0-9a-f]{64}$/;
 const bucket = () => env.IMAGES;
+const marks = (values: unknown[]) => values.map(() => "?").join(", ");
 
 /** The pictures a piece's markdown links, each once. */
 export function picturesIn(markdown: string): string[] {
@@ -36,7 +37,7 @@ export async function missingPictures(publisher: Publisher, input: Record<string
 	}
 	if (hashes.length === 0) return [];
 	const { results } = await db()
-		.prepare(`SELECT hash FROM images WHERE hash IN (${hashes.map(() => "?").join(", ")})`)
+		.prepare(`SELECT hash FROM images WHERE hash IN (${marks(hashes)})`)
 		.bind(...hashes)
 		.all<{ hash: string }>();
 	const have = new Set(results.map((r) => r.hash));
@@ -78,8 +79,8 @@ export async function uploadPicture(publisher: Publisher, hash: string, request:
 	const hourAgo = new Date(Date.now() - 3_600_000).toISOString();
 	const waiting = await db()
 		.prepare(
-			`SELECT COALESCE(SUM(bytes), 0) AS bytes FROM images i
-			 WHERE uploaded_by = ? AND created_at > ? AND NOT EXISTS (SELECT 1 FROM post_images WHERE hash = i.hash)`,
+			`SELECT COALESCE(SUM(bytes), 0) AS bytes FROM images
+			 WHERE placed = 0 AND uploaded_by = ? AND created_at > ?`,
 		)
 		.bind(publisher.id, hourAgo)
 		.first<{ bytes: number }>();
@@ -100,7 +101,7 @@ export async function checkPictures(hashes: string[]): Promise<void> {
 	}
 	if (hashes.length === 0) return;
 	const { results } = await db()
-		.prepare(`SELECT hash, bytes FROM images WHERE hash IN (${hashes.map(() => "?").join(", ")})`)
+		.prepare(`SELECT hash, bytes FROM images WHERE hash IN (${marks(hashes)})`)
 		.bind(...hashes)
 		.all<{ hash: string; bytes: number }>();
 	if (results.length < hashes.length) throw new PublishError(400, "A picture didn't arrive. Publish again.");
@@ -116,12 +117,15 @@ export async function picturesOf(postId: string): Promise<string[]> {
 	return results.map((r) => r.hash);
 }
 
+const UNUSED = "NOT EXISTS (SELECT 1 FROM post_images WHERE hash = images.hash)";
+
 /** Record which pictures a piece uses, then let go of the ones it no longer does. */
 export async function attachPictures(postId: string, hashes: string[]): Promise<void> {
 	const before = await picturesOf(postId);
 	await db().batch([
 		db().prepare("DELETE FROM post_images WHERE post_id = ?").bind(postId),
 		...hashes.map((hash) => db().prepare("INSERT INTO post_images (post_id, hash) VALUES (?, ?)").bind(postId, hash)),
+		...(hashes.length ? [db().prepare(`UPDATE images SET placed = 1 WHERE hash IN (${marks(hashes)})`).bind(...hashes)] : []),
 	]);
 	await sweepPictures(before.filter((h) => !hashes.includes(h)));
 }
@@ -129,25 +133,33 @@ export async function attachPictures(postId: string, hashes: string[]): Promise<
 /**
  * Removes pictures no piece uses: `released` ones (their piece just let go
  * of them) right away, and any upload that was never published after a day.
+ * Only pictures not in a piece are looked at (`placed = 0`), so this reads
+ * a handful of rows however many pictures the site has.
  */
 export async function sweepPictures(released: string[] = []): Promise<void> {
+	if (released.length) {
+		// Not in a piece any more. If removing them below fails, the next
+		// sweep finds them again, a day on.
+		await db()
+			.prepare(`UPDATE images SET placed = 0 WHERE hash IN (${marks(released)}) AND ${UNUSED}`)
+			.bind(...released)
+			.run();
+	}
 	const dayAgo = new Date(Date.now() - 86_400_000).toISOString();
+	// The rows go first, and only the pictures whose rows went are removed
+	// from R2: a piece that took one up a moment ago keeps it.
 	const { results } = await db()
 		.prepare(
-			`SELECT hash FROM images i
-			 WHERE NOT EXISTS (SELECT 1 FROM post_images WHERE hash = i.hash)
-			   AND (created_at < ?${released.length ? ` OR hash IN (${released.map(() => "?").join(", ")})` : ""})
-			 LIMIT 50`,
+			`DELETE FROM images WHERE hash IN (
+			   SELECT hash FROM images
+			   WHERE placed = 0 AND (created_at < ?${released.length ? ` OR hash IN (${marks(released)})` : ""}) AND ${UNUSED}
+			   LIMIT 50
+			 ) AND ${UNUSED}
+			 RETURNING hash`,
 		)
 		.bind(dayAgo, ...released)
 		.all<{ hash: string }>();
-	if (results.length === 0) return;
-	const hashes = results.map((r) => r.hash);
-	await bucket().delete(hashes);
-	await db()
-		.prepare(`DELETE FROM images WHERE hash IN (${hashes.map(() => "?").join(", ")}) AND NOT EXISTS (SELECT 1 FROM post_images WHERE hash = images.hash)`)
-		.bind(...hashes)
-		.run();
+	if (results.length) await bucket().delete(results.map((r) => r.hash));
 }
 
 /** A stored picture, for /img/<hash>. */
