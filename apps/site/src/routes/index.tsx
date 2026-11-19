@@ -5,6 +5,7 @@ import { PostTile } from "../components/PostCard";
 import { RulesPill } from "../components/Rules";
 import { tileSizes } from "../components/tileSizes";
 import { useFeedMotion } from "../components/useFeedMotion";
+import { share } from "../lib/share";
 import type { FeedItem } from "../lib/types";
 import { getBoard, getFeed, getHome, HOME_COUNT, HOME_PAGE } from "../server/site.functions";
 
@@ -13,6 +14,7 @@ export const Route = createFileRoute("/")({
 		const [home, board] = await Promise.all([getHome(), getBoard()]);
 		return { home, board };
 	},
+	head: () => share({ path: "/" }),
 	component: Feed,
 });
 

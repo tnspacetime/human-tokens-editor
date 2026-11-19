@@ -1,0 +1,49 @@
+<!doctype html>
+<!-- The site's icon as a square picture, for make.sh: ?size=180 and, with
+     &tile, on the white tile that phones put on a home screen. -->
+<meta charset="utf-8" />
+<style>
+	html,
+	body {
+		margin: 0;
+		background: transparent;
+	}
+	.icon {
+		display: grid;
+		place-items: center;
+		width: var(--size);
+		height: var(--size);
+	}
+	.tile {
+		background: #fff;
+	}
+	svg {
+		width: 82%;
+	}
+	/* On the tile, the bars sit well inside, so a round or squircle crop
+	   (Android's maskable icons) never cuts them. */
+	.tile svg {
+		width: 56%;
+	}
+</style>
+<div class="icon">
+	<svg viewBox="0 0 26 21.2">
+		<defs>
+			<linearGradient id="g" x1="0" x2="1" y1="0" y2="0">
+				<stop offset="0" stop-color="#f59e0b" />
+				<stop offset="1" stop-color="#ea580c" />
+			</linearGradient>
+		</defs>
+		<g fill="url(#g)">
+			<rect x="0" y="0" width="26" height="4.7" rx="2.35" />
+			<rect x="0" y="8.25" width="18.9" height="4.7" rx="2.35" />
+			<rect x="0" y="16.5" width="11.8" height="4.7" rx="2.35" />
+		</g>
+	</svg>
+</div>
+<script>
+	const params = new URLSearchParams(location.search);
+	const icon = document.querySelector(".icon");
+	icon.style.setProperty("--size", `${params.get("size") ?? 512}px`);
+	if (params.has("tile")) icon.classList.add("tile");
+</script>

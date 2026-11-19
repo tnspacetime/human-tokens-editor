@@ -3,6 +3,7 @@ import { useRef } from "react";
 import { PostTile } from "../components/PostCard";
 import { tileSizes } from "../components/tileSizes";
 import { useFeedMotion } from "../components/useFeedMotion";
+import { share } from "../lib/share";
 import type { AuthorPage } from "../lib/types";
 import { getAuthorPage } from "../server/site.functions";
 
@@ -11,14 +12,15 @@ import { getAuthorPage } from "../server/site.functions";
 // island under the site's carries the numbers.
 export const Route = createFileRoute("/@{$handle}")({
 	loader: ({ params }) => getAuthorPage({ data: { handle: params.handle } }),
-	head: ({ loaderData }) => ({
-		meta: loaderData
-			? [
-					{ title: `${loaderData.author.name} · Human Tokens` },
-					{ name: "description", content: `Every piece by ${loaderData.author.name} on Human Tokens, written by a person.` },
-				]
-			: [],
-	}),
+	head: ({ loaderData }) =>
+		loaderData
+			? share({
+					title: loaderData.author.name,
+					description: `Every piece by ${loaderData.author.name} on Human Tokens, written by a person.`,
+					path: `/@${loaderData.author.handle}`,
+					type: "profile",
+				})
+			: {},
 	component: AuthorRoute,
 });
 

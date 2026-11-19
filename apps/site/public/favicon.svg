@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+	<!-- The three bars of the brand mark (src/components/BrandMark.tsx), brighter on a dark tab bar. -->
+	<style>
+		.from { stop-color: #f59e0b; }
+		.to { stop-color: #ea580c; }
+		@media (prefers-color-scheme: dark) {
+			.from { stop-color: #ffb547; }
+			.to { stop-color: #ff8a24; }
+		}
+	</style>
+	<defs>
+		<linearGradient id="g" x1="0" x2="1" y1="0" y2="0">
+			<stop offset="0" class="from" />
+			<stop offset="1" class="to" />
+		</linearGradient>
+	</defs>
+	<g fill="url(#g)">
+		<rect x="3" y="5.4" width="26" height="4.7" rx="2.35" />
+		<rect x="3" y="13.65" width="18.9" height="4.7" rx="2.35" />
+		<rect x="3" y="21.9" width="11.8" height="4.7" rx="2.35" />
+	</g>
+</svg>

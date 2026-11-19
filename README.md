@@ -23,6 +23,9 @@ bun run dev        # http://localhost:3100
 Nothing here talks to Cloudflare yet: the database and the stored pictures are local (in `apps/site/.wrangler`).
 `db:reset` also signs everyone out.
 
+Every page tells search engines and link previews (iMessage, Slack, X…) its title, a line about it and its one address (`src/lib/share.ts`), with one share picture for the whole site.
+The icons and that picture (`public/og.png`) are made from `brand/icon.html` and `brand/card.html` by `sh brand/make.sh` (it uses Google Chrome on your Mac); `public/favicon.svg` is written by hand.
+
 ### Sign-in
 
 Anyone can read. To say how a piece read or to comment, you sign in with Google or GitHub, from your account in the island at the top.

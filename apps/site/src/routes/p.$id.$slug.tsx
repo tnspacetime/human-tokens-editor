@@ -5,6 +5,7 @@ import { SeriesIsland } from "../components/island/SeriesIsland";
 import { Byline } from "../components/PostCard";
 import { Postscripts } from "../components/Postscripts";
 import { Replies } from "../components/Replies";
+import { share } from "../lib/share";
 import { getPost } from "../server/site.functions";
 
 // /p/<id>/<slug>: the id is permanent, the slug follows the title. An old
@@ -17,14 +18,16 @@ export const Route = createFileRoute("/p/$id/$slug")({
 		}
 		return post;
 	},
-	head: ({ loaderData }) => ({
-		meta: loaderData
-			? [
-					{ title: `${loaderData.title} · Human Tokens` },
-					{ name: "description", content: loaderData.excerpt ?? "" },
-				]
-			: [],
-	}),
+	head: ({ loaderData: post }) =>
+		post
+			? share({
+					title: post.title,
+					description: post.excerpt ?? `A piece by ${post.author.name}, written by a person.`,
+					path: `/p/${post.id}/${post.slug}`,
+					type: "article",
+					article: { publishedAt: post.publishedAt, authorPath: `/@${post.author.handle}` },
+				})
+			: {},
 	component: PostRoute,
 });
 

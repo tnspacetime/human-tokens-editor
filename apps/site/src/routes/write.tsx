@@ -1,18 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { FOLD_MD } from "../lib/editor";
+import { share } from "../lib/share";
 
 // Where the island's Write leads: an invitation to write here, which means
 // writing in Fold MD on your Mac and publishing from it.
 export const Route = createFileRoute("/write")({
-	head: () => ({
-		meta: [
-			{ title: "Write · Human Tokens" },
-			{
-				name: "description",
-				content: "Write in Fold MD, a quiet markdown editor for the Mac, and publish here when it's ready.",
-			},
-		],
-	}),
+	head: () =>
+		share({
+			title: "Write",
+			description: "Write in Fold MD, a quiet markdown editor for the Mac, and publish here when it's ready.",
+			path: "/write",
+		}),
 	component: WritePage,
 });
 
