@@ -5,7 +5,9 @@
 //   renderer.render(text)        HTML for the whole document
 //   renderer.renderBlocks(text)  [{ start, end, html }] per top-level block,
 //                                with its source line range (the editor
-//                                uses these to keep the sheet in sync)
+//                                uses these to keep the sheet in sync);
+//                                unchanged blocks aren't rendered again
+//   renderer.clearCache()        after a change resolveImage depends on
 //   summarize(text)              { title, excerpt, cover } for feeds
 //   outline(text)                the piece's shape, block by block, for
 //                                the cover drawn on its feed tile
@@ -112,9 +114,21 @@ export function createRenderer(options = {}) {
 
   // Parse once (so references resolve across the whole document), then render
   // each top-level block separately with its [start, end) source line range.
+  // A block's HTML depends only on its own lines and the document's link
+  // references, so blocks whose lines haven't changed are taken from the
+  // last call instead of rendered again (math and code are the slow part).
+  let cache = new Map();
+  let cachedReferences = "";
   function renderBlocks(src) {
     const env = {};
     const tokens = md.parse(src, env);
+    const references = JSON.stringify(env.references ?? {});
+    if (references !== cachedReferences) {
+      cache = new Map();
+      cachedReferences = references;
+    }
+    const lines = src.split("\n");
+    const next = new Map();
     const blocks = [];
     let i = 0;
     while (i < tokens.length) {
@@ -127,15 +141,24 @@ export function createRenderer(options = {}) {
         }
       }
       const [start, end] = open.map || [0, 0];
-      blocks.push({ start, end, html: md.renderer.render(tokens.slice(i, j + 1), md.options, env) });
+      const key = open.map ? lines.slice(start, end).join("\n") : null;
+      let html = key === null ? undefined : (next.get(key) ?? cache.get(key));
+      if (html === undefined) html = md.renderer.render(tokens.slice(i, j + 1), md.options, env);
+      if (key !== null) next.set(key, html);
+      blocks.push({ start, end, html });
       i = j + 1;
     }
+    cache = next; // only what the document has now
     return blocks;
   }
 
   return {
     md,
     renderBlocks,
+    /** Forget rendered blocks: call when resolveImage would answer differently. */
+    clearCache() {
+      cache = new Map();
+    },
     render: (src) => md.render(src),
   };
 }

@@ -56,12 +56,20 @@ final class PublishFlow {
     @ObservationIgnored private var joinParts: (() async throws -> (markdown: String, parts: Int))?
     var isSeries: Bool { joinParts != nil }
     private(set) var record: PublishRecord?
-    private var textHash = ""
+    /// The text's fingerprint, to tell whether it changed since it was
+    /// published. Worked out when asked (only a published post asks), not
+    /// on every keystroke.
+    @ObservationIgnored private var hashed: (text: String, hash: String)?
+    private var textHash: String {
+        if let hashed, hashed.text == text { return hashed.hash }
+        let hash = PublishRecord.hash(text)
+        hashed = (text, hash)
+        return hash
+    }
     /// The document's text, as it is now.
     var text = "" {
         didSet {
-            guard text != oldValue else { return }
-            textHash = PublishRecord.hash(text)
+            guard text != oldValue, record != nil else { return }
             if case .fix = pill { checkFixWindow() }
         }
     }

@@ -15,7 +15,7 @@ import { createRenderer, escapeHTML, missingImage } from "@human-tokens/renderer
 // Images: web links load as they are. Local ones (relative to the document's
 // folder, absolute, ~/ or file:) go through the app's fold-asset: handler.
 // A relative link in an untitled document has nowhere to point yet.
-const { renderBlocks } = createRenderer({
+const { renderBlocks, clearCache } = createRenderer({
   resolveImage,
   unresolvedImageLabel: "Save the document to show",
 });
@@ -50,6 +50,7 @@ const state = { mode: "under", line: 0, cursor: 0, blocks: [], focusIndex: -1, a
 function setBase(base, home) {
   state.base = base || null;
   state.home = home || "";
+  clearCache(); // local pictures resolve from the new folder
   if (state.text !== null) setDocument(state.text);
 }
 
@@ -71,22 +72,33 @@ document.addEventListener("load", (event) => {
 function setDocument(text) {
   state.text = text;
   const rendered = renderBlocks(text);
-  rendered.forEach((block, i) => {
-    let el = content.children[i];
-    if (!el || el._html !== block.html) {
-      const fresh = document.createElement("section");
-      fresh.className = "blk";
-      fresh.innerHTML = block.html;
-      fresh._html = block.html;
-      if (el) content.replaceChild(fresh, el);
-      else content.appendChild(fresh);
-      el = fresh;
+  // Blocks are matched by their HTML, not their position: a paragraph added
+  // near the top moves the ones below it instead of rebuilding them, so
+  // their pictures and math don't flash.
+  const existing = new Map();
+  for (const el of content.children) {
+    const same = existing.get(el._html);
+    if (same) same.push(el);
+    else existing.set(el._html, [el]);
+  }
+  const els = rendered.map((block) => {
+    let el = existing.get(block.html)?.shift();
+    if (!el) {
+      el = document.createElement("section");
+      el.className = "blk";
+      el.innerHTML = block.html;
+      el._html = block.html;
     }
     el.dataset.start = block.start;
     el.dataset.end = block.end;
+    return el;
   });
-  while (content.children.length > rendered.length) content.lastElementChild.remove();
-  state.blocks = rendered.map((b, i) => ({ start: b.start, end: b.end, el: content.children[i] }));
+  for (const left of existing.values()) for (const el of left) el.remove();
+  // Put them in order, moving only what's out of place.
+  els.forEach((el, i) => {
+    if (content.children[i] !== el) content.insertBefore(el, content.children[i] ?? null);
+  });
+  state.blocks = rendered.map((b, i) => ({ start: b.start, end: b.end, el: els[i] }));
   state.focusIndex = -1;
   reposition(false);
   announceFirstPaint();

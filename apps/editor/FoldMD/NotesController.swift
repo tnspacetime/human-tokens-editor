@@ -35,7 +35,7 @@ final class NotesController: NSObject, NSTextStorageDelegate {
         super.init()
         margin.controller = self
         textView.addSubview(margin)
-        store.onChange = { [weak self] in self?.refresh() }
+        store.onChange = { [weak self] in self?.refreshSoon() }
         store.onUnattached = { [weak self] note in self?.wordsRemoved(note) }
         unattachedPill.onClick = { [weak self] in self?.showUnattached() }
         toast.onUndo = { [weak self] in self?.textView?.undoManager?.undo() }
@@ -83,7 +83,7 @@ final class NotesController: NSObject, NSTextStorageDelegate {
                 }
             }
             // After layout has caught up with the edit.
-            DispatchQueue.main.async { [weak self] in self?.refresh() }
+            refreshSoon()
         }
     }
 
@@ -239,7 +239,20 @@ final class NotesController: NSObject, NSTextStorageDelegate {
 
     /// Washes, the notes beside the text and the pill, from the notes as
     /// they are now.
+    /// Refreshes once, at the end of this turn of the run loop, however
+    /// many times it's asked before then (an edit asks two or three times).
+    func refreshSoon() {
+        guard !refreshPending else { return }
+        refreshPending = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.refreshPending else { return }
+            self.refresh()
+        }
+    }
+    private var refreshPending = false
+
     func refresh() {
+        refreshPending = false
         guard let textView, let layout = textView.layoutManager, let container = textView.textContainer else { return }
         let text = textView.string as NSString
         // Notes on the left need room beside the column.

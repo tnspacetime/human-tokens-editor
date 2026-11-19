@@ -115,7 +115,7 @@ struct SourceEditor: NSViewRepresentable {
             textView.notes.beginLoad()
             textView.string = newText
             textView.setSelectedRange(NSRange(location: 0, length: 0))
-            textChanged()
+            textChanged(restyleAll: true)
             textView.notes.endLoad()
         }
 
@@ -136,9 +136,9 @@ struct SourceEditor: NSViewRepresentable {
 
         // MARK: Reporting to the sheet
 
-        private func textChanged() {
+        private func textChanged(restyleAll: Bool = false) {
             guard let textView, let storage = textView.textStorage else { return }
-            highlighter.apply(to: storage)
+            highlighter.apply(to: storage, everything: restyleAll)
             lineStarts = Self.lineStarts(of: textView.string)
             reportScroll()
             reportCursor()
@@ -153,7 +153,7 @@ struct SourceEditor: NSViewRepresentable {
             let char = layout.characterIndexForGlyph(at: glyph)
             textView.font = Theme.body
             textView.typingAttributes = Theme.baseAttributes
-            textChanged()
+            textChanged(restyleAll: true)
             layout.ensureLayout(for: container)
             textView.setFrameSize(textView.frame.size)
             if char > 0 {

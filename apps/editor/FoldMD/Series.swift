@@ -50,7 +50,17 @@ final class SeriesLibrary {
     private(set) var reveal: (path: String, seriesID: Series.ID, token: UUID)?
 
     @ObservationIgnored private let storeURL: URL
-    @ObservationIgnored private var titleCache: [String: (modified: Date, title: String)] = [:]
+    @ObservationIgnored private var titleCache: [String: (modified: Date, checked: Date, title: String)] = [:]
+
+    /// Where each part's file is, and each file's real location, worked out
+    /// once and remembered: the window asks on every keystroke, and finding
+    /// them means reading bookmarks and the disk. Forgotten when a series
+    /// changes, and every few seconds, so a file moved in Finder is found
+    /// again.
+    @ObservationIgnored private var locations: [SeriesPart.ID: (url: URL?, key: String?)] = [:]
+    @ObservationIgnored private var keys: [String: String] = [:]
+    @ObservationIgnored private var lookedUp = Date.distantPast
+    private static let recheckAfter: TimeInterval = 3
 
     init(storeURL: URL? = nil) {
         self.storeURL = storeURL ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -130,6 +140,7 @@ final class SeriesLibrary {
     /// Updates bookmarks that macOS reports as out of date, and the last
     /// known paths of files that moved. Call when showing the sidebar.
     func refreshLocations() {
+        forgetLocations() // look afresh
         var changed = false
         for s in all.indices {
             for p in all[s].parts.indices {
@@ -156,6 +167,39 @@ final class SeriesLibrary {
 
     /// The file a part points at, or nil if it can't be found (or is in the Trash).
     func url(for part: SeriesPart) -> URL? {
+        location(of: part).url
+    }
+
+    private func location(of part: SeriesPart) -> (url: URL?, key: String?) {
+        expireLookups()
+        if let known = locations[part.id] { return known }
+        let url = resolve(part)
+        let found = (url: url, key: url.map(Self.key))
+        locations[part.id] = found
+        return found
+    }
+
+    /// A file's real location, remembered like the parts'.
+    private func rememberedKey(_ url: URL) -> String {
+        expireLookups()
+        if let known = keys[url.path] { return known }
+        let key = Self.key(url)
+        keys[url.path] = key
+        return key
+    }
+
+    private func expireLookups() {
+        guard Date().timeIntervalSince(lookedUp) > Self.recheckAfter else { return }
+        forgetLocations()
+    }
+
+    private func forgetLocations() {
+        locations = [:]
+        keys = [:]
+        lookedUp = Date()
+    }
+
+    private func resolve(_ part: SeriesPart) -> URL? {
         if let data = part.bookmark {
             var stale = false
             if let url = try? URL(resolvingBookmarkData: data, options: [.withoutUI, .withoutMounting],
@@ -170,24 +214,30 @@ final class SeriesLibrary {
 
     /// Series that include this file.
     func series(containing url: URL) -> [Series] {
-        let key = Self.key(url)
-        return recent.filter { series in series.parts.contains { self.url(for: $0).map(Self.key) == key } }
+        let key = rememberedKey(url)
+        return recent.filter { series in series.parts.contains { self.location(of: $0).key == key } }
     }
 
     /// A part's title: the file's first "# Heading", or its name.
     func title(of url: URL) -> String {
+        let now = Date()
+        if let cached = titleCache[url.path], now.timeIntervalSince(cached.checked) < Self.recheckAfter { return cached.title }
         let modified = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
-        if let cached = titleCache[url.path], cached.modified == modified { return cached.title }
+        if let cached = titleCache[url.path], cached.modified == modified {
+            titleCache[url.path] = (modified, now, cached.title)
+            return cached.title
+        }
         let title = Self.readTitle(url)
-        titleCache[url.path] = (modified, title)
+        titleCache[url.path] = (modified, now, title)
         return title
     }
 
     func navigation(for url: URL, currentTitle: String) -> SeriesNavigation? {
         guard let series = series(containing: url).first else { return nil }
-        let key = Self.key(url)
-        let urls = series.parts.map(self.url(for:))
-        guard let index = urls.firstIndex(where: { $0.map(Self.key) == key }) else { return nil }
+        let key = rememberedKey(url)
+        let found = series.parts.map(location(of:))
+        let urls = found.map(\.url)
+        guard let index = found.firstIndex(where: { $0.key == key }) else { return nil }
         func neighbour(_ i: Int) -> SeriesNavigation.Neighbour? {
             guard urls.indices.contains(i), let url = urls[i] else { return nil }
             return .init(title: title(of: url), path: url.path)
@@ -267,6 +317,7 @@ final class SeriesLibrary {
     }
 
     private func save() {
+        forgetLocations()
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]

@@ -105,6 +105,8 @@ final class PreviewBridge: NSObject, WKNavigationDelegate, WKScriptMessageHandle
         guard newText != text else { return }
         text = newText
         pendingRender?.cancel()
+        // Hidden: showing it again sends the text as it is then.
+        guard isActive else { return }
         pendingRender = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(90))
             guard !Task.isCancelled, let self else { return }
