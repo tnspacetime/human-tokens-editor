@@ -107,6 +107,13 @@ struct EditorWindow: View {
                 pageBar.setWidth(width, in: window.window)
             }
             .onChange(of: geometry.size.height, initial: true) { _, height in contentHeight = height }
+            // With only the sidebar open, the writing surface takes the rest
+            // when the window is resized or goes full screen (with the page
+            // open, the page takes it). Not while a panel slides.
+            .onChange(of: total) { _, total in
+                guard sidebarOpen, !pageOpen, sliding == nil else { return }
+                writingWidth = max(0, total - Self.sidebarWidth - 1)
+            }
         }
         .onAppear {
             let fill = $sheetFill
@@ -300,7 +307,7 @@ struct EditorWindow: View {
             let command = parts[1]
             switch command {
             case "start": flow.start()
-            case "pledge": flow.pledged = true
+            case "pledge": flow.pledged = true; flow.picturesPledged = true
             case "publish": flow.publish()
             case "unpublish": flow.unpublish()
             case "disconnect": flow.disconnect()

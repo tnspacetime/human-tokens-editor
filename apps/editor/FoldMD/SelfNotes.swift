@@ -94,8 +94,11 @@ final class SelfNoteStore {
         guard let url else { return }
         let destination = Self.notesURL(for: url)
         if let previous {
+            // Renamed or moved: the old notes file goes with it. Save As:
+            // the original is still there, so it keeps its own notes.
             let source = Self.notesURL(for: previous)
-            if FileManager.default.fileExists(atPath: source.path), !FileManager.default.fileExists(atPath: destination.path) {
+            if !FileManager.default.fileExists(atPath: previous.path),
+               FileManager.default.fileExists(atPath: source.path), !FileManager.default.fileExists(atPath: destination.path) {
                 try? FileManager.default.moveItem(at: source, to: destination)
             }
             save()

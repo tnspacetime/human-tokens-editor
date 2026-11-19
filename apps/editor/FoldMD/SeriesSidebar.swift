@@ -308,13 +308,22 @@ private struct SeriesContents: View {
         if panel.runModal() == .OK { library.add(panel.urls, to: series.id) }
     }
 
+    /// Files dropped between parts: they load one by one, in any order,
+    /// so they go in together once all have arrived, in the order dropped.
     private func add(_ providers: [NSItemProvider], at index: Int) {
         let id = series.id
-        for provider in providers {
-            _ = provider.loadObject(ofClass: URL.self) { url, _ in
-                guard let url else { return }
-                Task { @MainActor in SeriesLibrary.shared.add([url], to: id, at: index) }
+        Task { @MainActor in
+            var urls: [URL] = []
+            for provider in providers {
+                if let url = await Self.url(from: provider) { urls.append(url) }
             }
+            SeriesLibrary.shared.add(urls, to: id, at: index)
+        }
+    }
+
+    private static func url(from provider: NSItemProvider) async -> URL? {
+        await withCheckedContinuation { continuation in
+            _ = provider.loadObject(ofClass: URL.self) { url, _ in continuation.resume(returning: url) }
         }
     }
 }

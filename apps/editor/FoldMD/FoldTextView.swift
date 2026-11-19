@@ -83,7 +83,12 @@ final class FoldTextView: NSTextView {
         textContainerInset = NSSize(width: left, height: 28)
         textContainer?.containerSize = NSSize(width: column, height: .greatestFiniteMagnitude)
         needsDisplay = true
-        onColumnChange?(left - centred, width - centred * 2 - column)
+        // The sheet's column box (#content) has 28pt of padding either side
+        // of its text, and Fold.setColumn places that box from where a
+        // 680pt box would be centred: so the box goes 28pt left of the text.
+        let moved = abs(left - centred) > 0.5 || abs(column - (width - centred * 2)) > 0.5
+        let shift = left - 28 - (width - min(width, columnWidth)) / 2
+        onColumnChange?(moved ? shift : 0, moved ? columnWidth - column : 0)
     }
 
     // MARK: Self-notes
@@ -184,7 +189,37 @@ final class FoldTextView: NSTextView {
     /// The document's file, so dropped or pasted images can be copied next
     /// to it, and its notes kept beside it (nil while untitled).
     var documentURL: URL? {
-        didSet { notes.setFileURL(documentURL) }
+        didSet {
+            notes.setFileURL(documentURL)
+            if oldValue == nil, let documentURL {
+                // After this update, not during it: it changes the text.
+                DispatchQueue.main.async { [weak self] in self?.adoptUnsavedPictures(into: documentURL) }
+            }
+        }
+    }
+
+    /// The document has a file now: pictures that waited in Fold MD's own
+    /// folder while it was untitled go beside it, and their links follow.
+    private func adoptUnsavedPictures(into document: URL) {
+        guard documentURL == document else { return }
+        let moves = ImageImporter.adoptUnsaved(in: string, document: document)
+        guard !moves.isEmpty else { return }
+        let text = string as NSString
+        var edits: [(NSRange, String)] = []
+        for (old, new) in moves {
+            var search = NSRange(location: 0, length: text.length)
+            while case let found = text.range(of: old, options: [], range: search), found.location != NSNotFound {
+                edits.append((found, new))
+                let next = NSMaxRange(found)
+                search = NSRange(location: next, length: text.length - next)
+            }
+        }
+        // From the end, so earlier ranges stay put.
+        for (range, new) in edits.sorted(by: { $0.0.location > $1.0.location }) {
+            guard shouldChangeText(in: range, replacementString: new) else { continue }
+            textStorage?.replaceCharacters(in: range, with: new)
+            didChangeText()
+        }
     }
 
     override var acceptableDragTypes: [NSPasteboard.PasteboardType] {

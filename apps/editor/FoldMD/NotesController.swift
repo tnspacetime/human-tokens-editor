@@ -180,26 +180,36 @@ final class NotesController: NSObject, NSTextStorageDelegate {
     }
 
     private func showUnattached() {
-        guard let textView else { return }
+        guard textView != nil else { return }
         popover?.close()
-        let list = UnattachedNotes(
+        let popover = NSPopover()
+        popover.behavior = .transient
+        popover.contentViewController = NSHostingController(rootView: unattachedList())
+        popover.delegate = self
+        self.popover = popover
+        popover.show(relativeTo: unattachedPill.bounds, of: unattachedPill, preferredEdge: .minY)
+    }
+
+    /// The list in the popover, as the notes are now.
+    private func unattachedList() -> UnattachedNotes {
+        UnattachedNotes(
             notes: store.unattached,
-            hasSelection: textView.selectedRange().length > 0,
+            hasSelection: (textView?.selectedRange().length ?? 0) > 0,
             onAttach: { [weak self] id in
                 guard let self, let textView = self.textView, textView.selectedRange().length > 0 else { return }
                 self.store.attach(id, to: textView.selectedRange(), in: textView.string as NSString)
                 self.popover?.close()
             },
             onDelete: { [weak self] id in
-                self?.store.remove(id)
-                if self?.store.unattached.isEmpty == true { self?.popover?.close() }
+                guard let self else { return }
+                self.store.remove(id)
+                if self.store.unattached.isEmpty {
+                    self.popover?.close()
+                } else if let host = self.popover?.contentViewController as? NSHostingController<UnattachedNotes> {
+                    // The deleted note leaves the list straight away.
+                    host.rootView = self.unattachedList()
+                }
             })
-        let popover = NSPopover()
-        popover.behavior = .transient
-        popover.contentViewController = NSHostingController(rootView: list)
-        popover.delegate = self
-        self.popover = popover
-        popover.show(relativeTo: unattachedPill.bounds, of: unattachedPill, preferredEdge: .minY)
     }
 
     // MARK: Drawing
@@ -731,7 +741,6 @@ final class NoteToast: NSView {
         super.init(frame: frame)
         wantsLayer = true
         layer?.cornerRadius = 15
-        layer?.backgroundColor = NSColor(white: 0.12, alpha: 0.92).cgColor
         label.textColor = .white
         label.font = .systemFont(ofSize: 12.5, weight: .medium)
         undo.isBordered = false
@@ -753,6 +762,13 @@ final class NoteToast: NSView {
     }
 
     required init?(coder: NSCoder) { fatalError() }
+
+    override var wantsUpdateLayer: Bool { true }
+
+    // Called again when Light or Dark Mode changes.
+    override func updateLayer() {
+        layer?.backgroundColor = Theme.floating.cgColor
+    }
 
     override var fittingSize: NSSize {
         let size = super.fittingSize

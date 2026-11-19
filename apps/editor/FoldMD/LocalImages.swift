@@ -65,13 +65,37 @@ enum ImageImporter {
 
     /// Where images for this document go: "images" beside it. An untitled
     /// document has no folder yet, so its images wait in the app's own
-    /// folder (and are linked by their full path) until you move them.
+    /// folder (linked by their full path) until it's saved, when they're
+    /// copied beside it (adoptUnsaved).
     static func folder(for document: URL?) -> URL {
         if let document {
             return document.deletingLastPathComponent().appending(path: "images", directoryHint: .isDirectory)
         }
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         return support.appending(path: "Fold MD/Unsaved Images", directoryHint: .isDirectory)
+    }
+
+    /// Pictures an untitled document linked in the app's own folder: once
+    /// the document has a file, each is copied into the "images" folder
+    /// beside it. Returns each link as written and the link to put in its
+    /// place (empty when there are none).
+    static func adoptUnsaved(in markdown: String, document: URL) -> [String: String] {
+        let unsaved = folder(for: nil).standardizedFileURL.path + "/"
+        let images = folder(for: document)
+        var moves: [String: String] = [:]
+        _ = PublishPictures.rewriteLinks(in: markdown) { link in
+            guard moves[link] == nil,
+                  let file = PublishPictures.localFile(link, base: nil), file.path.hasPrefix(unsaved),
+                  let data = try? Data(contentsOf: file) else { return nil }
+            do {
+                try FileManager.default.createDirectory(at: images, withIntermediateDirectories: true)
+                let target = destination(for: file.lastPathComponent, data: data, in: images)
+                if !FileManager.default.fileExists(atPath: target.path) { try data.write(to: target) }
+                moves[link] = "images/" + target.lastPathComponent
+            } catch {}
+            return nil
+        }
+        return moves
     }
 
     /// Copies an image file in and returns the markdown for it.

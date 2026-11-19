@@ -1,6 +1,6 @@
 import AppKit
 
-/// The small dark menu that appears over selected text when you let go of
+/// The small dark (in Dark Mode, grey) menu that appears over selected text when you let go of
 /// the mouse, as on iPhone and iPad: Cut, Copy, Paste, Add Note. It goes
 /// away as soon as you type, click elsewhere or scroll. Selecting with the
 /// keyboard doesn't show it (you're mid-edit).
@@ -96,8 +96,7 @@ final class SelectionMenu: NSView {
         arrow.line(to: tip)
         arrow.line(to: NSPoint(x: arrowX + a, y: base))
         arrow.close()
-        let fill = NSColor(white: 0.13, alpha: 0.96)
-        fill.setFill()
+        Theme.floating.setFill()
         path.fill()
         arrow.fill()
         // Hairlines between items.

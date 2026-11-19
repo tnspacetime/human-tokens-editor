@@ -118,10 +118,13 @@ enum PublishPictures {
 
     /// Calls `change` with each picture link's destination as written
     /// (without <>), outside code, and puts back what it returns (nil
-    /// leaves it). Inline pictures ![alt](link "title") and reference
-    /// definitions [name]: link, which only pictures use in practice.
+    /// leaves it). Inline pictures ![alt](link "title"), and reference
+    /// definitions [name]: link when a picture uses them (![alt][name]);
+    /// a definition only a plain link uses, like [notes]: ./other.md, is
+    /// left alone.
     static func rewriteLinks(in markdown: String, _ change: (String) -> String?) -> String {
         var lines = markdown.components(separatedBy: "\n")
+        let pictureLabels = labelsUsedByPictures(lines)
         var fence: String?
         for index in lines.indices {
             let line = lines[index]
@@ -134,24 +137,60 @@ enum PublishPictures {
                 }
             }
             guard fence == nil, line.contains("](") || line.contains("]:") else { continue }
-            lines[index] = rewriteLine(line, change)
+            lines[index] = rewriteLine(line, pictureLabels: pictureLabels, change)
         }
         return lines.joined(separator: "\n")
+    }
+
+    /// The reference names pictures use: ![alt][name], ![name][] and ![name].
+    private static func labelsUsedByPictures(_ lines: [String]) -> Set<String> {
+        var labels = Set<String>()
+        var fence: String?
+        for line in lines {
+            let trimmed = line.drop { $0 == " " }
+            if line.count - trimmed.count < 4, let marker = trimmed.first, marker == "`" || marker == "~" {
+                let run = String(trimmed.prefix { $0 == marker })
+                if run.count >= 3 {
+                    if fence == nil { fence = run } else if let open = fence, run.first == open.first, run.count >= open.count { fence = nil }
+                    continue
+                }
+            }
+            guard fence == nil, line.contains("![") else { continue }
+            let text = line as NSString
+            for match in referencePicture.matches(in: line, range: NSRange(location: 0, length: text.length)) {
+                let named = match.range(at: 2)
+                let label = named.location != NSNotFound && named.length > 0
+                    ? text.substring(with: named) : text.substring(with: match.range(at: 1))
+                labels.insert(normalized(label))
+            }
+        }
+        return labels
+    }
+
+    /// Reference names match ignoring case and runs of spaces.
+    private static func normalized(_ label: String) -> String {
+        label.split(whereSeparator: \.isWhitespace).joined(separator: " ").lowercased()
     }
 
     private static let inlinePicture = try! NSRegularExpression(
         pattern: #"!\[(?:[^\]\\]|\\.)*\]\(\s*(<[^>\n]*>|[^\s()<>]+(?:\([^\s()]*\)[^\s()<>]*)*)"#)
     private static let definition = try! NSRegularExpression(
-        pattern: #"^ {0,3}\[[^\]]+\]:\s*(<[^>\n]*>|\S+)"#)
+        pattern: #"^ {0,3}\[([^\]]+)\]:\s*(<[^>\n]*>|\S+)"#)
+    /// ![alt][name], ![name][] or ![name] (not followed by ( or :).
+    private static let referencePicture = try! NSRegularExpression(
+        pattern: #"!\[((?:[^\]\\]|\\.)*)\](?:\[([^\]]*)\]|(?![(:\[]))"#)
     private static let codeSpan = try! NSRegularExpression(pattern: #"(`+).*?\1"#)
 
-    private static func rewriteLine(_ line: String, _ change: (String) -> String?) -> String {
+    private static func rewriteLine(_ line: String, pictureLabels: Set<String>, _ change: (String) -> String?) -> String {
         let text = line as NSString
         let whole = NSRange(location: 0, length: text.length)
         let code = codeSpan.matches(in: line, range: whole).map(\.range)
+        let definitions = definition.matches(in: line, range: whole)
+            .filter { pictureLabels.contains(normalized(text.substring(with: $0.range(at: 1)))) }
+            .map { ($0, $0.range(at: 2)) }
+        let inline = inlinePicture.matches(in: line, range: whole).map { ($0, $0.range(at: 1)) }
         var edits: [(NSRange, String)] = []
-        for match in inlinePicture.matches(in: line, range: whole) + definition.matches(in: line, range: whole) {
-            let range = match.range(at: 1)
+        for (match, range) in inline + definitions {
             guard !code.contains(where: { NSIntersectionRange($0, match.range).length > 0 }) else { continue }
             var link = text.substring(with: range)
             if link.hasPrefix("<") { link = String(link.dropFirst().dropLast()) }

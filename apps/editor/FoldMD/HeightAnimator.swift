@@ -33,7 +33,9 @@ final class HeightAnimator {
         startTime = CACurrentMediaTime()
         self.duration = duration
         if timer == nil {
-            let timer = Timer(timeInterval: 1.0 / 120, repeats: true) { [weak self] _ in
+            let timer = Timer(timeInterval: 1.0 / 120, repeats: true) { [weak self] timer in
+                // The window closed mid-glide: nothing left to move.
+                guard self != nil else { return timer.invalidate() }
                 MainActor.assumeIsolated { self?.step() }
             }
             // .common so it keeps running while you scroll or drag.

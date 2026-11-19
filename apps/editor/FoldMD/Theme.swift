@@ -32,6 +32,15 @@ enum Theme {
     }
 
     /// Background of the publishing surface (matches --page-bg in renderer.css).
+    /// The dark chips that float over the text (the selection menu, the
+    /// "Note deleted" toast): near-black on a light page, a lighter grey on
+    /// a dark one so they stand out from it.
+    static let floating = NSColor(name: "FoldFloating") { appearance in
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            ? NSColor(white: 0.32, alpha: 0.97)
+            : NSColor(white: 0.13, alpha: 0.96)
+    }
+
     static let page = NSColor(name: "FoldPage") { appearance in
         if appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua {
             return NSColor(srgbRed: 0.122, green: 0.122, blue: 0.129, alpha: 1)

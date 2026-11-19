@@ -86,6 +86,8 @@ final class PublishFlow {
     // The publish step.
     var preview: SiteAPI.Preview?
     var pledged = false
+    /// The pictures' own promise (copyright only), asked when there are any.
+    var picturesPledged = false
 
     // A response: the link of the piece this new one responds to
     // (optional): one of yours makes it a follow-up, anyone else's a reply.
@@ -322,7 +324,8 @@ final class PublishFlow {
                         step = .notConnected("You didn't allow Fold MD on the site, so it can't publish as you.")
                         return
                     case .expired:
-                        break
+                        step = .notConnected("The code ran out before it was allowed.")
+                        return
                     }
                 }
                 if !Task.isCancelled { step = .notConnected("The code ran out before it was allowed.") }
@@ -537,6 +540,7 @@ final class PublishFlow {
             }
         }
         pledged = false
+        picturesPledged = false
         preview = nil
         error = nil
         step = .publish
@@ -552,7 +556,8 @@ final class PublishFlow {
         let respondsToReady = isFix || respondsToLink.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || respondsTo != nil
         // A fix doesn't count as a new piece.
         let underLimit = isFix || preview?.limitReached == nil
-        return pledged && !busy && preview?.title != nil && respondsToReady && underLimit
+        let picturesReady = picturesPledged || pictureCount == 0
+        return pledged && picturesReady && !busy && preview?.title != nil && respondsToReady && underLimit
     }
 
     func publish() {

@@ -140,7 +140,10 @@ export function createRenderer(options = {}) {
   };
 }
 
+// Parses only (summaries, shapes, openings), with the same math rules as
+// the page, so a $$ block is math here too, not a paragraph.
 const plain = new MarkdownIt({ html: false, linkify: false, typographer: true });
+plain.use(mathPlugin);
 
 /**
  * What a feed shows for a post: its first "# Heading", its first paragraph
@@ -272,7 +275,15 @@ export function opening(src, { words = 90 } = {}) {
 function inlineText(token) {
   if (!token?.children) return token?.content ?? "";
   return token.children
-    .map((child) => (child.type === "text" || child.type === "code_inline" ? child.content : child.type === "softbreak" ? " " : ""))
+    .map((child) =>
+      child.type === "text" || child.type === "code_inline"
+        ? child.content
+        : child.type === "math_inline"
+          ? `$${child.content}$`
+          : child.type === "softbreak"
+            ? " "
+            : "",
+    )
     .join("");
 }
 
@@ -321,6 +332,8 @@ function mathPlugin(md) {
     let end = start + 1;
     while ((end = src.indexOf("$", end)) !== -1 && src.charCodeAt(end - 1) === 0x5c /* \ */) end++;
     if (end === -1) return false;
+    // On one line, as the editor colours it ("$HOME and" + newline + "$PATH" isn't math).
+    if (src.slice(start + 1, end).includes("\n")) return false;
     const last = src.charCodeAt(end - 1);
     if (last === 0x20 || last === 0x09) return false;
     const after = src.charCodeAt(end + 1);

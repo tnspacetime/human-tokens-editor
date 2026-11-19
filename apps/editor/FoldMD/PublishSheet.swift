@@ -139,15 +139,19 @@ struct PublishSheet: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("I wrote this myself. No AI wrote or rewrote any of it.")
                             .fontWeight(.medium)
-                        if pictures > 0 {
-                            Text(pictures == 1
-                                 ? "The picture is mine or free to share, and wasn't made by AI."
-                                 : "The \(pictures) pictures are mine or free to share, and none was made by AI.")
-                                .fontWeight(.medium)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
                         Link("Read the rules", destination: PublishSite.rules)
                             .font(.caption)
+                    }
+                }
+                // A promise of its own, about copyright only: pictures may
+                // be made any way, AI included.
+                if pictures > 0 {
+                    Toggle(isOn: $flow.picturesPledged) {
+                        Text(pictures == 1
+                             ? "The picture is mine, or I'm free to share it."
+                             : "The \(pictures) pictures are mine, or I'm free to share them.")
+                            .fontWeight(.medium)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
             }
