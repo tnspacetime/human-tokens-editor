@@ -22,7 +22,18 @@ final class FoldTextView: NSTextView {
         var newSize = newSize
         if let layout = layoutManager, let container = textContainer {
             let content = layout.usedRect(for: container).height + textContainerInset.height * 2
-            newSize.height = max(content + overscroll, minSize.height)
+            if isEmpty {
+                // Nothing to scroll under the sheet yet: fill the editor (so
+                // a click anywhere puts the cursor in), but don't scroll, or
+                // the cursor could be scrolled out of sight.
+                // (Less any insets the clip view has picked up, which would
+                // otherwise still let it scroll a few points.)
+                let clip = enclosingScrollView?.contentView
+                let fill = (clip?.bounds.height ?? 0) - (clip?.contentInsets.top ?? 0) - (clip?.contentInsets.bottom ?? 0)
+                newSize.height = max(content, fill, minSize.height)
+            } else {
+                newSize.height = max(content + overscroll, minSize.height)
+            }
             // Mid-edit, only part of the text may be laid out yet: don't
             // shrink to that part, or the scroll position gets pulled up and
             // the text jumps on every keystroke. Once layout is complete the
@@ -34,6 +45,17 @@ final class FoldTextView: NSTextView {
         super.setFrameSize(newSize)
         layoutColumn()
         notesNeedLayout()
+    }
+
+    private var isEmpty: Bool { (textStorage?.length ?? 0) == 0 }
+    private var sizedEmpty = true
+
+    /// After an edit or a load: the first character typed gives the
+    /// overscroll back, and deleting everything takes it away.
+    func textEmptinessMayHaveChanged() {
+        guard isEmpty != sizedEmpty else { return }
+        sizedEmpty = isEmpty
+        setFrameSize(frame.size)
     }
 
     // MARK: The column

@@ -139,6 +139,7 @@ struct SourceEditor: NSViewRepresentable {
         private func textChanged(restyleAll: Bool = false) {
             guard let textView, let storage = textView.textStorage else { return }
             highlighter.apply(to: storage, everything: restyleAll)
+            textView.textEmptinessMayHaveChanged()
             lineStarts = Self.lineStarts(of: textView.string)
             reportScroll()
             reportCursor()
