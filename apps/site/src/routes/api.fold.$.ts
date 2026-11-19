@@ -30,7 +30,7 @@ import {
 //                                    respondsTo: the id of the piece this new one responds to, yours (a
 //                                    follow-up) or anyone's (a reply);
 //                                    parts: for a whole series joined into one piece, how many chapters (h2s)
-//                                    (only for 15 minutes, and until anyone reacts or comments; then 423).
+//                                    (only for 15 minutes, and until anyone else reacts or comments; then 423).
 //                                    At most 50 new pieces in 30 days (then 429)
 //   GET    /api/fold/posts/<id>      one of your posts as it stands, with fixableUntil (null once locked)
 //                                    and its postscripts

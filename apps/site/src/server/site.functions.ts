@@ -34,6 +34,9 @@ const postId = (value: unknown) => {
 	return value;
 };
 
+/** Text from an address, checked by the handler: a bad one is "not found", not an error. */
+const fromAddress = (value: unknown) => (typeof value === "string" ? value.slice(0, 200) : "");
+
 export const getBoard = createServerFn({ method: "GET" }).handler(() => loadBoard());
 
 /** Who's here (null when signed out), the ways in, and the chosen theme. */
@@ -44,6 +47,8 @@ export const getViewer = createServerFn({ method: "GET" }).handler(async () => {
 		user: user && { name: user.name, image: user.image, author: user.author && { handle: user.author.handle, name: user.author.name } },
 		signIn: signInOptions(getRequest()),
 		theme: isTheme(theme) ? theme : ("system" as const),
+		/** The server's time as the page was made: dates that depend on "now" read it, so the browser draws them the same. */
+		now: Date.now(),
 	};
 });
 
@@ -83,22 +88,28 @@ export const getArchive = createServerFn({ method: "GET" })
 		return archive;
 	});
 
+/**
+ * A post's page. With the slug in the address: when it isn't the post's
+ * current one, only that is looked up ({ movedTo }), so the redirect comes
+ * before any of the page is built.
+ */
 export const getPost = createServerFn({ method: "GET" })
-	.validator((input: unknown) => ({ id: postId(object(input).id) }))
+	.validator((input: unknown) => {
+		const { id, slug } = object(input);
+		return { id: fromAddress(id), slug: typeof slug === "string" ? slug : undefined };
+	})
 	.handler(async ({ data }) => {
-		const post = await loadPost(data.id, await currentUser());
+		if (!/^[0-9A-Za-z]{6,16}$/.test(data.id)) throw notFound();
+		const post = await loadPost(data.id, data.slug, await currentUser());
 		if (!post) throw notFound();
 		return post;
 	});
 
 /** An author's page, by handle. */
 export const getAuthorPage = createServerFn({ method: "GET" })
-	.validator((input: unknown) => {
-		const { handle } = object(input);
-		if (typeof handle !== "string" || !/^[A-Za-z0-9_-]{2,30}$/.test(handle)) throw new Error("Unknown author");
-		return { handle };
-	})
+	.validator((input: unknown) => ({ handle: fromAddress(object(input).handle) }))
 	.handler(async ({ data }) => {
+		if (!/^[A-Za-z0-9_-]{2,30}$/.test(data.handle)) throw notFound();
 		const page = await loadAuthorPage(data.handle, await currentUser());
 		if (!page) throw notFound();
 		return page;

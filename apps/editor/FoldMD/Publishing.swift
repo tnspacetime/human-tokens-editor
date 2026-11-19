@@ -89,7 +89,7 @@ enum SiteAPI {
         let url: URL
         let title: String
         /// Until when its text can still be fixed (an ISO date); nil once
-        /// it's locked: after 15 minutes, or once anyone reacts or comments.
+        /// it's locked: after 15 minutes, or once anyone else reacts or comments.
         let fixableUntil: String?
 
         var fixableUntilDate: Date? {

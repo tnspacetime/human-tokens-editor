@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useLoaderData } from "@tanstack/react-router";
 import { QUALITIES } from "../lib/qualities";
 import type { FeedItem } from "../lib/types";
 import { QualityIcon } from "./QualityIcon";
@@ -42,6 +42,8 @@ export type TileSize = "hero" | "half" | "third";
 // it.
 // `eyebrow` replaces the author's name (on their own page, which needs no name).
 export function PostTile({ post, size, eyebrow = post.author.name }: { post: FeedItem; size: TileSize; eyebrow?: string | null }) {
+	// "This year" as the server saw it, so the browser draws the same date.
+	const { now } = useLoaderData({ from: "__root__" });
 	return (
 		<Link to="/p/$id/$slug" params={{ id: post.id, slug: post.slug }} className={`tile tile-${size}`}>
 			<div className="tile-cover">
@@ -70,7 +72,7 @@ export function PostTile({ post, size, eyebrow = post.author.name }: { post: Fee
 				<h2 className="tile-headline">{post.title}</h2>
 				<div className="tile-foot">
 					<p className="tile-stamp">
-						<time dateTime={post.publishedAt}>{tileDate(post.publishedAt)}</time>
+						<time dateTime={post.publishedAt}>{tileDate(post.publishedAt, new Date(now))}</time>
 						<span className="tile-stamp-dot" aria-hidden="true" />
 						{post.minutes} min read
 					</p>

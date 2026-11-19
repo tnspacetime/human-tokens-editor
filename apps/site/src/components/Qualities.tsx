@@ -11,16 +11,24 @@ import { SignInPrompt } from "./SignIn";
 // see the counts and are asked to sign in to pick.
 export function QualityChoices({ post }: { post: PostPage }) {
 	const router = useRouter();
-	const [busy, setBusy] = useState<Quality | null>(null);
+	// Your choices as you've just made them, shown at once; the page's own
+	// catch up once the site has them.
+	const [choosing, setChoosing] = useState<Partial<Record<Quality, boolean>>>({});
+	const [error, setError] = useState<string | null>(null);
 	const summary = describeQualities(post.qualities);
 
 	async function toggle(quality: Quality) {
-		setBusy(quality);
+		if (choosing[quality] !== undefined) return;
+		const chosen = !post.mine.includes(quality);
+		setChoosing((now) => ({ ...now, [quality]: chosen }));
+		setError(null);
 		try {
 			await toggleQualityFn({ data: { id: post.id, quality } });
 			await router.invalidate();
+		} catch {
+			setError("That didn't save. Try again.");
 		} finally {
-			setBusy(null);
+			setChoosing(({ [quality]: _, ...rest }) => rest);
 		}
 	}
 
@@ -33,15 +41,16 @@ export function QualityChoices({ post }: { post: PostPage }) {
 			{!post.viewer && <SignInPrompt action="say how it read to you" />}
 			<div className="quality-buttons">
 				{QUALITIES.map((q) => {
-					const chosen = post.mine.includes(q.id);
-					const count = post.qualities[q.id] ?? 0;
+					const saved = post.mine.includes(q.id);
+					const chosen = choosing[q.id] ?? saved;
+					const count = (post.qualities[q.id] ?? 0) + (chosen === saved ? 0 : chosen ? 1 : -1);
 					return (
 						<button
 							key={q.id}
 							type="button"
 							className="quality"
 							aria-pressed={chosen}
-							disabled={busy !== null || !post.viewer}
+							disabled={!post.viewer}
 							onClick={() => toggle(q.id)}
 						>
 							<span className="quality-label">
@@ -54,6 +63,11 @@ export function QualityChoices({ post }: { post: PostPage }) {
 					);
 				})}
 			</div>
+			{error && (
+				<p className="form-error" role="alert">
+					{error}
+				</p>
+			)}
 		</>
 	);
 }

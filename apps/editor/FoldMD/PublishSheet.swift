@@ -103,10 +103,10 @@ struct PublishSheet: View {
         let message = postscript
             ? "This document, as a short note at the end of one of your posts, dated today. It can't be changed or removed afterwards."
             : flow.isFix
-            ? "Nobody has reacted or commented yet, so you can still fix it\(until). After that its text is locked."
+            ? "Nobody else has reacted or commented yet, so you can still fix it\(until). After that its text is locked."
             : flow.isSeries
-            ? "All \(flow.parts ?? 0) parts, joined into one post in the sidebar's order, each part a chapter. For 15 minutes after you publish, until someone reacts or comments, you can still fix it. Then its text is locked."
-            : "This is how it starts in the feed. For 15 minutes after you publish, until someone reacts or comments, you can still fix it. Then its text is locked, so it stays as readers saw it."
+            ? "All \(flow.parts ?? 0) parts, joined into one post in the sidebar's order, each part a chapter. For 15 minutes after you publish, until someone else reacts or comments, you can still fix it. Then its text is locked."
+            : "This is how it starts in the feed. For 15 minutes after you publish, until someone else reacts or comments, you can still fix it. Then its text is locked, so it stays as readers saw it."
         let working = postscript ? "Adding…" : flow.progress ?? (flow.isFix ? "Fixing…" : "Publishing…")
         return StepLayout(title: title, message: message) {
             Button("Cancel", role: .cancel) { flow.cancel() }
@@ -249,7 +249,7 @@ struct PublishSheet: View {
 
     private var locked: some View {
         StepLayout(title: "Its text is locked",
-                   message: "“\(flow.lastPost?.title ?? "This post")” has been up for more than 15 minutes, or someone has reacted or commented, so it stays as readers saw it. Your changes stay on your Mac.\n\nTo say more, publish a P.S. under it, or a new post that responds to it: copy its link to paste in either.") {
+                   message: "“\(flow.lastPost?.title ?? "This post")” has been up for more than 15 minutes, or someone else has reacted or commented, so it stays as readers saw it. Your changes stay on your Mac.\n\nTo say more, publish a P.S. under it, or a new post that responds to it: copy its link to paste in either.") {
             Button("Copy Link") { flow.copyLink() }
             Button("OK") { flow.cancel() }
                 .keyboardShortcut(.defaultAction)

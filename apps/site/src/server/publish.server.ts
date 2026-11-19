@@ -161,14 +161,14 @@ async function limitReached(author: Author): Promise<string | null> {
 
 /**
  * A published piece's text can still be fixed for this long after it went
- * up, and only until someone reacts or comments. After that it's locked:
+ * up, and only until someone else reacts or comments. After that it's locked:
  * what readers reacted to stays what's there.
  */
 export const FIX_WINDOW_MINUTES = 15;
 const FIX_WINDOW_MS = FIX_WINDOW_MINUTES * 60_000;
 
 export const LOCKED =
-	"Its text is locked now: it's been up for more than 15 minutes, or someone has reacted or commented. Your changes stay on your Mac.";
+	"Its text is locked now: it's been up for more than 15 minutes, or someone else has reacted or commented. Your changes stay on your Mac.";
 
 export type Published = {
 	id: string;
@@ -187,7 +187,7 @@ type PostRow = {
 	title: string;
 	published_at: string;
 	updated_at: string;
-	/** 1 once anyone has reacted or commented. */
+	/** 1 once anyone but its author has reacted or commented. */
 	touched: number;
 };
 
@@ -281,8 +281,10 @@ export async function publish(
 			 ON CONFLICT (id) DO UPDATE SET slug = ?4, title = ?5, excerpt = ?6, markdown = ?7, word_count = ?8,
 			   shape = ?9, opening = ?10, pledged_at = ?11, updated_at = ?11, parts = ?14
 			 WHERE posts.author_id = ?2 AND posts.published_at > ?12
-			   AND NOT EXISTS (SELECT 1 FROM reactions WHERE post_id = posts.id)
-			   AND NOT EXISTS (SELECT 1 FROM comments WHERE post_id = posts.id)`,
+			   AND NOT EXISTS (SELECT 1 FROM reactions WHERE post_id = posts.id
+			     AND user_id IS NOT (SELECT user_id FROM authors WHERE id = posts.author_id))
+			   AND NOT EXISTS (SELECT 1 FROM comments WHERE post_id = posts.id
+			     AND user_id IS NOT (SELECT user_id FROM authors WHERE id = posts.author_id))`,
 		)
 		.bind(
 			id,
@@ -331,7 +333,13 @@ export async function publish(
 }
 
 /** 1 once anyone has reacted to or commented on post `p`. */
-const TOUCHED = `(EXISTS (SELECT 1 FROM reactions WHERE post_id = p.id) OR EXISTS (SELECT 1 FROM comments WHERE post_id = p.id))`;
+/**
+ * Someone other than its author has reacted or commented: the text is
+ * locked, so it stays what they responded to. The author's own don't count.
+ */
+const NOT_THE_AUTHOR = "user_id IS NOT (SELECT user_id FROM authors WHERE id = p.author_id)";
+const TOUCHED = `(EXISTS (SELECT 1 FROM reactions WHERE post_id = p.id AND ${NOT_THE_AUTHOR})
+	OR EXISTS (SELECT 1 FROM comments WHERE post_id = p.id AND ${NOT_THE_AUTHOR}))`;
 
 /** Any piece on the site, by anyone: what a response points at. */
 async function anyPost(id: string) {

@@ -12,9 +12,9 @@ import { getPost } from "../server/site.functions";
 // or wrong slug redirects to the current one, so links never break.
 export const Route = createFileRoute("/p/$id/$slug")({
 	loader: async ({ params }) => {
-		const post = await getPost({ data: { id: params.id } });
-		if (post.slug !== params.slug) {
-			throw redirect({ to: "/p/$id/$slug", params: { id: post.id, slug: post.slug }, statusCode: 301 });
+		const post = await getPost({ data: { id: params.id, slug: params.slug } });
+		if ("movedTo" in post) {
+			throw redirect({ to: "/p/$id/$slug", params: { id: params.id, slug: post.movedTo }, statusCode: 301 });
 		}
 		return post;
 	},

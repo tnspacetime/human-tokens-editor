@@ -34,13 +34,18 @@ const ENTITIES: Record<string, string> = { "&amp;": "&", "&lt;": "<", "&gt;": ">
 /** A rendered heading's text, without its tags. */
 const plainText = (html: string) => html.replace(/<[^>]+>/g, "").replace(/&(?:amp|lt|gt|quot|#39);/g, (e) => ENTITIES[e] ?? e);
 
-/** A piece, rendered, with its comments and what the viewer chose. */
-export async function loadPost(id: string, user: User | null): Promise<PostPage | null> {
+/**
+ * A piece, rendered, with its comments and what the viewer chose. When
+ * `slug` (from the address) isn't its current one: only where it is now.
+ */
+export async function loadPost(id: string, slug: string | undefined, user: User | null): Promise<PostPage | { movedTo: string } | null> {
 	const row = await db()
 		.prepare(`SELECT ${POST_COLUMNS}, p.markdown, p.parts, a.user_id AS author_user_id FROM posts p JOIN authors a ON a.id = p.author_id WHERE p.id = ?`)
 		.bind(id)
 		.first<PostRow & { markdown: string; parts: number | null; author_user_id: string | null }>();
 	if (!row) return null;
+	// An old or wrong slug: where it is now, before anything else is read or rendered.
+	if (slug !== undefined && row.slug !== slug) return { movedTo: row.slug };
 
 	const [counts, mine, comments, postscripts, respondsTo, responses] = await Promise.all([
 		qualityCounts([id]),

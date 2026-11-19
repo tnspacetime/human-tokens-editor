@@ -8,7 +8,7 @@ import SwiftUI
 ///
 /// What you publish is a new post, or a P.S. under one of your posts (paste
 /// its link). A new post can be fixed only in its fix window (15 minutes,
-/// and until anyone reacts or comments); then its text is locked, so what
+/// and until anyone else reacts or comments); then its text is locked, so what
 /// readers reacted to stays what's there. The site enforces it.
 ///
 /// Fold MD remembers which post a file became only for that window, to
@@ -770,7 +770,7 @@ struct PublishPill: View {
 
     private var fixHelp: String {
         let until = flow.fixableUntil.map { " until \($0.formatted(date: .omitted, time: .shortened))" } ?? ""
-        return "You've changed it since publishing. Nobody has reacted or commented yet, so you can still fix it\(until)."
+        return "You've changed it since publishing. Nobody else has reacted or commented yet, so you can still fix it\(until)."
     }
 
     @ViewBuilder private var menuItems: some View {

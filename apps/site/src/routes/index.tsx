@@ -79,13 +79,14 @@ function Feed() {
 	// The next pieces load as the end of the flow comes near. (It re-arms
 	// after each page, so a page that leaves the end in reach brings the one
 	// after it too.)
+	// biome-ignore lint/correctness/useExhaustiveDependencies: re-armed as the list grows and loads, not on every render.
 	useEffect(() => {
 		const marker = end.current;
 		if (!marker || !more || loading || failed) return;
 		const observer = new IntersectionObserver(([entry]) => entry.isIntersecting && loadMore(), { rootMargin: AHEAD });
 		observer.observe(marker);
 		return () => observer.disconnect();
-	});
+	}, [posts.length, more, loading, failed]);
 
 	const sizes = tileSizes(posts.length, !more);
 	return (

@@ -68,7 +68,7 @@ Open the publishing surface (⌥⌘P); its strip of the toolbar has a **Publish*
    If it looks like a post you've already published (the same title, or the same opening), the sheet says which, with a link, and publishes it as a new post only once you tick *Publish this as a new post anyway*. The site is what knows: it checks your posts.
 4. **Published · View** opens the post on the site, where you have the author's tools.
    While the post can still be fixed, the pill also sits in the window's own toolbar when the publishing surface is closed.
-5. **Fix, for a short while.** For 15 minutes after publishing, and only until someone reacts or comments, you can still fix the post: change the file, or a picture it shows (or, for a series, save a part), and the pill reads **Fix**.
+5. **Fix, for a short while.** For 15 minutes after publishing, and only until someone else reacts or comments, you can still fix the post: change the file, or a picture it shows (or, for a series, save a part), and the pill reads **Fix**.
    After that its text is locked, so what readers reacted to stays what's there. The site enforces it (`423 Locked`).
    Then Fold MD lets go of the post: the file is just a file again, and the pill reads **Publish**. Your posts are on your author page.
 6. **Respond to a post.** When you publish a new post, paste the link of the post it responds to where the sheet asks (*Copy Link* is in the pill's menu while the post can be fixed, or copy it from the site).

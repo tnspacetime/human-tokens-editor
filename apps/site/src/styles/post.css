@@ -918,8 +918,15 @@ button.primary {
 }
 
 .link-button.author-tools-delete,
-.delete-error {
+.delete-error,
+.form-error {
 	color: #e5484d;
+}
+
+/* What didn't save, said where it happened (comments, notes, qualities). */
+.form-error {
+	margin: 8px 0 0;
+	font: 500 14px/1.4 var(--sans);
 }
 
 .delete-error {

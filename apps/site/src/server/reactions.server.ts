@@ -9,9 +9,11 @@ export async function toggleQuality(postId: string, quality: Quality, user: User
 		.prepare("DELETE FROM reactions WHERE post_id = ? AND user_id = ? AND quality = ?")
 		.bind(postId, user.id, quality)
 		.run();
+	// OR IGNORE: two quick clicks can both find nothing to remove; the
+	// second then finds it already chosen, rather than failing.
 	if (removed.meta.changes === 0) {
 		await db()
-			.prepare("INSERT INTO reactions (post_id, user_id, quality, created_at) VALUES (?, ?, ?, ?)")
+			.prepare("INSERT OR IGNORE INTO reactions (post_id, user_id, quality, created_at) VALUES (?, ?, ?, ?)")
 			.bind(postId, user.id, quality, new Date().toISOString())
 			.run();
 	}

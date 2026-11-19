@@ -9,7 +9,7 @@ const WINDOWS: { id: BoardWindow["id"]; label: string; hours: number }[] = [
 	{ id: "7d", label: "This week", hours: 24 * 7 },
 ];
 
-// The board takes a dozen queries, so it's kept for a minute rather than
+// The board takes a few queries, so it's kept for a minute rather than
 // worked out for every visitor; a reaction on this server clears it at once.
 // (This keeps it per server instance; with real traffic, move it to
 // Cloudflare's cache or KV so every instance shares one copy.)
@@ -37,31 +37,50 @@ export async function loadBoard(): Promise<Board> {
  * to a row of blanks.
  */
 async function countBoard(now: number): Promise<Board> {
-	const counted = await Promise.all(
-		WINDOWS.map(async ({ id, label, hours }) => {
-			const since = new Date(now - hours * 3_600_000).toISOString();
-			const [pieces, activity, counts] = await Promise.all([
-				db().prepare("SELECT COUNT(*) AS n FROM posts WHERE published_at >= ?").bind(since).first<{ n: number }>(),
-				db()
-					.prepare("SELECT COUNT(*) AS reactions, COUNT(DISTINCT user_id) AS readers FROM reactions WHERE created_at >= ?")
-					.bind(since)
-					.first<{ reactions: number; readers: number }>(),
-				db()
-					.prepare(
-						"SELECT post_id, quality, COUNT(*) AS n FROM reactions WHERE created_at >= ? GROUP BY post_id, quality ORDER BY n DESC, MAX(created_at) DESC",
-					)
-					.bind(since)
-					.all<{ post_id: string; quality: Quality; n: number }>(),
-			]);
-			const top = new Map<Quality, { postId: string; votes: number }[]>();
-			for (const row of counts.results) {
-				const list = top.get(row.quality) ?? [];
-				if (list.length < CHART_LENGTH) list.push({ postId: row.post_id, votes: row.n });
-				top.set(row.quality, list);
-			}
-			return { id, label, pieces: pieces?.n ?? 0, reactions: activity?.reactions ?? 0, readers: activity?.readers ?? 0, top };
-		}),
-	);
+	// Every window ends now, so the shorter ones sit inside the week: two
+	// queries over the week count all four. (?1 to ?4: where each window
+	// starts, shortest first; the last is the week's.)
+	const starts = WINDOWS.map(({ hours }) => new Date(now - hours * 3_600_000).toISOString());
+	const week = WINDOWS.length;
+	const per = (template: (n: number) => string) => WINDOWS.map((_, i) => template(i + 1)).join(", ");
+	const [totals, counts] = await Promise.all([
+		db()
+			.prepare(
+				`SELECT
+				   (SELECT json_array(${per((n) => `SUM(published_at >= ?${n})`)}) FROM posts WHERE published_at >= ?${week}) AS pieces,
+				   (SELECT json_array(${per((n) => `SUM(created_at >= ?${n})`)}) FROM reactions WHERE created_at >= ?${week}) AS reactions,
+				   (SELECT json_array(${per((n) => `COUNT(DISTINCT CASE WHEN created_at >= ?${n} THEN user_id END)`)})
+				    FROM reactions WHERE created_at >= ?${week}) AS readers`,
+			)
+			.bind(...starts)
+			.first<{ pieces: string; reactions: string; readers: string }>(),
+		// Each post and quality chosen this week: how often in each window,
+		// and when last (the latest is always inside any window it's in).
+		db()
+			.prepare(
+				`SELECT post_id, quality, json_array(${per((n) => `SUM(created_at >= ?${n})`)}) AS n, MAX(created_at) AS last
+				 FROM reactions WHERE created_at >= ?${week} GROUP BY post_id, quality`,
+			)
+			.bind(...starts)
+			.all<{ post_id: string; quality: Quality; n: string; last: string }>(),
+	]);
+	const numbers = (json: string | undefined) => (JSON.parse(json ?? "[]") as (number | null)[]).map((n) => n ?? 0);
+	const [pieces, reactions, readers] = [numbers(totals?.pieces), numbers(totals?.reactions), numbers(totals?.readers)];
+	const rows = counts.results.map((row) => ({ ...row, n: numbers(row.n) }));
+
+	const counted = WINDOWS.map(({ id, label }, i) => {
+		// Most chosen first; between equals, the one chosen most lately.
+		const ranked = rows
+			.filter((row) => row.n[i] > 0)
+			.sort((x, y) => y.n[i] - x.n[i] || (x.last < y.last ? 1 : x.last > y.last ? -1 : 0));
+		const top = new Map<Quality, { postId: string; votes: number }[]>();
+		for (const row of ranked) {
+			const list = top.get(row.quality) ?? [];
+			if (list.length < CHART_LENGTH) list.push({ postId: row.post_id, votes: row.n[i] });
+			top.set(row.quality, list);
+		}
+		return { id, label, pieces: pieces[i] ?? 0, reactions: reactions[i] ?? 0, readers: readers[i] ?? 0, top };
+	});
 
 	// Fill in the posts every list mentions, in one query.
 	const ids = [...new Set(counted.flatMap((w) => [...w.top.values()].flat().map((e) => e.postId)))];

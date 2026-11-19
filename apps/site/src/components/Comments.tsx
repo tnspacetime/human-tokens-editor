@@ -41,19 +41,31 @@ function CommentForm({ post, viewerName, mine }: { post: PostPage; viewerName: s
 	const [editing, setEditing] = useState(!mine);
 	const [body, setBody] = useState(mine?.body ?? "");
 	const [saving, setSaving] = useState(false);
+	const [error, setError] = useState<string | null>(null);
 	const fieldId = useId();
 
 	async function save(event: FormEvent, text = body) {
 		event.preventDefault();
+		if (saving) return;
 		setSaving(true);
+		setError(null);
 		try {
 			await saveCommentFn({ data: { id: post.id, body: text } });
 			await router.invalidate();
 			setEditing(!text.trim());
 			if (!text.trim()) setBody("");
+		} catch {
+			setError(text.trim() ? "Your comment didn't save. Try again." : "It didn't delete. Try again.");
 		} finally {
 			setSaving(false);
 		}
+	}
+
+	/** Back to the comment as it's saved. */
+	function cancelEdit() {
+		setBody(mine?.body ?? "");
+		setError(null);
+		setEditing(false);
 	}
 
 	if (mine && !editing) {
@@ -70,6 +82,11 @@ function CommentForm({ post, viewerName, mine }: { post: PostPage; viewerName: s
 						Delete
 					</button>
 				</div>
+				{error && (
+					<p className="form-error" role="alert">
+						{error}
+					</p>
+				)}
 			</div>
 		);
 	}
@@ -88,8 +105,13 @@ function CommentForm({ post, viewerName, mine }: { post: PostPage; viewerName: s
 				maxLength={2000}
 			/>
 			<div className="comment-form-actions">
+				{error && (
+					<span className="form-error" role="alert">
+						{error}
+					</span>
+				)}
 				{mine && (
-					<button type="button" className="link-button" onClick={() => setEditing(false)}>
+					<button type="button" className="link-button" onClick={cancelEdit}>
 						Cancel
 					</button>
 				)}
@@ -105,11 +127,29 @@ function CommentItem({ comment, isAuthor, authorName }: { comment: Comment; isAu
 	const router = useRouter();
 	const [writing, setWriting] = useState(false);
 	const [note, setNote] = useState(comment.authorNote ?? "");
+	const [saving, setSaving] = useState(false);
+	const [error, setError] = useState<string | null>(null);
 
 	async function saveNote(event: FormEvent) {
 		event.preventDefault();
-		await saveAuthorNoteFn({ data: { commentId: comment.id, note } });
-		await router.invalidate();
+		if (saving) return;
+		setSaving(true);
+		setError(null);
+		try {
+			await saveAuthorNoteFn({ data: { commentId: comment.id, note } });
+			await router.invalidate();
+			setWriting(false);
+		} catch {
+			setError("Your note didn't save. Try again.");
+		} finally {
+			setSaving(false);
+		}
+	}
+
+	/** Back to the note as it's saved. */
+	function cancelNote() {
+		setNote(comment.authorNote ?? "");
+		setError(null);
 		setWriting(false);
 	}
 
@@ -134,12 +174,17 @@ function CommentItem({ comment, isAuthor, authorName }: { comment: Comment; isAu
 						placeholder="A short note from you (one per comment)"
 						aria-label="Your note on this comment"
 					/>
-					<button type="submit" className="primary">
-						Save
+					<button type="submit" className="primary" disabled={saving}>
+						{saving ? "Saving…" : "Save"}
 					</button>
-					<button type="button" className="link-button" onClick={() => setWriting(false)}>
+					<button type="button" className="link-button" onClick={cancelNote} disabled={saving}>
 						Cancel
 					</button>
+					{error && (
+						<span className="form-error" role="alert">
+							{error}
+						</span>
+					)}
 				</form>
 			)}
 		</li>
