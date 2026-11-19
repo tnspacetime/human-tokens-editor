@@ -123,11 +123,26 @@ html:has(main.write-page) body {
 	line-height: 1.43;
 }
 
+/* Fold MD in use: the recording, the page's full width. */
+.write-demo {
+	margin: 72px 0 0;
+	animation: write-rise 0.9s var(--ease) 0.3s both;
+}
+
+.write-demo-video {
+	display: block;
+	width: 100%;
+	height: auto;
+	aspect-ratio: 16 / 9;
+	background: var(--fill);
+	border-radius: 24px;
+}
+
 /* How it goes: three steps on a soft card. */
 .write-steps {
 	display: grid;
 	grid-template-columns: repeat(3, 1fr);
-	margin: 88px 0 0;
+	margin: 64px 0 0;
 	padding: 34px 8px 36px;
 	background: var(--fill);
 	border-radius: 28px;
@@ -170,11 +185,80 @@ html:has(main.write-page) body {
 	text-wrap: pretty;
 }
 
+/* What it does: a screenshot and its words in each row, the words on
+   alternate sides; the wide ones span the page, words underneath. */
+.write-features {
+	margin: 120px 0 0;
+}
+
+.write-features-title {
+	margin: 0 0 56px;
+	font: 700 44px/1.1 var(--display);
+	letter-spacing: -0.015em;
+	text-align: center;
+}
+
+.write-feature {
+	display: grid;
+	grid-template-columns: 560px minmax(0, 1fr);
+	gap: 56px;
+	align-items: center;
+	margin: 0;
+}
+
+.write-feature + .write-feature {
+	margin-top: 72px;
+}
+
+/* Every other narrow row puts its words on the left. */
+.write-feature:not(.is-wide):nth-of-type(even) {
+	grid-template-columns: minmax(0, 1fr) 560px;
+}
+
+.write-feature:not(.is-wide):nth-of-type(even) .write-feature-shot {
+	order: 2;
+}
+
+.write-feature.is-wide {
+	grid-template-columns: minmax(0, 1fr);
+	gap: 28px;
+}
+
+.write-feature.is-wide .write-feature-words {
+	max-width: 560px;
+	margin: 0 auto;
+	text-align: center;
+}
+
+.write-feature-shot {
+	display: block;
+	width: 100%;
+	max-width: 100%;
+	height: auto;
+	background: var(--fill);
+	border-radius: 20px;
+}
+
+.write-feature-title {
+	margin: 0 0 8px;
+	font: 700 24px/1.2 var(--display);
+	letter-spacing: -0.01em;
+	text-wrap: balance;
+}
+
+.write-feature-line {
+	margin: 0;
+	color: var(--ink-soft);
+	font-size: 17px;
+	line-height: 1.47;
+	text-wrap: pretty;
+}
+
 .write-links {
 	display: flex;
 	justify-content: center;
 	gap: 28px;
-	margin: 40px 0 0;
+	margin: 96px 0 0;
 }
 
 .write-links a {
@@ -204,7 +288,46 @@ html:has(main.write-page) body {
 	}
 }
 
+@media (max-width: 1028px) {
+	.write-feature,
+	.write-feature:not(.is-wide):nth-of-type(even) {
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+		gap: 40px;
+	}
+}
+
 @media (max-width: 734px) {
+	.write-features {
+		margin-top: 88px;
+	}
+	.write-features-title {
+		margin-bottom: 36px;
+		font-size: 32px;
+	}
+	.write-feature,
+	.write-feature:not(.is-wide):nth-of-type(even),
+	.write-feature.is-wide {
+		grid-template-columns: minmax(0, 1fr);
+		gap: 18px;
+	}
+	.write-feature + .write-feature {
+		margin-top: 52px;
+	}
+	.write-feature:not(.is-wide):nth-of-type(even) .write-feature-shot {
+		order: 0;
+	}
+	.write-feature.is-wide .write-feature-words {
+		text-align: left;
+	}
+	.write-feature-shot {
+		border-radius: 12px;
+	}
+	.write-feature-title {
+		font-size: 21px;
+	}
+	.write-links {
+		margin-top: 64px;
+	}
 	.write-page {
 		padding-top: 40px;
 	}
@@ -220,6 +343,12 @@ html:has(main.write-page) body {
 	.write-intro {
 		font-size: 19px;
 		line-height: 1.42;
+	}
+	.write-demo {
+		margin-top: 48px;
+	}
+	.write-demo-video {
+		border-radius: 14px;
 	}
 	.write-steps {
 		grid-template-columns: 1fr;

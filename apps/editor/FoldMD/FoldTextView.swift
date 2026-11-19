@@ -212,6 +212,25 @@ final class FoldTextView: NSTextView {
                                         orthography: orthography, wordCount: wordCount)
     }
 
+    /// A word typed before its math or code was closed was prose then, and
+    /// may be underlined; once the closing $ or ` makes it math or code, the
+    /// underline goes. (The text is restyled, marks and all, by the time
+    /// super returns: SourceEditor's textDidChange.)
+    override func didChangeText() {
+        super.didChangeText()
+        guard let storage = textStorage, let layout = layoutManager, storage.length > 0 else { return }
+        storage.enumerateAttribute(MarkdownHighlighter.notProse, in: NSRange(location: 0, length: storage.length)) { mark, run, _ in
+            guard mark != nil else { return }
+            var at = run.location
+            while at < NSMaxRange(run) {
+                var span = NSRange()
+                let state = layout.temporaryAttribute(.spellingState, atCharacterIndex: at, longestEffectiveRange: &span, in: run)
+                if (state as? Int ?? 0) != 0 { layout.removeTemporaryAttribute(.spellingState, forCharacterRange: span) }
+                at = max(NSMaxRange(span), at + 1)
+            }
+        }
+    }
+
     /// Any other way macOS marks a word (Check Document Now…): never in code
     /// or math. Clearing a mark always goes through.
     override func setSpellingState(_ value: Int, range: NSRange) {

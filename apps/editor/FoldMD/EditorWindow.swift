@@ -876,7 +876,7 @@ struct EditorWindow: View {
                 sheetOpen.toggle()
             } label: {
                 Label(sheetOpen ? "Hide Sheet" : "Show Sheet",
-                      systemImage: sheetOpen ? "rectangle.tophalf.inset.filled" : "rectangle.tophalf.inset")
+                      systemImage: sheetOpen ? "rectangle.tophalf.inset.filled" : "rectangle.split.1x2")
             }
             .keyboardShortcut("\\", modifiers: .command)
             .help("Show or hide the rendered sheet (⌘\\)")

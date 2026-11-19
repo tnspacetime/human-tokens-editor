@@ -5,9 +5,13 @@ No AI wrote or rewrote any of it.
 
 | Path | What |
 | --- | --- |
-| [`apps/editor`](apps/editor) | **Fold MD**, the macOS markdown editor posts are written and published from |
+| [`apps/editor`](apps/editor) | **Fold MD**, the macOS markdown editor posts are written and published from, built on the Fold pattern |
 | [`apps/site`](apps/site) | **human-tokens.dev**: the feed, post pages, reactions and comments, sign-in (TanStack Start on Cloudflare Workers, D1, Better Auth) |
 | [`packages/renderer`](packages/renderer) | Markdown → HTML (markdown-it, KaTeX, highlight.js), used by both, so a post looks the same in the editor and on the site |
+
+[![Fold MD, with the published page folded out beside the writing](apps/site/public/shots/page-2560.webp)](apps/editor#what-it-does)
+
+*Fold MD: what it does, with screenshots, is in [its README](apps/editor#what-it-does).*
 
 The JavaScript parts are one [Bun](https://bun.sh) workspace: run `bun install` once at the root.
 
