@@ -23,6 +23,8 @@ export const Route = createRootRoute({
 			{ rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
 			{ rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
 			{ rel: "manifest", href: "/site.webmanifest" },
+			// For feed readers: the newest posts, whole.
+			{ rel: "alternate", type: "application/rss+xml", title: SITE.name, href: "/rss.xml" },
 		],
 	}),
 	shellComponent: RootDocument,

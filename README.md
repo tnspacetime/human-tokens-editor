@@ -26,6 +26,19 @@ Nothing here talks to Cloudflare yet: the database and the stored pictures are l
 Every page tells search engines and link previews (iMessage, Slack, X…) its title, a line about it and its one address (`src/lib/share.ts`), with one share picture for the whole site.
 The icons and that picture (`public/og.png`) are made from `brand/icon.html` and `brand/card.html` by `sh brand/make.sh` (it uses Google Chrome on your Mac); `public/favicon.svg` is written by hand.
 
+Feed readers get the newest posts, whole (with their P.S.es), at `/rss.xml`, and one author's at `/@<handle>/rss.xml`; every page links the site's feed, and an author's page links theirs.
+Search engines get every post, author and archive year at `/sitemap.xml`, which `robots.txt` names (`src/server/discovery.server.ts`).
+
+### Before it goes live
+
+- **Security headers** (`src/start.ts`): every response says `nosniff`, `Referrer-Policy: strict-origin-when-cross-origin` and `X-Frame-Options: DENY`, and every page has a Content-Security-Policy.
+  In a production build a page runs only its own scripts, each stamped with a fresh nonce; `bun run dev` relaxes that for Vite's reloading.
+  Pictures may come from any `https` address (avatars, older posts), and inline styles are allowed because maths (KaTeX) uses them.
+- **Rate limits** (`src/server/limits.server.ts`, `ratelimits` in `wrangler.jsonc`): asking for a code to connect Fold MD (10 a minute per address), Fold MD's preview (20 a minute per person), checking and uploading pictures (120), choosing how a post read (60), and comments and author notes (20).
+  A person never gets near them; past one, the site answers "That's a lot in one minute. Wait a moment, then try again."
+- **Hourly cleanup** (`src/server/cleanup.server.ts`, run from `src/server.ts` by the cron in `wrangler.jsonc`): removes sign-ins and Fold MD connect codes that have expired, and pictures uploaded but never published after a day.
+  To run it locally while `bun run dev` is up: `curl "http://localhost:3100/cdn-cgi/handler/scheduled?cron=0+*+*+*+*"`.
+
 ### Sign-in
 
 Anyone can read. To say how a post read or to comment, you sign in with Google or GitHub, from your account in the island at the top.

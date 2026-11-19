@@ -1,6 +1,6 @@
 {
 	"name": "human-tokens-site",
-	"main": "@tanstack/react-start/server-entry",
+	"main": "src/server.ts",
 	"compatibility_date": "2026-08-14",
 	"compatibility_flags": ["nodejs_compat"],
 	// Local only for now: no routes yet, and the database id is a placeholder
@@ -20,5 +20,18 @@
 			"bucket_name": "human-tokens-images"
 		}
 	],
+	// How often each kind of request may come, per person or address
+	// (src/server/limits.server.ts). The period is 10 or 60 seconds; each
+	// namespace_id is a number of our choosing, unique in the account.
+	"ratelimits": [
+		{ "name": "CONNECT", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } },
+		{ "name": "PREVIEW", "namespace_id": "1002", "simple": { "limit": 20, "period": 60 } },
+		{ "name": "PICTURES", "namespace_id": "1003", "simple": { "limit": 120, "period": 60 } },
+		{ "name": "REACTIONS", "namespace_id": "1004", "simple": { "limit": 60, "period": 60 } },
+		{ "name": "WRITING", "namespace_id": "1005", "simple": { "limit": 20, "period": 60 } }
+	],
+	// Every hour, on the hour: clear out expired sign-ins and connect codes,
+	// and pictures never published (src/server/cleanup.server.ts).
+	"triggers": { "crons": ["0 * * * *"] },
 	"observability": { "enabled": true }
 }

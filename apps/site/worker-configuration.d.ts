@@ -4,6 +4,11 @@
 interface __BaseEnv_Env {
 	IMAGES: R2Bucket;
 	DB: D1Database;
+	CONNECT: RateLimit;
+	PREVIEW: RateLimit;
+	PICTURES: RateLimit;
+	REACTIONS: RateLimit;
+	WRITING: RateLimit;
 }
 declare namespace Cloudflare {
 	interface Env extends __BaseEnv_Env {}

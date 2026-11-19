@@ -12,15 +12,19 @@ import { getAuthorPage } from "../server/site.functions";
 // island under the site's carries the numbers.
 export const Route = createFileRoute("/@{$handle}")({
 	loader: ({ params }) => getAuthorPage({ data: { handle: params.handle } }),
-	head: ({ loaderData }) =>
-		loaderData
-			? share({
-					title: loaderData.author.name,
-					description: `Every post by ${loaderData.author.name} on Human Tokens, written by a person.`,
-					path: `/@${loaderData.author.handle}`,
-					type: "profile",
-				})
-			: {},
+	head: ({ loaderData }) => {
+		if (!loaderData) return {};
+		const { author } = loaderData;
+		const page = share({
+			title: author.name,
+			description: `Every post by ${author.name} on Human Tokens, written by a person.`,
+			path: `/@${author.handle}`,
+			type: "profile",
+		});
+		// This author's own feed, beside the site's.
+		const rss = { rel: "alternate", type: "application/rss+xml", title: `${author.name} · Human Tokens`, href: `/@${author.handle}/rss.xml` };
+		return { ...page, links: [...page.links, rss] };
+	},
 	component: AuthorRoute,
 });
 

@@ -13,6 +13,7 @@ import { loadPost } from "./posts.server";
 import { toggleQuality } from "./reactions.server";
 import { currentUser, requireUser, signInOptions } from "./auth.server";
 import { devSignInAllowed } from "./dev-sign-in.server";
+import { slowDown } from "./limits.server";
 
 const MAX_COMMENT = 2000;
 const MAX_NOTE = 280;
@@ -130,7 +131,9 @@ export const toggleQualityFn = createServerFn({ method: "POST" })
 		return { id: postId(id), quality };
 	})
 	.handler(async ({ data }) => {
-		await toggleQuality(data.id, data.quality, await requireUser("say how a post read"));
+		const user = await requireUser("say how a post read");
+		await slowDown("REACTIONS", user.id);
+		await toggleQuality(data.id, data.quality, user);
 	});
 
 export const saveCommentFn = createServerFn({ method: "POST" })
@@ -140,6 +143,7 @@ export const saveCommentFn = createServerFn({ method: "POST" })
 	})
 	.handler(async ({ data }) => {
 		const user = await requireUser("comment");
+		await slowDown("WRITING", user.id);
 		if (data.body) await saveComment(data.id, data.body, user);
 		else await deleteComment(data.id, user);
 	});
@@ -152,6 +156,7 @@ export const saveAuthorNoteFn = createServerFn({ method: "POST" })
 	})
 	.handler(async ({ data }) => {
 		const user = await requireUser("add a note");
+		await slowDown("WRITING", user.id);
 		if (!(await saveAuthorNote(data.commentId, data.note || null, user))) throw new Error("Only the author can add a note");
 	});
 

@@ -44,3 +44,6 @@ User-agent: *
 Disallow: /api/
 Disallow: /auth/
 Disallow: /connect
+
+# Every page worth finding, for search engines.
+Sitemap: https://human-tokens.dev/sitemap.xml

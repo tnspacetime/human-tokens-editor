@@ -6,7 +6,7 @@ import { db, POST_COLUMNS, type PostRow, qualityCounts, toFeedItem } from "./row
 
 // Images: pictures Fold MD uploaded with the piece (/img/<hash>, see
 // images.server.ts), and web links.
-const renderer = createRenderer({
+export const renderer = createRenderer({
 	resolveImage: (src) => (/^https:\/\//i.test(src) || /^\/img\/[0-9a-f]{64}$/.test(src) ? src : null),
 	unresolvedImageLabel: "Image not uploaded yet",
 });

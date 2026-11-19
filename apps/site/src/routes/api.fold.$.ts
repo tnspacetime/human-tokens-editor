@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { TOO_FAST } from "../lib/limits";
 import { missingPictures, uploadPicture } from "../server/images.server";
+import { allowed, type Limit } from "../server/limits.server";
 import {
 	addPostscript,
 	becomeAuthor,
@@ -39,6 +41,9 @@ import {
 //   DELETE /api/fold/posts/<id>      unpublish it
 //   GET    /api/fold/pieces/<id>     any piece, to respond to: its title, url, author, and whether it's yours
 //
+// Previews and pictures have a per-minute limit far above what publishing
+// needs (src/server/limits.server.ts); past it, 429 and a sentence to show.
+//
 // Connecting itself is Better Auth's: POST /api/auth/device/code and
 // /api/auth/device/token with client_id "fold-md".
 export const Route = createFileRoute("/api/fold/$")({
@@ -66,12 +71,15 @@ async function handle(request: Request, path = "") {
 			return reply({ author: await becomeAuthor(publisher, await body(request)) });
 		}
 		if (parts[0] === "preview" && parts.length === 1 && method === "POST") {
+			await slowDown("PREVIEW", publisher.id);
 			return reply(await preview(publisher, await body(request), origin));
 		}
 		if (parts[0] === "images" && parts.length === 1 && method === "POST") {
+			await slowDown("PICTURES", publisher.id);
 			return reply({ missing: await missingPictures(publisher, await body(request)) });
 		}
 		if (parts[0] === "images" && parts.length === 2 && method === "PUT") {
+			await slowDown("PICTURES", publisher.id);
 			await uploadPicture(publisher, parts[1], request);
 			return reply({ ok: true });
 		}
@@ -98,6 +106,11 @@ async function handle(request: Request, path = "") {
 		console.error("api/fold", error);
 		return reply({ error: "Something went wrong on the site. Try again." }, 500);
 	}
+}
+
+/** A 429 with the "wait a moment" sentence, once this person has used up the limit. */
+async function slowDown(limit: Limit, userId: string) {
+	if (!(await allowed(limit, userId))) throw new PublishError(429, TOO_FAST);
 }
 
 async function body(request: Request): Promise<Record<string, unknown>> {

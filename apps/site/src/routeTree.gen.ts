@@ -12,8 +12,11 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AtChar123handleChar125RouteImport } from './routes/@{$handle}'
 import { Route as ConnectRouteImport } from './routes/connect'
+import { Route as RssDotxmlRouteImport } from './routes/rss[.]xml'
 import { Route as RulesRouteImport } from './routes/rules'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as WriteRouteImport } from './routes/write'
+import { Route as AtChar123handleChar125RssDotxmlRouteImport } from './routes/@{$handle}_.rss[.]xml'
 import { Route as ArchiveIndexRouteImport } from './routes/archive.index'
 import { Route as ArchiveYearRouteImport } from './routes/archive.$year'
 import { Route as AuthDevRouteImport } from './routes/auth.dev'
@@ -38,9 +41,19 @@ const ConnectRoute = ConnectRouteImport.update({
   path: '/connect',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RssDotxmlRoute = RssDotxmlRouteImport.update({
+  id: '/rss.xml',
+  path: '/rss.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RulesRoute = RulesRouteImport.update({
   id: '/rules',
   path: '/rules',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
 const WriteRoute = WriteRouteImport.update({
@@ -48,6 +61,12 @@ const WriteRoute = WriteRouteImport.update({
   path: '/write',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AtChar123handleChar125RssDotxmlRoute =
+  AtChar123handleChar125RssDotxmlRouteImport.update({
+    id: '/@{$handle}_/rss.xml',
+    path: '/@{$handle}/rss.xml',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ArchiveIndexRoute = ArchiveIndexRouteImport.update({
   id: '/archive/',
   path: '/archive/',
@@ -93,8 +112,11 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/@{$handle}': typeof AtChar123handleChar125Route
   '/connect': typeof ConnectRoute
+  '/rss.xml': typeof RssDotxmlRoute
   '/rules': typeof RulesRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/write': typeof WriteRoute
+  '/@{$handle}/rss.xml': typeof AtChar123handleChar125RssDotxmlRoute
   '/archive/$year': typeof ArchiveYearRoute
   '/auth/dev': typeof AuthDevRoute
   '/auth/error': typeof AuthErrorRoute
@@ -108,8 +130,11 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/@{$handle}': typeof AtChar123handleChar125Route
   '/connect': typeof ConnectRoute
+  '/rss.xml': typeof RssDotxmlRoute
   '/rules': typeof RulesRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/write': typeof WriteRoute
+  '/@{$handle}/rss.xml': typeof AtChar123handleChar125RssDotxmlRoute
   '/archive/$year': typeof ArchiveYearRoute
   '/auth/dev': typeof AuthDevRoute
   '/auth/error': typeof AuthErrorRoute
@@ -124,8 +149,11 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/@{$handle}': typeof AtChar123handleChar125Route
   '/connect': typeof ConnectRoute
+  '/rss.xml': typeof RssDotxmlRoute
   '/rules': typeof RulesRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/write': typeof WriteRoute
+  '/@{$handle}_/rss.xml': typeof AtChar123handleChar125RssDotxmlRoute
   '/archive/$year': typeof ArchiveYearRoute
   '/auth/dev': typeof AuthDevRoute
   '/auth/error': typeof AuthErrorRoute
@@ -141,8 +169,11 @@ export interface FileRouteTypes {
     | '/'
     | '/@{$handle}'
     | '/connect'
+    | '/rss.xml'
     | '/rules'
+    | '/sitemap.xml'
     | '/write'
+    | '/@{$handle}/rss.xml'
     | '/archive/$year'
     | '/auth/dev'
     | '/auth/error'
@@ -156,8 +187,11 @@ export interface FileRouteTypes {
     | '/'
     | '/@{$handle}'
     | '/connect'
+    | '/rss.xml'
     | '/rules'
+    | '/sitemap.xml'
     | '/write'
+    | '/@{$handle}/rss.xml'
     | '/archive/$year'
     | '/auth/dev'
     | '/auth/error'
@@ -171,8 +205,11 @@ export interface FileRouteTypes {
     | '/'
     | '/@{$handle}'
     | '/connect'
+    | '/rss.xml'
     | '/rules'
+    | '/sitemap.xml'
     | '/write'
+    | '/@{$handle}_/rss.xml'
     | '/archive/$year'
     | '/auth/dev'
     | '/auth/error'
@@ -187,8 +224,11 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AtChar123handleChar125Route: typeof AtChar123handleChar125Route
   ConnectRoute: typeof ConnectRoute
+  RssDotxmlRoute: typeof RssDotxmlRoute
   RulesRoute: typeof RulesRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   WriteRoute: typeof WriteRoute
+  AtChar123handleChar125RssDotxmlRoute: typeof AtChar123handleChar125RssDotxmlRoute
   ArchiveYearRoute: typeof ArchiveYearRoute
   AuthDevRoute: typeof AuthDevRoute
   AuthErrorRoute: typeof AuthErrorRoute
@@ -222,6 +262,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConnectRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/rss.xml': {
+      id: '/rss.xml'
+      path: '/rss.xml'
+      fullPath: '/rss.xml'
+      preLoaderRoute: typeof RssDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/rules': {
       id: '/rules'
       path: '/rules'
@@ -229,11 +276,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RulesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/write': {
       id: '/write'
       path: '/write'
       fullPath: '/write'
       preLoaderRoute: typeof WriteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/@{$handle}_/rss.xml': {
+      id: '/@{$handle}_/rss.xml'
+      path: '/@{$handle}/rss.xml'
+      fullPath: '/@{$handle}/rss.xml'
+      preLoaderRoute: typeof AtChar123handleChar125RssDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/archive/': {
@@ -299,8 +360,11 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AtChar123handleChar125Route: AtChar123handleChar125Route,
   ConnectRoute: ConnectRoute,
+  RssDotxmlRoute: RssDotxmlRoute,
   RulesRoute: RulesRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
   WriteRoute: WriteRoute,
+  AtChar123handleChar125RssDotxmlRoute: AtChar123handleChar125RssDotxmlRoute,
   ArchiveYearRoute: ArchiveYearRoute,
   AuthDevRoute: AuthDevRoute,
   AuthErrorRoute: AuthErrorRoute,
@@ -315,10 +379,11 @@ export const routeTree = rootRouteImport
   ._addFileTypes<FileRouteTypes>()
 
 import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
+import type { startInstance } from './start.ts'
 declare module '@tanstack/react-start' {
   interface Register {
     ssr: true
     router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
   }
 }

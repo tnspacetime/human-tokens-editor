@@ -1,5 +1,6 @@
 import { useRouter } from "@tanstack/react-router";
 import { useState } from "react";
+import { failure } from "../lib/limits";
 import { describeQualities, QUALITIES, type Quality } from "../lib/qualities";
 import type { PostPage } from "../lib/types";
 import { toggleQualityFn } from "../server/site.functions";
@@ -25,8 +26,8 @@ export function QualityChoices({ post }: { post: PostPage }) {
 		try {
 			await toggleQualityFn({ data: { id: post.id, quality } });
 			await router.invalidate();
-		} catch {
-			setError("That didn't save. Try again.");
+		} catch (problem) {
+			setError(failure(problem, "That didn't save. Try again."));
 		} finally {
 			setChoosing(({ [quality]: _, ...rest }) => rest);
 		}

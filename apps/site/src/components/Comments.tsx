@@ -1,5 +1,6 @@
 import { useRouter } from "@tanstack/react-router";
 import { type FormEvent, useId, useState } from "react";
+import { failure } from "../lib/limits";
 import type { Comment, PostPage } from "../lib/types";
 import { saveAuthorNoteFn, saveCommentFn } from "../server/site.functions";
 import { formatDate } from "./PostCard";
@@ -54,8 +55,8 @@ function CommentForm({ post, viewerName, mine }: { post: PostPage; viewerName: s
 			await router.invalidate();
 			setEditing(!text.trim());
 			if (!text.trim()) setBody("");
-		} catch {
-			setError(text.trim() ? "Your comment didn't save. Try again." : "It didn't delete. Try again.");
+		} catch (problem) {
+			setError(failure(problem, text.trim() ? "Your comment didn't save. Try again." : "It didn't delete. Try again."));
 		} finally {
 			setSaving(false);
 		}
@@ -139,8 +140,8 @@ function CommentItem({ comment, isAuthor, authorName }: { comment: Comment; isAu
 			await saveAuthorNoteFn({ data: { commentId: comment.id, note } });
 			await router.invalidate();
 			setWriting(false);
-		} catch {
-			setError("Your note didn't save. Try again.");
+		} catch (problem) {
+			setError(failure(problem, "Your note didn't save. Try again."));
 		} finally {
 			setSaving(false);
 		}

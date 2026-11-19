@@ -197,9 +197,10 @@ export function pictureStatements(postId: string, hashes: string[], written: { s
  * Removes pictures no piece uses: `released` ones (their piece just let go
  * of them) right away, and any upload that was never published after a day.
  * Only pictures not in a piece are looked at (`placed = 0`), so this reads
- * a handful of rows however many pictures the site has.
+ * a handful of rows however many pictures the site has. Returns how many
+ * went (at most 50 a call).
  */
-export async function sweepPictures(released: string[] = []): Promise<void> {
+export async function sweepPictures(released: string[] = []): Promise<number> {
 	if (released.length) {
 		// Not in a piece any more. If removing them below fails, the next
 		// sweep finds them again, a day on.
@@ -223,6 +224,7 @@ export async function sweepPictures(released: string[] = []): Promise<void> {
 		.bind(dayAgo, ...released)
 		.all<{ hash: string }>();
 	if (results.length) await bucket().delete(results.map((r) => r.hash));
+	return results.length;
 }
 
 /** A stored picture, for /img/<hash>. */
