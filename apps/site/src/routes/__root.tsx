@@ -54,6 +54,9 @@ function Root() {
 				<Link to="/rules" className="site-footer-link">
 					The rules
 				</Link>
+				<Link to="/privacy" className="site-footer-link">
+					Privacy
+				</Link>
 				<p className="site-footer-domain">human-tokens.dev</p>
 			</footer>
 		</>

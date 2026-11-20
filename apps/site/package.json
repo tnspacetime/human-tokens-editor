@@ -11,7 +11,9 @@
 		"db:migrate": "wrangler d1 migrations apply DB --local",
 		"db:seed": "bun scripts/seed.ts && wrangler d1 execute DB --local --file .seed.sql",
 		"db:reset": "rm -rf .wrangler/state && bun run db:migrate && bun run db:seed",
-		"db:derive": "bun scripts/derive.ts"
+		"db:derive": "bun scripts/derive.ts",
+		"db:migrate:live": "wrangler d1 migrations apply DB --remote",
+		"deploy": "vite build && wrangler deploy"
 	},
 	"dependencies": {
 		"@human-tokens/renderer": "workspace:*",

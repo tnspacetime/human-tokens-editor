@@ -3,13 +3,20 @@
 	"main": "src/server.ts",
 	"compatibility_date": "2026-08-14",
 	"compatibility_flags": ["nodejs_compat"],
-	// Local only for now: no routes yet, and the database id is a placeholder
-	// until a real D1 database is created for human-tokens.dev.
+	// Served only at human-tokens.dev, with no workers.dev copy. www and plain
+	// http are redirected by Cloudflare before they get here (a redirect rule
+	// on the zone, and Always Use HTTPS); src/server.ts does the same, should
+	// either ever reach the Worker.
+	"routes": [{ "pattern": "human-tokens.dev", "custom_domain": true }],
+	"workers_dev": false,
+	// The live database is database_id; `bun run dev` keeps its own local copy
+	// under preview_database_id, so local data never mixes with the live site.
 	"d1_databases": [
 		{
 			"binding": "DB",
 			"database_name": "human-tokens-site",
-			"database_id": "00000000-0000-0000-0000-000000000000",
+			"database_id": "b4943426-dcf7-4035-858d-6d231fc55a40",
+			"preview_database_id": "00000000-0000-0000-0000-000000000000",
 			"migrations_dir": "migrations"
 		}
 	],

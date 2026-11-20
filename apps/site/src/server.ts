@@ -5,8 +5,20 @@ import { cleanUp } from "./server/cleanup.server";
 // cleanup Cloudflare runs on its own (wrangler.jsonc, "triggers").
 const pages = createStartHandler(defaultStreamHandler);
 
+/** The site's one address: www and plain http are sent here, for good. */
+const HOST = "human-tokens.dev";
+
 export default {
-	fetch: (request) => pages(request),
+	fetch: (request) => {
+		const url = new URL(request.url);
+		if (url.hostname === `www.${HOST}` || (url.hostname === HOST && url.protocol === "http:")) {
+			url.hostname = HOST;
+			url.protocol = "https:";
+			url.port = "";
+			return Response.redirect(url.toString(), 301);
+		}
+		return pages(request);
+	},
 	scheduled: (_controller, _env, ctx) => {
 		ctx.waitUntil(cleanUp());
 	},

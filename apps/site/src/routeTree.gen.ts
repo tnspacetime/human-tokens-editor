@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AtChar123handleChar125RouteImport } from './routes/@{$handle}'
 import { Route as ConnectRouteImport } from './routes/connect'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as RssDotxmlRouteImport } from './routes/rss[.]xml'
 import { Route as RulesRouteImport } from './routes/rules'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
@@ -39,6 +40,11 @@ const AtChar123handleChar125Route = AtChar123handleChar125RouteImport.update({
 const ConnectRoute = ConnectRouteImport.update({
   id: '/connect',
   path: '/connect',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RssDotxmlRoute = RssDotxmlRouteImport.update({
@@ -112,6 +118,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/@{$handle}': typeof AtChar123handleChar125Route
   '/connect': typeof ConnectRoute
+  '/privacy': typeof PrivacyRoute
   '/rss.xml': typeof RssDotxmlRoute
   '/rules': typeof RulesRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -130,6 +137,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/@{$handle}': typeof AtChar123handleChar125Route
   '/connect': typeof ConnectRoute
+  '/privacy': typeof PrivacyRoute
   '/rss.xml': typeof RssDotxmlRoute
   '/rules': typeof RulesRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -149,6 +157,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/@{$handle}': typeof AtChar123handleChar125Route
   '/connect': typeof ConnectRoute
+  '/privacy': typeof PrivacyRoute
   '/rss.xml': typeof RssDotxmlRoute
   '/rules': typeof RulesRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -169,6 +178,7 @@ export interface FileRouteTypes {
     | '/'
     | '/@{$handle}'
     | '/connect'
+    | '/privacy'
     | '/rss.xml'
     | '/rules'
     | '/sitemap.xml'
@@ -187,6 +197,7 @@ export interface FileRouteTypes {
     | '/'
     | '/@{$handle}'
     | '/connect'
+    | '/privacy'
     | '/rss.xml'
     | '/rules'
     | '/sitemap.xml'
@@ -205,6 +216,7 @@ export interface FileRouteTypes {
     | '/'
     | '/@{$handle}'
     | '/connect'
+    | '/privacy'
     | '/rss.xml'
     | '/rules'
     | '/sitemap.xml'
@@ -224,6 +236,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AtChar123handleChar125Route: typeof AtChar123handleChar125Route
   ConnectRoute: typeof ConnectRoute
+  PrivacyRoute: typeof PrivacyRoute
   RssDotxmlRoute: typeof RssDotxmlRoute
   RulesRoute: typeof RulesRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
@@ -260,6 +273,13 @@ declare module '@tanstack/react-router' {
       path: '/connect'
       fullPath: '/connect'
       preLoaderRoute: typeof ConnectRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/rss.xml': {
@@ -360,6 +380,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AtChar123handleChar125Route: AtChar123handleChar125Route,
   ConnectRoute: ConnectRoute,
+  PrivacyRoute: PrivacyRoute,
   RssDotxmlRoute: RssDotxmlRoute,
   RulesRoute: RulesRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
