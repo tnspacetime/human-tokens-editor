@@ -196,6 +196,10 @@ struct EditorWindow: View {
         .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.togglePage"))) { _ in
             toggle(.page)
         }
+        // Fold MD ▸ Check for Updates…, as if chosen ("md.fold.app.checkForUpdates").
+        .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.checkForUpdates"))) { _ in
+            if window.window?.isKeyWindow == true { Updates.shared.checkNow() }
+        }
         .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.toggleSidebar"))) { _ in
             toggle(.sidebar)
         }
@@ -919,6 +923,11 @@ struct EditorWindow: View {
             }
             .keyboardShortcut("s", modifiers: [.control, .command])
             .help("Slide your series out to the left, or back in (⌃⌘S)")
+        }
+        // A newer Fold MD to download (Updates.swift), while there is one.
+        // Beside Series, where the toolbar never runs out of room for it.
+        if let release = Updates.shared.newer {
+            ToolbarItem(placement: .navigation) { NewVersionButton(release: release) }
         }
         ToolbarItem {
             Picker("Sheet mode", selection: $mode) {

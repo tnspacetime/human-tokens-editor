@@ -24,7 +24,10 @@ const KEPT = [
 		title: "What you do here.",
 		line: "Your reactions and comments, and if you write, your posts, P.S.es and pictures. Posts and comments are public; that's what they're for.",
 	},
-	{ title: "Fold MD.", line: "If you connect Fold MD, the name of each Mac it's connected on, so you can disconnect one." },
+	{
+		title: "Fold MD.",
+		line: "If you connect Fold MD, the name of each Mac it's connected on, so you can disconnect one. Fold MD also asks GitHub, where it's released, when it opens and once a day, whether there's a newer version: the question carries nothing about you.",
+	},
 	{ title: "Light or dark.", line: "If you choose a theme, a cookie remembers it. Nothing else is in it." },
 ] as const;
 

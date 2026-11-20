@@ -244,7 +244,7 @@ function Download() {
 	);
 	return (
 		<div className="write-download">
-			{FOLD_MD.download ? (
+			{FOLD_MD.released ? (
 				<a className="write-button" href={FOLD_MD.download}>
 					{icon}
 					Download for Mac
@@ -256,7 +256,7 @@ function Download() {
 				</button>
 			)}
 			<p className="write-fine">
-				{FOLD_MD.download ? FOLD_MD.requires : `Coming soon · for ${FOLD_MD.requires}`}
+				{FOLD_MD.released ? FOLD_MD.requires : `Coming soon · for ${FOLD_MD.requires}`}
 			</p>
 		</div>
 	);

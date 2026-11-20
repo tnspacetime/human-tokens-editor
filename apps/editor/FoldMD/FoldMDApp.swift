@@ -7,6 +7,8 @@ struct FoldMDApp: App {
         // At launch, open a new empty document ready for typing, rather than
         // the file browser that document apps show by default.
         UserDefaults.standard.register(defaults: ["NSShowAppCentricOpenPanelInsteadOfUntitledFile": false])
+        // Is there a newer Fold MD? Asked now, then once a day (Updates.swift).
+        Task { @MainActor in Updates.shared.start() }
     }
 
     var body: some Scene {
@@ -18,6 +20,7 @@ struct FoldMDApp: App {
         // New windows open compact: one reading column with some margin.
         .defaultSize(width: 760, height: 680)
         .commands {
+            CheckForUpdatesCommand()
             CommandGroup(after: .textEditing) {
                 Divider()
                 // A note to yourself on the selected words (or the paragraph
