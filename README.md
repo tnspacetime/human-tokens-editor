@@ -3,15 +3,59 @@
 Writing by people, published at [human-tokens.dev](https://human-tokens.dev).
 No AI wrote or rewrote any of it.
 
+Posts are written and published from **Fold MD**, a quiet markdown editor for the Mac built on the Fold pattern: your words set as you write them, in a sheet that folds down over the page.
+
+[![Fold MD in use: writing maths in plain text, the sheet showing it set, and the published page folding out beside it](apps/site/public/video/fold-md-poster.webp)](https://human-tokens.dev/write)
+
+*▶ Fold MD in use, 46 seconds: [watch it on human-tokens.dev/write](https://human-tokens.dev/write).*
+
+1. **Write in plain text.** Markdown, in a native Mac editor that stays out of your way. Your files stay on your Mac.
+2. **See it as it will read.** A sheet folds down with your words set: math, code and images. The published page folds out beside you.
+3. **Publish on your word.** When it's ready, publish from the editor and promise you wrote it yourself.
+
+## What Fold MD does
+
+**Scroll under the sheet.** What you've scrolled past slides under the sheet at the top and comes back set: maths, code and pictures as they'll read. Drag its edge down for more.
+
+![Fold MD with the sheet open at the top, showing the paragraphs above the writing set as they'll read, with their maths](apps/site/public/shots/under-1600.webp)
+
+**Or just the paragraph you're on.** Switch the sheet to the current paragraph and it sets only what you're writing, as you type it. Good for a long formula or a table.
+
+![The sheet showing only the formula the cursor is in, set, with the text around it faded](apps/site/public/shots/focus-1600.webp)
+
+**Plain text, quietly coloured.** Close the sheet and it's just your words. Maths and code are coloured as you type them, and the spell checker leaves them alone.
+
+![Fold MD with the sheet closed: plain markdown, with the maths in a soft teal](apps/site/public/shots/maths-1600.webp)
+
+**Notes to yourself.** Select a phrase and leave yourself a note in the margin. Notes stay on your Mac and are never published.
+
+![A phrase highlighted in the writing, with a note beside it in the margin](apps/site/public/shots/notes-1600.webp)
+
+**The page, beside you.** The published page folds out to the right, as readers will see it, and keeps to where you're writing.
+
+![Fold MD with the published page folded out beside the writing, both at the same paragraph](apps/site/public/shots/page-2560.webp)
+
+**Series.** Put documents in order as a series, without moving any files. It's published whole, each part a chapter.
+
+![The series sidebar open on the left, listing three parts in order, with the first part open](apps/site/public/shots/series-1600.webp)
+
+**Published from the editor.** See how it starts in the feed, promise you wrote it yourself, and publish. For 15 minutes after, you can still fix it.
+
+![The publish sheet: how the post starts in the feed, the box for I wrote this myself, and the Publish button](apps/site/public/shots/publish-1600.webp)
+
+**Light or dark.** The writing, the sheet and the page all follow. Sun or moon, in the toolbar.
+
+![Fold MD in dark mode, with the page folded out beside the writing](apps/site/public/shots/dark-2560.webp)
+
+Fold MD needs macOS 15 or later. A signed download is on its way; until then, build it in Xcode: [`apps/editor`](apps/editor#run-it).
+
+## What's here
+
 | Path | What |
 | --- | --- |
 | [`apps/editor`](apps/editor) | **Fold MD**, the macOS markdown editor posts are written and published from, built on the Fold pattern |
 | [`apps/site`](apps/site) | **human-tokens.dev**: the feed, post pages, reactions and comments, sign-in (TanStack Start on Cloudflare Workers, D1, Better Auth) |
 | [`packages/renderer`](packages/renderer) | Markdown → HTML (markdown-it, KaTeX, highlight.js), used by both, so a post looks the same in the editor and on the site |
-
-[![Fold MD, with the published page folded out beside the writing](apps/site/public/shots/page-2560.webp)](apps/editor#what-it-does)
-
-*Fold MD: what it does, with screenshots, is in [its README](apps/editor#what-it-does).*
 
 The JavaScript parts are one [Bun](https://bun.sh) workspace: run `bun install` once at the root.
 

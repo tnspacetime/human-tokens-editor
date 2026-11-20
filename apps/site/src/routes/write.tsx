@@ -140,6 +140,7 @@ function Demo() {
 
 // What Fold MD does, each with a screenshot from the app itself
 // (apps/editor/design/shots: shoot.sh takes them, make-web.sh sizes them).
+// The root README.md repeats these words and STEPS: change both together.
 // Most are the window alone, 4:3, beside their words, alternating sides;
 // the wide ones (the page out beside the writing) get the page's width.
 type Feature = {

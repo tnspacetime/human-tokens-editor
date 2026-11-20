@@ -12,28 +12,9 @@ Files are plain `.md` on disk. Series organise them without moving them, and ima
 
 ## What it does
 
-[![Fold MD in use: writing maths in plain text, the sheet showing it set, and the published page folding out beside it](../site/public/video/fold-md-poster.webp)](../site/public/video/fold-md.h264.mp4)
+The demo and a screenshot of each feature are in the [main README](../../README.md#what-fold-md-does), and on the site's [Write page](https://human-tokens.dev/write).
 
-*The demo above (46 seconds) is `apps/site/public/video`, recorded by `design/demo/record.sh`. It plays on the site's Write page.*
-
-| | |
-| --- | --- |
-| ![The sheet open at the top, showing the paragraphs above the writing set, with their maths](../site/public/shots/under-1600.webp) | **Scroll under the sheet.** What you've scrolled past slides under the sheet at the top and comes back set: maths, code and pictures as they'll read. Drag its edge down for more. |
-| ![The sheet showing only the formula the cursor is in](../site/public/shots/focus-1600.webp) | **Or just the paragraph you're on.** Switch the sheet to the current paragraph and it sets only what you're writing, as you type it. |
-| ![The sheet closed: plain markdown, the maths in a soft teal](../site/public/shots/maths-1600.webp) | **Plain text, quietly coloured.** Close the sheet and it's just your words. Maths and code are coloured as you type them, and the spell checker leaves them alone. |
-| ![A phrase highlighted, with a note beside it in the margin](../site/public/shots/notes-1600.webp) | **Notes to yourself.** Select a phrase and leave yourself a note in the margin. Notes stay on your Mac and are never published. |
-| ![The series sidebar listing three parts in order](../site/public/shots/series-1600.webp) | **Series.** Put documents in order as a series, without moving any files. It's published whole, each part a chapter. |
-| ![The publish sheet, with the pledge and the Publish button](../site/public/shots/publish-1600.webp) | **Published from the editor.** See how it starts in the feed, promise you wrote it yourself, and publish. For 15 minutes after, you can still fix it. |
-
-**The page, beside you.** The published page folds out to the right, as readers will see it, and keeps to where you're writing.
-
-![Fold MD with the published page folded out beside the writing](../site/public/shots/page-2560.webp)
-
-**Light or dark.** The writing, the sheet and the page all follow.
-
-![Fold MD in dark mode, with the page folded out](../site/public/shots/dark-2560.webp)
-
-The screenshots are taken from a debug build by `design/shots/shoot.sh` (it sets each one up through the app's own test hooks, and puts your settings back after) and sized for the web by `design/shots/make-web.sh`.
+The demo video (`apps/site/public/video`) is recorded by `design/demo/record.sh`. The screenshots are taken from a debug build by `design/shots/shoot.sh` (it sets each one up through the app's own test hooks, and puts your settings back after) and sized for the web by `design/shots/make-web.sh`.
 
 ## Run it
 
