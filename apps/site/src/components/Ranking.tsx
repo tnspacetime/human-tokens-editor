@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useDeleted } from "../lib/deleted";
 import { bestOf, currentPeriod, rankingState, SHORT, useRankingState } from "../lib/ranking";
 import { QUALITIES } from "../lib/qualities";
 import type { Ranking, RankingEntry, RankingPeriod } from "../lib/types";
@@ -9,7 +10,23 @@ import { QualityIcon } from "./QualityIcon";
 // each quality, Today, This week or This month, worked out once an hour
 // (server/ranking.server.ts). The top three for each quality open out into
 // the top ten. Scroll past it and it folds into the island.
-export function RankingBoard({ ranking }: { ranking: Ranking }) {
+/** The ranking without the posts you've just deleted (lib/deleted.ts). */
+function without(ranking: Ranking, deleted: ReadonlySet<string>): Ranking {
+	return {
+		...ranking,
+		periods: ranking.periods.map((period) => ({
+			...period,
+			top: Object.fromEntries(
+				Object.entries(period.top).map(([quality, entries]) => [quality, entries.filter((entry) => !deleted.has(entry.post.id))]),
+			) as RankingPeriod["top"],
+		})),
+	};
+}
+
+export function RankingBoard({ ranking: stored }: { ranking: Ranking }) {
+	const deleted = useDeleted();
+	// The board and the island's copy of it alike.
+	const ranking = useMemo(() => (deleted.size ? without(stored, deleted) : stored), [stored, deleted]);
 	const state = useRankingState();
 	const section = useRef<HTMLElement>(null);
 	const [expanded, setExpanded] = useState(false);

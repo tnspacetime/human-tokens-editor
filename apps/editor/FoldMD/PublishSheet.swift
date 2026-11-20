@@ -105,8 +105,8 @@ struct PublishSheet: View {
             : flow.isFix
             ? "Nobody else has reacted or commented yet, so you can still fix it\(until). After that its text is locked."
             : flow.isSeries
-            ? "All \(flow.parts ?? 0) parts, joined into one post in the sidebar's order, each part a chapter. For 15 minutes after you publish, until someone else reacts or comments, you can still fix it. Then its text is locked."
-            : "This is how it starts in the feed. For 15 minutes after you publish, until someone else reacts or comments, you can still fix it. Then its text is locked, so it stays as readers saw it."
+            ? "All \(flow.parts ?? 0) parts, joined into one post in the sidebar's order, each part a chapter. For 15 minutes after you publish, until someone else reacts or comments, you can still fix it. Then its text is locked. Its link works at once; it joins the feed and your page when the 15 minutes are up."
+            : "This is how it starts in the feed. For 15 minutes after you publish, until someone else reacts or comments, you can still fix it. Then its text is locked, so it stays as readers saw it. Its link works at once; it joins the feed and your page when the 15 minutes are up."
         let working = postscript ? "Adding…" : flow.progress ?? (flow.isFix ? "Fixing…" : "Publishing…")
         return StepLayout(title: title, message: message) {
             Button("Cancel", role: .cancel) { flow.cancel() }

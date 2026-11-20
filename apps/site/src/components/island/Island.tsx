@@ -1,5 +1,6 @@
 import { Link, useMatch } from "@tanstack/react-router";
 import { useCallback, useRef, useState } from "react";
+import { useDeleted } from "../../lib/deleted";
 import { currentPeriod, rankingState, useRankingState } from "../../lib/ranking";
 import { useYou } from "../../lib/you";
 import { BrandMark } from "../BrandMark";
@@ -26,8 +27,11 @@ type Panel = "appearance" | "account" | null;
 // on an author's page, what they've written and what readers found in it.
 export function Island() {
 	const you = useYou();
-	const post = useMatch({ from: "/p/$id/$slug", shouldThrow: false });
+	const match = useMatch({ from: "/p/$id/$slug", shouldThrow: false });
 	const author = useMatch({ from: "/@{$handle}", shouldThrow: false });
+	// A post you've just deleted (lib/deleted.ts) is no post: its page says so.
+	const deleted = useDeleted();
+	const post = match?.loaderData && deleted.has(match.loaderData.id) ? undefined : match;
 	const title = post?.loaderData?.title;
 	const dock = useRef<HTMLDivElement>(null);
 	const island = useRef<HTMLElement>(null);

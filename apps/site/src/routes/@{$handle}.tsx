@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { PostTile } from "../components/PostCard";
 import { tileSizes } from "../components/tileSizes";
 import { useFeedMotion } from "../components/useFeedMotion";
+import { useDeleted } from "../lib/deleted";
 import { share } from "../lib/share";
 import type { AuthorPage } from "../lib/types";
 import { useYou } from "../lib/you";
@@ -52,7 +53,10 @@ function AuthorPosts({ page }: { page: AuthorPage }) {
 	const list = useRef<HTMLUListElement>(null);
 	const end = useRef<HTMLDivElement>(null);
 	useFeedMotion(list, pieces.length);
-	const sizes = tileSizes(pieces.length, !next);
+	// Less any you've just deleted (lib/deleted.ts).
+	const deleted = useDeleted();
+	const visible = deleted.size ? pieces.filter((post) => !deleted.has(post.id)) : pieces;
+	const sizes = tileSizes(visible.length, !next);
 
 	async function loadMore() {
 		if (!next || loading) return;
@@ -97,14 +101,16 @@ function AuthorPosts({ page }: { page: AuthorPage }) {
 				</div>
 			</header>
 
-			{pieces.length === 0 ? (
+			{visible.length === 0 ? (
 				<p className="author-empty">
-					{isYou ? "Nothing published yet. Your posts will be here once you publish from Fold MD." : "Nothing published yet."}
+					{isYou
+						? "Nothing here yet. A post you publish from Fold MD appears here 15 minutes later, once it can't be fixed any more. Its link works at once."
+						: "Nothing published yet."}
 				</p>
 			) : (
 				<>
 					<ul ref={list} className="tiles" aria-label="Posts">
-						{pieces.map((post, i) => (
+						{visible.map((post, i) => (
 							<li key={post.id} className={`tiles-item tiles-${sizes[i]}`}>
 								<PostTile post={post} size={sizes[i]} eyebrow={post.parts ? `A series in ${post.parts} parts` : null} />
 							</li>

@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
+import { useDeleted } from "../lib/deleted";
 import type { Archive, ArchiveItem } from "../lib/types";
 import { getArchiveLines } from "../server/site.functions";
 import { Signals } from "./PostCard";
@@ -138,12 +139,16 @@ function ArchiveMonth({ archive, month }: { archive: Archive; month: number }) {
  * (its day once in the margin, the title, who wrote it unless `byAuthor`
  * says the whole page is theirs, and what readers made of it).
  */
-export function MonthOfPieces({ id, title, count, items, byAuthor }: { id: string; title: string; count?: number; items: ArchiveItem[]; byAuthor?: boolean }) {
+export function MonthOfPieces({ id, title, count, items: all, byAuthor }: { id: string; title: string; count?: number; items: ArchiveItem[]; byAuthor?: boolean }) {
+	// Less any you've just deleted (lib/deleted.ts).
+	const deleted = useDeleted();
+	const items = deleted.size ? all.filter((item) => !deleted.has(item.id)) : all;
+	const hidden = all.length - items.length;
 	return (
 		<section id={id} className="archive-month" aria-labelledby={`${id}-title`}>
 			<h2 id={`${id}-title`}>
 				{title}
-				<span>{plural(count ?? items.length, "post", "posts")}</span>
+				<span>{plural((count ?? all.length) - hidden, "post", "posts")}</span>
 			</h2>
 			<ol className="archive-list">
 				{items.map((item, i) => (

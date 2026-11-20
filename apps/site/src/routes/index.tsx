@@ -5,6 +5,7 @@ import { PostTile } from "../components/PostCard";
 import { RulesPill } from "../components/Rules";
 import { tileSizes } from "../components/tileSizes";
 import { useFeedMotion } from "../components/useFeedMotion";
+import { useDeleted } from "../lib/deleted";
 import { share } from "../lib/share";
 import type { FeedItem } from "../lib/types";
 import { getFeed, getHome, getRanking, HOME_COUNT, HOME_PAGE } from "../server/site.functions";
@@ -89,7 +90,10 @@ function Feed() {
 		return () => observer.disconnect();
 	}, [posts.length, more, loading, failed]);
 
-	const sizes = tileSizes(posts.length, !more);
+	// Less any you've just deleted (lib/deleted.ts).
+	const deleted = useDeleted();
+	const visible = deleted.size ? posts.filter((post) => !deleted.has(post.id)) : posts;
+	const sizes = tileSizes(visible.length, !more);
 	return (
 		<main className="feed">
 			<h1 className="visually-hidden">Human Tokens</h1>
@@ -99,12 +103,12 @@ function Feed() {
 				<h2>Latest</h2>
 				<p>Every word written by a person. No AI wrote or rewrote any of it.</p>
 			</header>
-			{posts.length === 0 ? (
+			{visible.length === 0 ? (
 				<p className="feed-empty">Nothing published yet.</p>
 			) : (
 				<>
 					<ul ref={list} className="tiles">
-						{posts.map((post, i) => (
+						{visible.map((post, i) => (
 							<li key={post.id} className={`tiles-item tiles-${sizes[i]}`}>
 								<PostTile post={post} size={sizes[i]} />
 							</li>

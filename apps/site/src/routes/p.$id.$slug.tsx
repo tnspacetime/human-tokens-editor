@@ -5,6 +5,7 @@ import { SeriesIsland } from "../components/island/SeriesIsland";
 import { Byline } from "../components/PostCard";
 import { Postscripts } from "../components/Postscripts";
 import { Replies } from "../components/Replies";
+import { useDeleted } from "../lib/deleted";
 import { cacheHeaders, keepPost } from "../lib/keep";
 import { usePostView } from "../lib/post-view";
 import { share } from "../lib/share";
@@ -42,8 +43,26 @@ export const Route = createFileRoute("/p/$id/$slug")({
 });
 
 function PostRoute() {
+	const page = Route.useLoaderData();
+	// Its stored copy outlives a delete by up to a minute: to you, who deleted it, it's gone at once (lib/deleted.ts).
+	if (useDeleted().has(page.id)) return <Deleted title={page.title} handle={page.author.handle} />;
+	return <Post page={page} />;
+}
+
+function Deleted({ title, handle }: { title: string; handle: string }) {
+	return (
+		<main className="page-narrow">
+			<h1 className="empty-title">You deleted this post</h1>
+			<p>
+				“{title}” is off the site. <Link to="/@{$handle}" params={{ handle }}>Back to your page</Link>.
+			</p>
+		</main>
+	);
+}
+
+function Post({ page }: { page: ReturnType<typeof Route.useLoaderData> }) {
 	// The page is the same for everyone; yours (Delete, on your own post) comes after.
-	const post = usePostView(Route.useLoaderData());
+	const post = usePostView(page);
 	// The piece's own "# Title" becomes the page's headline (what readers
 	// made of it rides in the island, see ReaderIsland): its first one,
 	// wherever it is (a picture or a quote can come before it).

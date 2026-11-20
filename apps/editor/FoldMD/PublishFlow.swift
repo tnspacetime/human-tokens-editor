@@ -764,7 +764,7 @@ struct PublishPill: View {
     }
 
     private var publishedHelp: String {
-        let until = flow.fixableUntil.map { " Until \($0.formatted(date: .omitted, time: .shortened)), you can still fix it." } ?? ""
+        let until = flow.fixableUntil.map { " Until \($0.formatted(date: .omitted, time: .shortened)), you can still fix it; then it joins the feed and your page." } ?? ""
         return "Open it on \(PublishSite.name).\(until) Hold for more."
     }
 

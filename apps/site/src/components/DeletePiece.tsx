@@ -1,5 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
+import { markDeleted } from "../lib/deleted";
 import type { PostView } from "../lib/types";
 import { deletePostFn } from "../server/site.functions";
 import { Sheet } from "./Sheet";
@@ -32,6 +33,8 @@ export function DeletePiece({ post }: { post: PostView }) {
 		setError(null);
 		try {
 			await deletePostFn({ data: { id: post.id } });
+			// Your page (and every list) is a stored copy cleared within a minute: hide it from you at once.
+			markDeleted(post.id);
 			await navigate({ to: "/@{$handle}", params: { handle: post.author.handle }, replace: true });
 		} catch {
 			setError("Couldn't delete it. Try again.");
