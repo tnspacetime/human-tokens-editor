@@ -28,8 +28,8 @@ tag=fold-md-v$version
 
 # The release points at a commit everyone can see.
 head=$(git rev-parse HEAD)
-if [[ -n $(git status --porcelain -- apps/editor) ]]; then
-	echo "apps/editor has changes that aren't committed. Commit them first." >&2; exit 1
+if [[ -n $(git status --porcelain -- apps/editor/FoldMD apps/editor/FoldMD.xcodeproj) ]]; then
+	echo "Fold MD has changes that aren't committed. Commit them first." >&2; exit 1
 fi
 git fetch --quiet origin
 if ! git branch -r --contains $head | grep -q .; then

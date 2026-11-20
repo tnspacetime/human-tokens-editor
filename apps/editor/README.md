@@ -4,7 +4,7 @@ A minimal markdown editor for macOS, built on the Fold pattern. You write in pla
 A sheet folds down from the top to show it rendered, and the publishing
 surface folds out to the right to show the page as it will be published.
 
-- **Scroll under**: text you scroll past slides under the sheet and appears there rendered. Drag the sheet's handle down for more, or all the way for a full preview. While you type, the paragraph you're writing stays just below the sheet (typewriter scrolling).
+- **Scroll under**: text you scroll past slides under the sheet and appears there rendered. Drag the sheet's handle down for more, or all the way for a full preview. With Typewriter Scrolling on, the paragraph you're typing stays just below the sheet.
 - **Current paragraph**: the sheet renders the block your cursor is in (good for math, tables and code).
 - **Publishing surface**: the window grows to the right and the published page slides out beside your writing, then slides back in.
 
@@ -22,8 +22,10 @@ Open `apps/editor/FoldMD.xcodeproj` in Xcode and press ⌘R, or from the reposit
 
 ```bash
 xcodebuild -project apps/editor/FoldMD.xcodeproj -scheme FoldMD -derivedDataPath build/DerivedData build
-open "build/DerivedData/Build/Products/Debug/Fold MD.app" apps/editor/docs/Welcome.md
+open "build/DerivedData/Build/Products/Debug/Fold MD Dev.app" apps/editor/docs/Welcome.md
 ```
+
+A debug build is **Fold MD Dev**: a separate app with its own settings, series and connection, which publishes to the site running on this Mac (`bun run dev` in `apps/site`). It runs beside a released Fold MD without touching it.
 
 | Action | How |
 | --- | --- |
@@ -33,8 +35,18 @@ open "build/DerivedData/Build/Products/Debug/Fold MD.app" apps/editor/docs/Welco
 | Switch sheet mode | Toolbar segmented control |
 | Publishing surface | ⌥⌘P or the toolbar button |
 | Light / dark | Toolbar sun/moon (hold for System), ⇧⌘L, or View ▸ Appearance |
-| Typewriter scrolling | View ▸ Typewriter Scrolling (⌥⌘T) |
+| Typewriter scrolling | The Scroll-under button's menu (click its arrow), or View ▸ Typewriter Scrolling (⌥⌘T); off unless you turn it on |
 | Jump to source | Click a rendered block in the sheet or the page |
+
+## Release it
+
+Fold MD is released on GitHub; every copy checks there for newer versions, and the site's Download button links to the newest. Set the new version (`MARKETING_VERSION`) in the Xcode project, commit, push, then:
+
+```bash
+apps/editor/release.sh "What's new in this version"
+```
+
+It builds a Release copy, zips it, shows what it will publish, and publishes only when you say yes.
 
 ## How it fits together
 

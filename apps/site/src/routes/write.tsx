@@ -256,7 +256,9 @@ function Download() {
 				</button>
 			)}
 			<p className="write-fine">
-				{FOLD_MD.released ? FOLD_MD.requires : `Coming soon · for ${FOLD_MD.requires}`}
+				{FOLD_MD.released
+					? `For ${FOLD_MD.requires}. Not signed by Apple yet: the first time, open it from System Settings ▸ Privacy & Security ▸ Open Anyway.`
+					: `Coming soon · for ${FOLD_MD.requires}`}
 			</p>
 		</div>
 	);

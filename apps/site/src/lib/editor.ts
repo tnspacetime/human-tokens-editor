@@ -7,7 +7,7 @@
 // `released` stays false until the first release: the /write page then says
 // it's coming instead of linking to nothing.
 export const FOLD_MD = {
-	released: false,
+	released: true,
 	download: "https://github.com/tnspacetime/human-tokens-editor/releases/latest/download/Fold-MD.zip",
 	requires: "macOS 15 or later",
 };

@@ -47,7 +47,9 @@ Posts are written and published from **Fold MD**, a quiet markdown editor for th
 
 ![Fold MD in dark mode, with the page folded out beside the writing](apps/site/public/shots/dark-2560.webp)
 
-Fold MD needs macOS 15 or later. A signed download is on its way; until then, build it in Xcode: [`apps/editor`](apps/editor#run-it).
+**Download Fold MD:** [Fold-MD.zip](https://github.com/tnspacetime/human-tokens-editor/releases/latest/download/Fold-MD.zip), for macOS 15 or later. Unzip it and move Fold MD into Applications.
+
+It isn't signed by Apple yet, so the first time you open it macOS stops it. Open **System Settings ▸ Privacy & Security** and click **Open Anyway** beside the message about Fold MD; you do this once for each version. Fold MD tells you when there's a newer one ([releases](https://github.com/tnspacetime/human-tokens-editor/releases)). Or build it yourself in Xcode: [`apps/editor`](apps/editor#run-it).
 
 ## What's here
 
