@@ -190,7 +190,7 @@ struct EditorWindow: View {
     /// each hook). Release builds: nothing.
     private func testHooks(window view: some View) -> some View {
         #if DEBUG
-        pageBarHooks(view)
+        demoHooks(pageBarHooks(view))
         // Lets tests toggle the publishing surface without keystrokes:
         // a distributed notification named "md.fold.app.togglePage".
         .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.togglePage"))) { _ in
@@ -200,9 +200,10 @@ struct EditorWindow: View {
             toggle(.sidebar)
         }
         // A temporary series for tests, from the .md files in the folder given
-        // as the notification's object: create it and open its first part the
-        // way the sidebar does ("…seriesDemo"); remove it and close its
-        // windows ("…seriesDemoEnd"). Only the first window acts on these.
+        // as the notification's object ("folder" or "folder|Title"): create it
+        // and open its first part the way the sidebar does ("…seriesDemo");
+        // remove it and close its windows ("…seriesDemoEnd", the same object).
+        // Only the first window acts on these.
         .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.seriesDemo"))) { note in
             seriesDemo(folder: note.object as? String)
         }
@@ -286,6 +287,58 @@ struct EditorWindow: View {
     }
 
     #if DEBUG
+    /// For recording a demo (apps/editor/design/demo): the sheet's mode
+    /// "under" or "focus" ("md.fold.app.mode"); "light", "dark" or "system"
+    /// ("…appearance"); the cursor to a UTF-16 offset, scrolled into view
+    /// ("…caret"); a gentle scroll of "dy,seconds" ("…glide"); and the
+    /// window's frame "x,y,width,height[,1 to glide]", AppKit screen points
+    /// ("…frame").
+    private func demoHooks(_ view: some View) -> some View {
+        view
+        .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.mode"))) { note in
+            if let mode = (note.object as? String).flatMap(DrawerMode.init(rawValue:)) { self.mode = mode }
+        }
+        // The sheet's usual height, as letting go of the handle sets it ("…sheetLimit").
+        .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.sheetLimit"))) { note in
+            if let height = (note.object as? String).flatMap(Double.init) { sheetHeight = height }
+        }
+        .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.appearance"))) { note in
+            if let mode = (note.object as? String).flatMap(AppearanceMode.init(rawValue:)) { appearance = mode }
+        }
+        .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.caret"))) { note in
+            guard let text = foldTextView(), let offset = (note.object as? String).flatMap(Int.init),
+                  offset >= 0, offset <= (text.string as NSString).length else { return }
+            text.window?.makeFirstResponder(text)
+            text.setSelectedRange(NSRange(location: offset, length: 0))
+            text.scrollRangeToVisible(NSRange(location: offset, length: 0))
+        }
+        .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.glide"))) { note in
+            guard let parts = (note.object as? String)?.split(separator: ","), parts.count == 2,
+                  let dy = Double(parts[0]), let seconds = Double(parts[1]),
+                  let scroll = foldTextView()?.enclosingScrollView else { return }
+            let clip = scroll.contentView
+            let start = clip.bounds.minY
+            let frames = max(1, Int(seconds * 60))
+            Task { @MainActor in
+                for frame in 1...frames {
+                    let t = Double(frame) / Double(frames)
+                    let eased = t < 0.5 ? 2 * t * t : 1 - pow(-2 * t + 2, 2) / 2
+                    let target = NSRect(origin: NSPoint(x: 0, y: start + dy * eased), size: clip.bounds.size)
+                    clip.scroll(to: clip.constrainBoundsRect(target).origin)
+                    scroll.reflectScrolledClipView(clip)
+                    try? await Task.sleep(for: .milliseconds(16))
+                }
+            }
+        }
+        .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.frame"))) { note in
+            // A fifth value of 1 glides it there.
+            guard let values = (note.object as? String)?.split(separator: ",").compactMap({ Double($0) }), values.count >= 4,
+                  let window = window.window else { return }
+            window.setFrame(NSRect(x: values[0], y: values[1], width: values[2], height: values[3]), display: true,
+                            animate: values.count > 4 && values[4] == 1)
+        }
+    }
+
     /// More test hooks (split off so the compiler can type-check each chain).
     private func pageBarHooks(_ view: some View) -> some View {
         imageHooks(view)
@@ -539,21 +592,27 @@ struct EditorWindow: View {
         NSDocumentController.shared.documents.first?.windowControllers.first?.window === window.window
     }
 
-    private func seriesDemo(folder: String?) {
-        guard isFirstWindow, let folder else { return }
+    /// "folder" or "folder|Title" (the title defaults to "Test Series (debug)").
+    private func seriesDemoTarget(_ object: String?) -> (folder: String, title: String)? {
+        guard let parts = object?.split(separator: "|", maxSplits: 1).map(String.init), let folder = parts.first else { return nil }
+        return (folder, parts.count > 1 ? parts[1] : "Test Series (debug)")
+    }
+
+    private func seriesDemo(folder object: String?) {
+        guard isFirstWindow, let (folder, title) = seriesDemoTarget(object) else { return }
         let urls = ((try? FileManager.default.contentsOfDirectory(at: URL(fileURLWithPath: folder), includingPropertiesForKeys: nil)) ?? [])
             .filter(SeriesLibrary.isMarkdown)
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
-        let id = SeriesLibrary.shared.create(title: "Test Series (debug)", with: urls)
+        let id = SeriesLibrary.shared.create(title: title, with: urls)
         if let first = urls.first { openPart(first, id) }
     }
 
-    private func seriesDemoEnd(folder: String?) {
-        guard let folder else { return }
+    private func seriesDemoEnd(folder object: String?) {
+        guard let (folder, title) = seriesDemoTarget(object) else { return }
         // Each window showing a test part closes itself.
         if let fileURL, fileURL.path.hasPrefix(folder) { window.window?.performClose(nil) }
         guard isFirstWindow else { return }
-        for series in SeriesLibrary.shared.all where series.title == "Test Series (debug)" {
+        for series in SeriesLibrary.shared.all where series.title == title {
             SeriesLibrary.shared.delete(series.id)
         }
     }
