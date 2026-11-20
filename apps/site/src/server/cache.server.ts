@@ -1,7 +1,7 @@
 import { cache } from "cloudflare:workers";
 import { getResponseHeader, setResponseHeader } from "@tanstack/react-start/server";
 import { cacheHeaders, type Keep, TAGS } from "../lib/keep";
-import { db } from "./rows.server";
+import { batches, db, MAX_BOUND, marks } from "./rows.server";
 
 export { cacheHeaders, type Keep, TAGS, UNTIL_CLEARED } from "../lib/keep";
 
@@ -93,7 +93,11 @@ export async function sendClearings(now = new Date().toISOString()) {
 		}
 		if (!ok) break;
 		// Sent: every time it was due by now (a later one still waits).
-		await db().batch(tags.map((tag) => db().prepare("DELETE FROM pending_purges WHERE tag = ? AND not_before <= ?").bind(tag, now)));
+		await db().batch(
+			batches(tags, MAX_BOUND - 1).map((some) =>
+				db().prepare(`DELETE FROM pending_purges WHERE tag IN (${marks(some)}) AND not_before <= ?`).bind(...some, now),
+			),
+		);
 		sent += tags.length;
 	}
 	return sent;

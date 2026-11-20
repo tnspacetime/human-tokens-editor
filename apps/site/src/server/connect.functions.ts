@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { auth, currentUser, requireUser } from "./auth.server";
+import { keepResponse } from "./cache.server";
 import { db } from "./rows.server";
 
 // The /connect page: you allow Fold MD on your Mac to publish as you, by
@@ -44,6 +45,8 @@ const codeInput = (input: unknown) => {
 export const getConnect = createServerFn({ method: "GET" })
 	.validator((input: unknown) => ({ code: codeInput(input) }))
 	.handler(async ({ data }): Promise<ConnectState> => {
+		// Yours: never stored, said here so no page that loads it can be stored.
+		keepResponse("never");
 		const { code } = data;
 		if (!code) return { state: "enter" };
 		const row = /^[A-Z0-9]{8}$/.test(code) ? await readCode(code) : null;

@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireUser } from "./auth.server";
+import { keepResponse } from "./cache.server";
 import { db } from "./rows.server";
 
 // The Macs Fold MD is connected on, for the account panel: each a session
@@ -29,6 +30,8 @@ function macName(userAgent: string): string | null {
 }
 
 export const getFoldConnections = createServerFn({ method: "GET" }).handler(async (): Promise<FoldConnection[]> => {
+	// Yours: never stored, said here so no page that loads it can be stored.
+	keepResponse("never");
 	const user = await requireUser("see where Fold MD is connected");
 	const { results } = await db()
 		.prepare(`SELECT id, user_agent, expires_at, created_at, updated_at FROM sessions WHERE user_id = ? AND ${FOLD_SESSION} ORDER BY updated_at DESC`)

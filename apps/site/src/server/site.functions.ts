@@ -257,6 +257,7 @@ export const saveAuthorNoteFn = createServerFn({ method: "POST" })
 
 /** The dev sign-in page: only on localhost in `vite dev`, otherwise not found. */
 export const getDevSignIn = createServerFn({ method: "GET" }).handler(async () => {
+	keepResponse("never");
 	if (!devSignInAllowed(getRequest())) throw notFound();
 	const { results } = await env.DB.prepare("SELECT handle, name FROM authors ORDER BY name").all<{ handle: string; name: string }>();
 	return { authors: results };

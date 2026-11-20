@@ -43,9 +43,10 @@ const postUrl = (row: { id: string; slug: string }) => `${SITE.url}/p/${row.id}/
 
 /** The site's feed, or one author's (null when there's no such author). */
 export async function feed(handle?: string): Promise<Response | null> {
-	let author: { name: string; handle: string } | null = null;
+	let author: { id: string; name: string; handle: string } | null = null;
 	if (handle !== undefined) {
-		author = await db().prepare("SELECT name, handle FROM authors WHERE handle = ?").bind(handle).first();
+		// Any capitals, as on their page (/@Alice is /@alice).
+		author = await db().prepare("SELECT id, name, handle FROM authors WHERE handle = ? COLLATE NOCASE").bind(handle).first();
 		if (!author) return null;
 	}
 	const { results: rows } = await db()
@@ -53,10 +54,10 @@ export async function feed(handle?: string): Promise<Response | null> {
 			`SELECT p.id, p.slug, p.title, p.excerpt, p.markdown, p.html, p.published_at, p.updated_at,
 			        a.name AS author_name, a.handle AS author_handle
 			 FROM posts p JOIN authors a ON a.id = p.author_id
-			 WHERE p.published_at <= ?1 ${author ? "AND a.handle = ?2" : ""}
+			 WHERE p.published_at <= ?1 ${author ? "AND p.author_id = ?2" : ""}
 			 ORDER BY p.published_at DESC, p.id DESC LIMIT ${FEED_LENGTH}`,
 		)
-		.bind(settledBefore(), ...(author ? [author.handle] : []))
+		.bind(settledBefore(), ...(author ? [author.id] : []))
 		.all<FeedRow>();
 
 	// Each post's P.S.es go at its end, as on its page.

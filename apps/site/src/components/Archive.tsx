@@ -63,7 +63,14 @@ export function ArchivePage({ archive }: { archive: Archive }) {
 				</nav>
 			)}
 
-			{archive.month !== null && <ArchiveMonth key={`${archive.year}-${archive.month}`} archive={archive} month={archive.month} />}
+			{/* Keyed on what it first shows too: back on the same month after a post settles or goes, the lines start afresh. */}
+			{archive.month !== null && (
+				<ArchiveMonth
+					key={`${archive.year}-${archive.month}~${archive.items.length}~${archive.items[0]?.id ?? ""}~${archive.next ?? ""}`}
+					archive={archive}
+					month={archive.month}
+				/>
+			)}
 		</main>
 	);
 }

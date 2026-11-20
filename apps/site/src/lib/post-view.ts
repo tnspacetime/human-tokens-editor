@@ -175,7 +175,11 @@ export function usePostView(post: PostPage): PostView {
 	const myId = you?.myComment?.id;
 	const others = [...(live?.page ?? []), ...state.more].filter((c) => c.id !== myId).map((c) => ({ ...c, mine: false }));
 	let myComment: (Comment & { mine: true; sending?: boolean }) | null = you?.myComment ? { ...you.myComment, mine: true } : null;
-	let comments = live?.comments ?? 0;
+	// Live may be older than You (stored up to 5 minutes; a new tab has no
+	// remembered copy): it can miss your comment while You has it. The count
+	// is never less than the comments on screen.
+	const shown = () => others.length + (myComment ? 1 : 0);
+	let comments = Math.max(live?.comments ?? 0, shown());
 	if (sending !== null && you) {
 		if (sending === "") {
 			if (myComment) comments--;
@@ -184,6 +188,7 @@ export function usePostView(post: PostPage): PostView {
 			if (!myComment) comments++;
 			myComment = { id: myId ?? "sending", name: you.name, body: sending, authorNote: myComment?.authorNote ?? null, createdAt: myComment?.createdAt ?? new Date().toISOString(), mine: true, sending: true };
 		}
+		comments = Math.max(comments, shown());
 	}
 
 	return {

@@ -39,7 +39,7 @@ const AHEAD = "0px 0px 1600px 0px";
 function AuthorRoute() {
 	const page = Route.useLoaderData();
 	// A new page (another author, or this one fetched again) starts the list over.
-	return <AuthorPosts key={`${page.author.handle}~${page.pieces[0]?.id ?? ""}~${page.next ?? ""}`} page={page} />;
+	return <AuthorPosts key={`${page.author.handle}~${page.pieces.length}~${page.pieces[0]?.id ?? ""}~${page.next ?? ""}`} page={page} />;
 }
 
 function AuthorPosts({ page }: { page: AuthorPage }) {
