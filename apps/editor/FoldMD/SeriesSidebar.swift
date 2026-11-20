@@ -231,9 +231,16 @@ private struct SeriesContents: View {
         }
         #if DEBUG
         // Lets tests publish the series without clicking:
-        // "md.fold.app.seriesPublish", logging where the flow stands.
-        .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.seriesPublish"))) { _ in
-            publish.start()
+        // "md.fold.app.seriesPublish" opens the publish sheet; with the
+        // object "publish", it then publishes. Each logs where the flow stands.
+        .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.seriesPublish"))) { note in
+            if note.object as? String == "publish" {
+                publish.pledged = true
+                publish.picturesPledged = true
+                publish.publish()
+            } else {
+                publish.start()
+            }
             Task {
                 try? await Task.sleep(for: .seconds(2))
                 let line = "series publish: [\(series.title)] step=\(String(describing: publish.step)) parts=\(publish.parts.map(String.init) ?? "-") pill=\(publish.pill)\n"

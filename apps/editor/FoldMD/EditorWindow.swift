@@ -64,6 +64,9 @@ struct EditorWindow: View {
     // Read so the text size buttons enable and disable as it changes.
     @AppStorage(TextSize.key) private var textSize = Double(TextSize.standard)
     @Environment(\.colorScheme) private var colorScheme
+    #if DEBUG
+    @Environment(\.openWindow) private var openWindow
+    #endif
 
     var body: some View {
         testHooks(window: content)
@@ -400,8 +403,13 @@ struct EditorWindow: View {
         }
         // Drives publishing in the window whose file is named in the object
         // "file.md|command": start (the pill), pledge, publish, author
-        // "Name,handle", unpublish, disconnect, cancel; every command then
+        // "Name,handle", reply <link>, ps <link>, unpublish, disconnect,
+        // cancel; every command then
         // logs where the flow stands ("publish: …").
+        // Window ▸ Activity, as if chosen ("md.fold.app.openActivity").
+        .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.openActivity"))) { _ in
+            if isFirstWindow { openWindow(id: "activity") }
+        }
         .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.publish"))) { note in
             guard let parts = (note.object as? String)?.split(separator: "|", maxSplits: 1).map(String.init), parts.count == 2,
                   parts[0] == fileURL?.lastPathComponent else { return }
@@ -416,7 +424,9 @@ struct EditorWindow: View {
             case "disconnect": flow.disconnect()
             case "cancel": flow.cancel()
             default:
-                if command.hasPrefix("ps ") {
+                if command.hasPrefix("reply ") {
+                    flow.respondsToLink = String(command.dropFirst(6))
+                } else if command.hasPrefix("ps ") {
                     flow.start(.postscript)
                     flow.postscriptLink = String(command.dropFirst(3))
                 } else if command.hasPrefix("author ") {

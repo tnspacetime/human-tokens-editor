@@ -333,6 +333,7 @@ final class PublishFlow {
         guard let token = PublishToken.current else { return }
         PublishToken.forget()
         author = nil
+        YourPage.remember(nil)
         Task { await SiteAPI.disconnect(token) }
     }
 
@@ -392,6 +393,7 @@ final class PublishFlow {
             let me = try await SiteAPI.me(token)
             guard step != nil else { return }
             author = me.author
+            YourPage.remember(me.author?.handle)
             if me.author == nil {
                 accountName = me.user.name
                 if authorName.isEmpty { authorName = me.user.name }
@@ -476,6 +478,7 @@ final class PublishFlow {
             defer { busy = false }
             do {
                 author = try await SiteAPI.becomeAuthor(token, name: authorName, handle: handle)
+                YourPage.remember(author?.handle)
                 await showPublish(token)
             } catch SiteAPI.Failure.notConnected {
                 PublishToken.forget()
@@ -633,6 +636,10 @@ final class PublishFlow {
         let sourceID = fixing?.sourceID ?? UUID().uuidString
         // Only a new post can respond to another.
         let respondsToID = fixing == nil ? respondsTo?.id : nil
+        // What kind of publish it is, for Activity (a fix isn't one).
+        let kind: Activity.Kind? = fixing != nil ? nil
+            : isSeries ? .series
+            : respondsTo.map { $0.yours ? .followUp : .reply } ?? .post
         let parts = self.parts
         busy = true
         error = nil
@@ -664,6 +671,7 @@ final class PublishFlow {
                                            publishedHash: Self.fingerprint(markdown, stamp), publishedAt: Date(),
                                            fixableUntil: post.fixableUntilDate)
                 keep(record, at: recordURL)
+                if let kind { Activity.shared.record(kind, title: post.title) }
                 self.fixing = nil
                 lastPost = nil
                 updateFixable()
@@ -694,6 +702,7 @@ final class PublishFlow {
             defer { busy = false }
             do {
                 _ = try await SiteAPI.addPostscript(token, postID: target.id, body: body)
+                Activity.shared.record(.postscript, title: target.title)
                 postscriptAddedTo = target
                 postscriptLink = ""
                 pledged = false
@@ -785,6 +794,11 @@ struct PublishPill: View {
         if !flow.isSeries {
             Button("Add as a P.S. to One of Your Posts…") { flow.start(.postscript) }
         }
+        Divider()
+        if YourPage.handle != nil {
+            Button("Your Page on \(PublishSite.name)") { YourPage.open() }
+        }
+        OpenActivityButton()
         if flow.isConnected {
             Divider()
             Button("Disconnect Fold MD from \(PublishSite.name)") { flow.disconnect() }

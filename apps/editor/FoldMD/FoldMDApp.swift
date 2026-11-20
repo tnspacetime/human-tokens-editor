@@ -38,5 +38,10 @@ struct FoldMDApp: App {
                 AppearanceMenu()
             }
         }
+        // What you've published from this Mac (Activity.swift): Window ▸ Activity.
+        Window("Activity", id: "activity") {
+            ActivityWindow()
+        }
+        .defaultSize(width: 620, height: 440)
     }
 }
