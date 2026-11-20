@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from "react";
+import { usePostView } from "../../lib/post-view";
 import { QUALITIES } from "../../lib/qualities";
 import type { PostPage } from "../../lib/types";
 import { CommentComposer, CommentList } from "../Comments";
@@ -16,9 +17,11 @@ import { useDismiss } from "./useDismiss";
 // to write at the foot. Once the author has added a P.S., a P.S. button
 // slides it down under the island, without losing your place, and once
 // others have written pieces in reply, a Replies button slides those down. The counts roll like the live
-// board's when they change. They're as of when the page opened (or of
-// your own last choice or comment); reloading the page brings the latest.
-export function ReaderIsland({ post }: { post: PostPage }) {
+// board's when they change. The stored page has no counts (they'd be as old
+// as it); a moment after it appears, the browser has them (at most 5 minutes
+// old) and yours, and they roll in. Your own choices show at once.
+export function ReaderIsland({ post: page }: { post: PostPage }) {
+	const post = usePostView(page);
 	const [open, setOpen] = useState<"qualities" | "comments" | "ps" | "replies" | null>(null);
 	const close = () => setOpen(null);
 	const dock = useRef<HTMLDivElement>(null);
@@ -59,12 +62,12 @@ export function ReaderIsland({ post }: { post: PostPage }) {
 					type="button"
 					className="reader-seg"
 					aria-haspopup="dialog"
-					aria-label={comments === 1 ? "1 comment" : `${comments} comments`}
+					aria-label={!post.live ? "Comments" : comments === 1 ? "1 comment" : `${comments} comments`}
 					onClick={() => setOpen("comments")}
 				>
 					<span className="signal signal-comments">
 						<QualityIcon name="comments" />
-						{comments > 0 ? <RollingNumber value={comments} /> : "Comment"}
+						{!post.live ? null : comments > 0 ? <RollingNumber value={comments} /> : "Comment"}
 					</span>
 				</button>
 

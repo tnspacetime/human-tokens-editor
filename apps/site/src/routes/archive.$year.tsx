@@ -3,7 +3,7 @@ import { ArchivePage } from "../components/Archive";
 import { share } from "../lib/share";
 import { getArchive } from "../server/site.functions";
 
-// One year of the archive, at its own address (/archive/2025).
+// One year of the archive (/archive/2025): its latest month; the others are /archive/2025/<month>.
 export const Route = createFileRoute("/archive/$year")({
 	loader: ({ params }) => {
 		const year = Number(params.year);
@@ -13,7 +13,7 @@ export const Route = createFileRoute("/archive/$year")({
 	head: ({ params }) =>
 		share({
 			title: `${params.year} · Every post`,
-			description: `Every post published on Human Tokens in ${params.year}, by month.`,
+			description: `Every post published on Human Tokens in ${params.year}, month by month.`,
 			path: `/archive/${params.year}`,
 		}),
 	component: () => <ArchivePage archive={Route.useLoaderData()} />,

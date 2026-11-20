@@ -1,21 +1,22 @@
 import { useEffect, useState } from "react";
 import { QUALITIES } from "../../lib/qualities";
-import type { Board, BoardWindow } from "../../lib/types";
-import { BoardLists, BoardToggle, WindowSwitch } from "../LiveBoard";
+import { bestOf } from "../../lib/ranking";
+import type { Ranking, RankingPeriod } from "../../lib/types";
+import { BoardLists, BoardToggle, PeriodSwitch } from "../Ranking";
 import { QualityIcon } from "../QualityIcon";
 import { Slot } from "./Slot";
 
 const TICK_MS = 3200;
 
-// The live board, carried by the island once it has scrolled off the feed:
-// a pulsing dot and each quality's leader in turn.
-export function LiveTicker({
+// The ranking, carried by the island once it has scrolled off the homepage:
+// each quality's leader in turn.
+export function RankingTicker({
 	period,
 	open,
 	sheetOpen,
 	onToggle,
 }: {
-	period: BoardWindow;
+	period: RankingPeriod;
 	open: boolean;
 	sheetOpen: boolean;
 	onToggle: () => void;
@@ -40,10 +41,9 @@ export function LiveTicker({
 				className="island-live"
 				aria-expanded={sheetOpen}
 				aria-controls="island-board"
-				aria-label="Live board"
+				aria-label={bestOf(period)}
 				onClick={onToggle}
 			>
-				<span className="live-dot" aria-hidden="true" />
 				<span className="island-ticker" aria-hidden="true">
 					{leader && (
 						<span key={`${leader.quality}-${tick}`} className="ticker-item">
@@ -58,17 +58,17 @@ export function LiveTicker({
 	);
 }
 
-// The whole board, dropped down from the island as a glass sheet.
-export function LiveSheet({ board, period, open }: { board: Board; period: BoardWindow; open: boolean }) {
+// The whole ranking, dropped down from the island as a glass sheet.
+export function RankingSheet({ ranking, period, open }: { ranking: Ranking; period: RankingPeriod; open: boolean }) {
 	const [expanded, setExpanded] = useState(false);
 	return (
 		<div id="island-board" className="island-sheet" data-open={open || undefined} inert={!open}>
 			<header className="island-sheet-head">
 				<span>
-					<span className="live-dot" aria-hidden="true" />
-					Live · {period.label}
+					{bestOf(period)}
+					<small>Ranked {ranking.cadence}</small>
 				</span>
-				<WindowSwitch board={board} selected={period.id} />
+				{ranking.periods.length > 1 && <PeriodSwitch ranking={ranking} selected={period.id} />}
 			</header>
 			<BoardLists id="island-board-lists" period={period} compact expanded={expanded} />
 			<BoardToggle

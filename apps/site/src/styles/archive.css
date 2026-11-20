@@ -1,8 +1,9 @@
 /* ---------------------------------------------------------------- archive */
 
-/* Every piece, one year at a time: the years as pills, the months as a row
-   of short names to jump between, then each month a white card of lines,
-   one per piece, its day standing out on the left like a diary's margin. */
+/* Every post, one month at a time, under the All time board: the years as
+   pills, the year's months as a row of short names, then the month a white
+   card of lines, one per post, its day standing out on the left like a
+   diary's margin. */
 .archive {
 	width: min(980px, 100% - 48px);
 	margin: 0 auto;
@@ -89,6 +90,11 @@
 
 .archive-months a:hover {
 	background: var(--glass-chip);
+}
+
+.archive-months a[aria-current="page"] {
+	background: var(--surface);
+	color: var(--ink);
 }
 
 .archive-month {

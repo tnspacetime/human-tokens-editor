@@ -1,18 +1,18 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { LiveBoard } from "../components/LiveBoard";
+import { RankingBoard } from "../components/Ranking";
 import { PostTile } from "../components/PostCard";
 import { RulesPill } from "../components/Rules";
 import { tileSizes } from "../components/tileSizes";
 import { useFeedMotion } from "../components/useFeedMotion";
 import { share } from "../lib/share";
 import type { FeedItem } from "../lib/types";
-import { getBoard, getFeed, getHome, HOME_COUNT, HOME_PAGE } from "../server/site.functions";
+import { getFeed, getHome, getRanking, HOME_COUNT, HOME_PAGE } from "../server/site.functions";
 
 export const Route = createFileRoute("/")({
 	loader: async () => {
-		const [home, board] = await Promise.all([getHome(), getBoard()]);
-		return { home, board };
+		const [home, ranking] = await Promise.all([getHome(), getRanking()]);
+		return { home, ranking };
 	},
 	head: () => share({ path: "/" }),
 	component: Feed,
@@ -28,12 +28,13 @@ let kept: { first: string; posts: FeedItem[]; next: string | null } | null = nul
 // usually there before you reach them.
 const AHEAD = "0px 0px 1600px 0px";
 
-// The homepage: the live board, then the newest pieces (up to a hundred) in
+// The homepage: the ranking, then the newest posts (up to a hundred) in
 // one continuous flow, the first ones with the page and the rest as you
-// scroll. Everything older lives in the archive, which the flow hands over
+// scroll. All of it is stored 5 minutes (lib/keep.ts, HOME_KEEP), so the
+// counts on its tiles are at most that old. Everything older lives in the archive, which the flow hands over
 // to at its end; dates are the archive's business.
 function Feed() {
-	const { home, board } = Route.useLoaderData();
+	const { home, ranking } = Route.useLoaderData();
 	const first = home.items[0]?.id ?? "";
 	const resumed = kept?.first === first ? kept : null;
 	const [posts, setPosts] = useState<FeedItem[]>(resumed?.posts ?? home.items);
@@ -93,7 +94,7 @@ function Feed() {
 		<main className="feed">
 			<h1 className="visually-hidden">Human Tokens</h1>
 			<RulesPill />
-			<LiveBoard board={board} />
+			<RankingBoard ranking={ranking} />
 			<header className="section-head">
 				<h2>Latest</h2>
 				<p>Every word written by a person. No AI wrote or rewrote any of it.</p>
@@ -125,12 +126,8 @@ function Feed() {
 					) : (
 						<Link to="/archive" className="feed-archive">
 							<span className="feed-archive-text">
-								<span className="feed-archive-title">Every post</span>
-								<span className="feed-archive-line">
-									{home.total > posts.length
-										? `${home.total - posts.length} more, ${home.total} in all, by year and month`
-										: `All ${home.total}, by year and month`}
-								</span>
+								<span className="feed-archive-title">The archive</span>
+								<span className="feed-archive-line">Every post, by year and month</span>
 							</span>
 							<svg className="feed-archive-chevron" viewBox="0 0 8 14" aria-hidden="true">
 								<path d="M1.5 1.5 6.5 7l-5 5.5" />

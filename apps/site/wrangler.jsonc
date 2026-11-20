@@ -38,7 +38,12 @@
 		{ "name": "WRITING", "namespace_id": "1005", "simple": { "limit": 20, "period": 60 } }
 	],
 	// Every hour, on the hour: clear out expired sign-ins and connect codes,
-	// and pictures never published (src/server/cleanup.server.ts).
-	"triggers": { "crons": ["0 * * * *"] },
+	// and pictures never published (src/server/cleanup.server.ts). Every
+	// minute: send the queued clearings of stored pages (cache.server.ts);
+	// Cloudflare allows them per minute.
+	"triggers": { "crons": ["0 * * * *", "* * * * *"] },
+	// Workers Cache, in front of the Worker: pages that say so are kept and
+	// answered without running it (src/server/cache.server.ts says which).
+	"cache": { "enabled": true },
 	"observability": { "enabled": true }
 }

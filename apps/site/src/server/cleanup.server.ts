@@ -1,4 +1,5 @@
 import { sweepPictures } from "./images.server";
+import { oldestTallies } from "./ranking.server";
 import { db } from "./rows.server";
 
 // Run every hour by Cloudflare (wrangler.jsonc, "triggers"; src/server.ts):
@@ -8,15 +9,19 @@ import { db } from "./rows.server";
 //   device_codes   codes for connecting Fold MD that were never used in time
 //   verifications  the short-lived values sign-in uses along the way
 //   pictures       uploaded but never published, after a day
+//   tallies        the ranking's: hourly ones after 2 days, daily after a month (ranking.server.ts)
 //
 // Expiry dates are stored as ISO text ("2026-11-19T21:50:03.813Z"), so they
 // compare as plain text.
 export async function cleanUp(now = new Date()): Promise<Record<string, number>> {
 	const iso = now.toISOString();
-	const [sessions, deviceCodes, verifications] = await db().batch([
+	const oldest = oldestTallies(now.getTime());
+	const [sessions, deviceCodes, verifications, hours, days] = await db().batch([
 		db().prepare("DELETE FROM sessions WHERE expires_at < ?").bind(iso),
 		db().prepare("DELETE FROM device_codes WHERE expires_at < ?").bind(iso),
 		db().prepare("DELETE FROM verifications WHERE expires_at < ?").bind(iso),
+		db().prepare("DELETE FROM reaction_hours WHERE hour < ? OR n <= 0").bind(oldest.hour),
+		db().prepare("DELETE FROM reaction_days WHERE day < ? OR n <= 0").bind(oldest.day),
 	]);
 	// Fifty pictures a sweep; a backlog goes in a few rounds.
 	let pictures = 0;
@@ -29,6 +34,7 @@ export async function cleanUp(now = new Date()): Promise<Record<string, number>>
 		sessions: sessions.meta.changes,
 		deviceCodes: deviceCodes.meta.changes,
 		verifications: verifications.meta.changes,
+		tallies: hours.meta.changes + days.meta.changes,
 		pictures,
 	};
 	console.log("cleanup", counts);

@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate, useRouter } from "@tanstack/react-r
 import { type FormEvent, useState } from "react";
 import { SignInPrompt } from "../components/SignIn";
 import { authClient } from "../lib/auth-client";
+import { refreshYou } from "../lib/you";
 import { type ConnectState, decideConnect, getConnect } from "../server/connect.functions";
 
 // Where Fold MD sends you to connect it to your account: it shows a short
@@ -118,6 +119,7 @@ function Decide({
 	async function signOut() {
 		setBusy(true);
 		await authClient.signOut();
+		await refreshYou();
 		await router.invalidate();
 		setBusy(false);
 	}

@@ -1,8 +1,7 @@
-import { useRouter } from "@tanstack/react-router";
 import { type FormEvent, useId, useState } from "react";
 import { failure } from "../lib/limits";
-import type { Comment, PostPage } from "../lib/types";
-import { saveAuthorNoteFn, saveCommentFn } from "../server/site.functions";
+import { loadMoreComments, saveMyComment, saveNote as sendNote } from "../lib/post-view";
+import type { Comment, PostView } from "../lib/types";
 import { formatDate } from "./PostCard";
 import { SignInPrompt } from "./SignIn";
 
@@ -12,8 +11,24 @@ import { SignInPrompt } from "./SignIn";
 //
 // In the comments sheet: the others' comments in the middle (CommentList),
 // and yours, or the box to write it, pinned at the foot (CommentComposer).
-export function CommentList({ post }: { post: PostPage }) {
+export function CommentList({ post }: { post: PostView }) {
 	const others = post.commentList.filter((c) => !c.mine);
+	const [loading, setLoading] = useState(false);
+	const [failed, setFailed] = useState(false);
+
+	// Comments come a page at a time (a popular post can have thousands).
+	async function more() {
+		setLoading(true);
+		setFailed(false);
+		try {
+			await loadMoreComments(post.id);
+		} catch {
+			setFailed(true);
+		} finally {
+			setLoading(false);
+		}
+	}
+
 	return (
 		<>
 			<p className="sheet-lede">
@@ -24,21 +39,25 @@ export function CommentList({ post }: { post: PostPage }) {
 			) : (
 				<ul className="comment-list">
 					{others.map((comment) => (
-						<CommentItem key={comment.id} comment={comment} isAuthor={post.viewer?.isAuthor ?? false} authorName={post.author.name} />
+						<CommentItem key={comment.id} postId={post.id} comment={comment} isAuthor={post.viewer?.isAuthor ?? false} authorName={post.author.name} />
 					))}
 				</ul>
+			)}
+			{post.moreComments && (
+				<button type="button" className="link-button comments-more" onClick={more} disabled={loading}>
+					{loading ? "Loading…" : failed ? "Couldn't load more. Try again" : "Show more comments"}
+				</button>
 			)}
 		</>
 	);
 }
 
-export function CommentComposer({ post }: { post: PostPage }) {
+export function CommentComposer({ post }: { post: PostView }) {
 	if (!post.viewer) return <SignInPrompt action="comment" />;
 	return <CommentForm post={post} viewerName={post.viewer.name} mine={post.commentList.find((c) => c.mine)} />;
 }
 
-function CommentForm({ post, viewerName, mine }: { post: PostPage; viewerName: string; mine?: Comment }) {
-	const router = useRouter();
+function CommentForm({ post, viewerName, mine }: { post: PostView; viewerName: string; mine?: Comment & { sending?: boolean } }) {
 	const [editing, setEditing] = useState(!mine);
 	const [body, setBody] = useState(mine?.body ?? "");
 	const [saving, setSaving] = useState(false);
@@ -50,13 +69,15 @@ function CommentForm({ post, viewerName, mine }: { post: PostPage; viewerName: s
 		if (saving) return;
 		setSaving(true);
 		setError(null);
+		// It shows at once (marked as sending); if the site says no, your
+		// words come back into the box with the reason.
+		setEditing(!text.trim());
 		try {
-			await saveCommentFn({ data: { id: post.id, body: text } });
-			await router.invalidate();
-			setEditing(!text.trim());
+			await saveMyComment(post.id, text);
 			if (!text.trim()) setBody("");
 		} catch (problem) {
 			setError(failure(problem, text.trim() ? "Your comment didn't save. Try again." : "It didn't delete. Try again."));
+			if (text.trim()) setEditing(true);
 		} finally {
 			setSaving(false);
 		}
@@ -75,6 +96,11 @@ function CommentForm({ post, viewerName, mine }: { post: PostPage; viewerName: s
 				<CommentHeader name={`${mine.name} (you)`} date={mine.createdAt} />
 				<p className="comment-body">{mine.body}</p>
 				{mine.authorNote && <AuthorNote name={post.author.name} note={mine.authorNote} />}
+				{mine.sending ? (
+					<p className="comment-sending" aria-live="polite">
+						Sending…
+					</p>
+				) : (
 				<div className="comment-actions">
 					<button type="button" className="link-button" onClick={() => setEditing(true)}>
 						Edit
@@ -83,6 +109,7 @@ function CommentForm({ post, viewerName, mine }: { post: PostPage; viewerName: s
 						Delete
 					</button>
 				</div>
+				)}
 				{error && (
 					<p className="form-error" role="alert">
 						{error}
@@ -124,8 +151,12 @@ function CommentForm({ post, viewerName, mine }: { post: PostPage; viewerName: s
 	);
 }
 
-function CommentItem({ comment, isAuthor, authorName }: { comment: Comment; isAuthor: boolean; authorName: string }) {
-	const router = useRouter();
+function CommentItem({
+	postId,
+	comment,
+	isAuthor,
+	authorName,
+}: { postId: string; comment: Comment; isAuthor: boolean; authorName: string }) {
 	const [writing, setWriting] = useState(false);
 	const [note, setNote] = useState(comment.authorNote ?? "");
 	const [saving, setSaving] = useState(false);
@@ -137,8 +168,7 @@ function CommentItem({ comment, isAuthor, authorName }: { comment: Comment; isAu
 		setSaving(true);
 		setError(null);
 		try {
-			await saveAuthorNoteFn({ data: { commentId: comment.id, note } });
-			await router.invalidate();
+			await sendNote(postId, comment.id, note);
 			setWriting(false);
 		} catch (problem) {
 			setError(failure(problem, "Your note didn't save. Try again."));

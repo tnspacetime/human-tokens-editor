@@ -848,6 +848,19 @@ html:has(dialog.sheet[open]) {
 	justify-content: flex-start;
 }
 
+/* Your comment, shown before the site has it. */
+.comment-sending {
+	margin: 12px 0 0;
+	color: var(--muted);
+	font-size: 15px;
+}
+
+/* Comments come a page at a time. */
+.comments-more {
+	display: block;
+	margin: 20px auto 4px;
+}
+
 button.primary {
 	padding: 9px 20px;
 	background: var(--accent);

@@ -1,4 +1,5 @@
-import { Link, useLoaderData } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
+import { useSyncExternalStore } from "react";
 import { QUALITIES } from "../lib/qualities";
 import type { FeedItem } from "../lib/types";
 import { QualityIcon } from "./QualityIcon";
@@ -10,11 +11,25 @@ export function formatDate(iso: string) {
 
 // On a tile, the date is short: "November 9", with the year only when it
 // isn't this year's.
-export function tileDate(iso: string, now = new Date()) {
+export function tileDate(iso: string, thisYear: number | null) {
 	const date = new Date(iso);
-	const sameYear = date.getUTCFullYear() === now.getUTCFullYear();
+	const sameYear = date.getUTCFullYear() === thisYear;
 	return date.toLocaleDateString("en", { month: "long", day: "numeric", ...(sameYear ? {} : { year: "numeric" }), timeZone: "UTC" });
 }
+
+/**
+ * This year, from the reader's clock. The page is kept by Cloudflare for
+ * everyone, so it can't know: while it's made (and first drawn) every date
+ * has its year; once the browser is up, this year's lose it.
+ */
+function useThisYear() {
+	return useSyncExternalStore(
+		noChange,
+		() => new Date().getUTCFullYear(),
+		() => null,
+	);
+}
+const noChange = () => () => {};
 
 export function Byline({ post }: { post: FeedItem }) {
 	return (
@@ -42,8 +57,7 @@ export type TileSize = "hero" | "half" | "third";
 // it.
 // `eyebrow` replaces the author's name (on their own page, which needs no name).
 export function PostTile({ post, size, eyebrow = post.author.name }: { post: FeedItem; size: TileSize; eyebrow?: string | null }) {
-	// "This year" as the server saw it, so the browser draws the same date.
-	const { now } = useLoaderData({ from: "__root__" });
+	const thisYear = useThisYear();
 	return (
 		<Link to="/p/$id/$slug" params={{ id: post.id, slug: post.slug }} className={`tile tile-${size}`}>
 			<div className="tile-cover">
@@ -72,7 +86,7 @@ export function PostTile({ post, size, eyebrow = post.author.name }: { post: Fee
 				<h2 className="tile-headline">{post.title}</h2>
 				<div className="tile-foot">
 					<p className="tile-stamp">
-						<time dateTime={post.publishedAt}>{tileDate(post.publishedAt, new Date(now))}</time>
+						<time dateTime={post.publishedAt}>{tileDate(post.publishedAt, thisYear)}</time>
 						<span className="tile-stamp-dot" aria-hidden="true" />
 						{post.minutes} min read
 					</p>

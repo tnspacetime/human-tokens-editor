@@ -5,6 +5,8 @@ import { SeriesIsland } from "../components/island/SeriesIsland";
 import { Byline } from "../components/PostCard";
 import { Postscripts } from "../components/Postscripts";
 import { Replies } from "../components/Replies";
+import { cacheHeaders, keepPost } from "../lib/keep";
+import { usePostView } from "../lib/post-view";
 import { share } from "../lib/share";
 import { getPost } from "../server/site.functions";
 
@@ -14,7 +16,15 @@ export const Route = createFileRoute("/p/$id/$slug")({
 	loader: async ({ params }) => {
 		const post = await getPost({ data: { id: params.id, slug: params.slug } });
 		if ("movedTo" in post) {
-			throw redirect({ to: "/p/$id/$slug", params: { id: params.id, slug: post.movedTo }, statusCode: 301 });
+			// Kept by Cloudflare like the post (getPost): its headers don't pass through a redirect on their own.
+			// Temporary (302) while the post can be fixed: the slug can still change, even back, and
+			// browsers and search engines remember a permanent one. Permanent once it's settled.
+			throw redirect({
+				to: "/p/$id/$slug",
+				params: { id: params.id, slug: post.movedTo },
+				statusCode: post.fixable ? 302 : 301,
+				headers: cacheHeaders(keepPost(params.id, post.fixable)),
+			});
 		}
 		return post;
 	},
@@ -32,7 +42,8 @@ export const Route = createFileRoute("/p/$id/$slug")({
 });
 
 function PostRoute() {
-	const post = Route.useLoaderData();
+	// The page is the same for everyone; yours (Delete, on your own post) comes after.
+	const post = usePostView(Route.useLoaderData());
 	// The piece's own "# Title" becomes the page's headline (what readers
 	// made of it rides in the island, see ReaderIsland): its first one,
 	// wherever it is (a picture or a quote can come before it).

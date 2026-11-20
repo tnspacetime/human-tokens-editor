@@ -58,6 +58,10 @@ export const auth = betterAuth({
 		},
 		expiresIn: 30 * DAY,
 		updateAge: DAY,
+		// The session is also kept, signed, in a cookie for 5 minutes, so most
+		// "who's here?" checks skip the database. (A session ended elsewhere
+		// still works here for up to 5 minutes.)
+		cookieCache: { enabled: true, maxAge: 5 * 60 },
 	},
 	account: {
 		modelName: "accounts",
@@ -134,7 +138,12 @@ export function currentUser(): Promise<User | null> {
 	return user;
 }
 
+/** Better Auth's session cookie (cookiePrefix "ht"; "__Secure-" in front on https). */
+const SESSION_COOKIE = /(?:^|;\s*)(?:__Secure-)?ht\.session_token=/;
+
 async function lookUp(headers: Headers): Promise<User | null> {
+	// No session cookie and no bearer token: signed out, without asking the database.
+	if (!SESSION_COOKIE.test(headers.get("cookie") ?? "") && !headers.get("authorization")) return null;
 	const session = await auth.api.getSession({ headers });
 	if (!session) return null;
 	const author = await db()

@@ -3,7 +3,7 @@ import { ArchivePage } from "../components/Archive";
 import { share } from "../lib/share";
 import { getArchive } from "../server/site.functions";
 
-// The archive opens on the latest year.
+// The archive opens on the latest month, with the All time board on top.
 export const Route = createFileRoute("/archive/")({
 	loader: () => getArchive({ data: {} }),
 	head: () => share({ title: "Every post", description: "Every post on Human Tokens, by year and month.", path: "/archive" }),

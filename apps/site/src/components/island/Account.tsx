@@ -1,29 +1,28 @@
-import { Link, useRouter } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { authClient } from "../../lib/auth-client";
-import { SignInLinks, type SignInOptions } from "../SignIn";
+import { forgetYours } from "../../lib/post-view";
+import { refreshYou, type You } from "../../lib/you";
+import { SignInLinks } from "../SignIn";
 import { FoldConnections } from "./FoldConnections";
 import { Slot } from "./Slot";
 
-export type Viewer = {
-	user: { name: string; image: string | null; author: { handle: string; name: string } | null } | null;
-	signIn: SignInOptions;
-};
-
 // You. Signed out, the panel offers the ways in (Google, GitHub); signed
 // in, it shows who you are (an author's name opens their page), where Fold
-// MD is connected (to disconnect a Mac), and lets you sign out.
-export function Account({ viewer, open, onToggle }: { viewer: Viewer; open: boolean; onToggle: () => void }) {
-	const router = useRouter();
+// MD is connected (to disconnect a Mac), and lets you sign out. Until the
+// site has said who you are (just after the page appears), it's the plain
+// figure, with nothing to open.
+export function Account({ you, open, onToggle }: { you: You | null; open: boolean; onToggle: () => void }) {
 	const [leaving, setLeaving] = useState(false);
-	const { user } = viewer;
+	const user = you?.user ?? null;
 
 	async function signOut() {
 		setLeaving(true);
 		try {
 			await authClient.signOut();
 			onToggle();
-			await router.invalidate();
+			await refreshYou();
+			forgetYours();
 		} finally {
 			setLeaving(false);
 		}
@@ -38,6 +37,7 @@ export function Account({ viewer, open, onToggle }: { viewer: Viewer; open: bool
 				aria-expanded={open}
 				aria-controls="island-account"
 				aria-label={user ? `You: ${user.name}` : "Sign in"}
+				disabled={!you}
 				onClick={onToggle}
 			>
 				{user?.image ? (
@@ -73,7 +73,7 @@ export function Account({ viewer, open, onToggle }: { viewer: Viewer; open: bool
 					) : (
 						<>
 							<span className="island-who">Sign in with</span>
-							<SignInLinks options={viewer.signIn} className="island-sign-in" />
+							{you && <SignInLinks options={you.signIn} className="island-sign-in" />}
 						</>
 					)}
 				</div>

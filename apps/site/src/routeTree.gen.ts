@@ -23,8 +23,10 @@ import { Route as ArchiveYearRouteImport } from './routes/archive.$year'
 import { Route as AuthDevRouteImport } from './routes/auth.dev'
 import { Route as AuthErrorRouteImport } from './routes/auth.error'
 import { Route as ImgHashRouteImport } from './routes/img.$hash'
+import { Route as SitemapChar123partChar125DotxmlRouteImport } from './routes/sitemap.{$part}[.]xml'
 import { Route as ApiAuthSplatRouteImport } from './routes/api.auth.$'
 import { Route as ApiFoldSplatRouteImport } from './routes/api.fold.$'
+import { Route as ArchiveYearMonthRouteImport } from './routes/archive.$year_.$month'
 import { Route as PIdSlugRouteImport } from './routes/p.$id.$slug'
 
 const IndexRoute = IndexRouteImport.update({
@@ -98,6 +100,12 @@ const ImgHashRoute = ImgHashRouteImport.update({
   path: '/img/$hash',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SitemapChar123partChar125DotxmlRoute =
+  SitemapChar123partChar125DotxmlRouteImport.update({
+    id: '/sitemap/{$part}.xml',
+    path: '/sitemap/{$part}.xml',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -106,6 +114,11 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
 const ApiFoldSplatRoute = ApiFoldSplatRouteImport.update({
   id: '/api/fold/$',
   path: '/api/fold/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ArchiveYearMonthRoute = ArchiveYearMonthRouteImport.update({
+  id: '/archive/$year_/$month',
+  path: '/archive/$year/$month',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PIdSlugRoute = PIdSlugRouteImport.update({
@@ -128,9 +141,11 @@ export interface FileRoutesByFullPath {
   '/auth/dev': typeof AuthDevRoute
   '/auth/error': typeof AuthErrorRoute
   '/img/$hash': typeof ImgHashRoute
+  '/sitemap/{$part}.xml': typeof SitemapChar123partChar125DotxmlRoute
   '/archive/': typeof ArchiveIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/fold/$': typeof ApiFoldSplatRoute
+  '/archive/$year/$month': typeof ArchiveYearMonthRoute
   '/p/$id/$slug': typeof PIdSlugRoute
 }
 export interface FileRoutesByTo {
@@ -147,9 +162,11 @@ export interface FileRoutesByTo {
   '/auth/dev': typeof AuthDevRoute
   '/auth/error': typeof AuthErrorRoute
   '/img/$hash': typeof ImgHashRoute
+  '/sitemap/{$part}.xml': typeof SitemapChar123partChar125DotxmlRoute
   '/archive': typeof ArchiveIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/fold/$': typeof ApiFoldSplatRoute
+  '/archive/$year/$month': typeof ArchiveYearMonthRoute
   '/p/$id/$slug': typeof PIdSlugRoute
 }
 export interface FileRoutesById {
@@ -167,9 +184,11 @@ export interface FileRoutesById {
   '/auth/dev': typeof AuthDevRoute
   '/auth/error': typeof AuthErrorRoute
   '/img/$hash': typeof ImgHashRoute
+  '/sitemap/{$part}.xml': typeof SitemapChar123partChar125DotxmlRoute
   '/archive/': typeof ArchiveIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/fold/$': typeof ApiFoldSplatRoute
+  '/archive/$year_/$month': typeof ArchiveYearMonthRoute
   '/p/$id/$slug': typeof PIdSlugRoute
 }
 export interface FileRouteTypes {
@@ -188,9 +207,11 @@ export interface FileRouteTypes {
     | '/auth/dev'
     | '/auth/error'
     | '/img/$hash'
+    | '/sitemap/{$part}.xml'
     | '/archive/'
     | '/api/auth/$'
     | '/api/fold/$'
+    | '/archive/$year/$month'
     | '/p/$id/$slug'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -207,9 +228,11 @@ export interface FileRouteTypes {
     | '/auth/dev'
     | '/auth/error'
     | '/img/$hash'
+    | '/sitemap/{$part}.xml'
     | '/archive'
     | '/api/auth/$'
     | '/api/fold/$'
+    | '/archive/$year/$month'
     | '/p/$id/$slug'
   id:
     | '__root__'
@@ -226,9 +249,11 @@ export interface FileRouteTypes {
     | '/auth/dev'
     | '/auth/error'
     | '/img/$hash'
+    | '/sitemap/{$part}.xml'
     | '/archive/'
     | '/api/auth/$'
     | '/api/fold/$'
+    | '/archive/$year_/$month'
     | '/p/$id/$slug'
   fileRoutesById: FileRoutesById
 }
@@ -246,9 +271,11 @@ export interface RootRouteChildren {
   AuthDevRoute: typeof AuthDevRoute
   AuthErrorRoute: typeof AuthErrorRoute
   ImgHashRoute: typeof ImgHashRoute
+  SitemapChar123partChar125DotxmlRoute: typeof SitemapChar123partChar125DotxmlRoute
   ArchiveIndexRoute: typeof ArchiveIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiFoldSplatRoute: typeof ApiFoldSplatRoute
+  ArchiveYearMonthRoute: typeof ArchiveYearMonthRoute
   PIdSlugRoute: typeof PIdSlugRoute
 }
 
@@ -352,6 +379,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ImgHashRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sitemap/{$part}.xml': {
+      id: '/sitemap/{$part}.xml'
+      path: '/sitemap/{$part}.xml'
+      fullPath: '/sitemap/{$part}.xml'
+      preLoaderRoute: typeof SitemapChar123partChar125DotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -364,6 +398,13 @@ declare module '@tanstack/react-router' {
       path: '/api/fold/$'
       fullPath: '/api/fold/$'
       preLoaderRoute: typeof ApiFoldSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/archive/$year_/$month': {
+      id: '/archive/$year_/$month'
+      path: '/archive/$year/$month'
+      fullPath: '/archive/$year/$month'
+      preLoaderRoute: typeof ArchiveYearMonthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/p/$id/$slug': {
@@ -390,9 +431,11 @@ const rootRouteChildren: RootRouteChildren = {
   AuthDevRoute: AuthDevRoute,
   AuthErrorRoute: AuthErrorRoute,
   ImgHashRoute: ImgHashRoute,
+  SitemapChar123partChar125DotxmlRoute: SitemapChar123partChar125DotxmlRoute,
   ArchiveIndexRoute: ArchiveIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiFoldSplatRoute: ApiFoldSplatRoute,
+  ArchiveYearMonthRoute: ArchiveYearMonthRoute,
   PIdSlugRoute: PIdSlugRoute,
 }
 export const routeTree = rootRouteImport

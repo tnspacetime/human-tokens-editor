@@ -1,6 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import type { PostPage } from "../lib/types";
+import type { PostView } from "../lib/types";
 import { deletePostFn } from "../server/site.functions";
 import { Sheet } from "./Sheet";
 
@@ -8,7 +8,7 @@ const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : 
 
 // At the foot of your own piece: Delete, after a sheet that says what goes
 // with it. Then you land on your page, without it.
-export function DeletePiece({ post }: { post: PostPage }) {
+export function DeletePiece({ post }: { post: PostView }) {
 	const navigate = useNavigate();
 	const [asking, setAsking] = useState(false);
 	const [busy, setBusy] = useState(false);

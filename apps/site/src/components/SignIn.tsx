@@ -1,6 +1,7 @@
 import { useLoaderData, useLocation } from "@tanstack/react-router";
 import { useState } from "react";
 import { authClient } from "../lib/auth-client";
+import { markSigningIn } from "../lib/you";
 
 export type SignInOptions = { google: boolean; github: boolean; dev: boolean };
 
@@ -14,6 +15,7 @@ export function SignInLinks({ options, className }: { options: SignInOptions; cl
 
 	async function go(provider: "google" | "github") {
 		setGoing(true);
+		markSigningIn();
 		const { error } = await authClient.signIn.social({ provider, callbackURL: back, errorCallbackURL: "/auth/error" });
 		if (error) setGoing(false);
 	}
@@ -46,7 +48,7 @@ export function SignInLinks({ options, className }: { options: SignInOptions; cl
 
 /** In place of what a signed-out visitor can't do yet: the ways in. */
 export function SignInPrompt({ action }: { action: string }) {
-	const { signIn } = useLoaderData({ from: "__root__" });
+	const signIn = useLoaderData({ from: "__root__" });
 	return (
 		<div className="sign-in-prompt">
 			<p>Sign in to {action}.</p>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { THEME_COOKIE, THEMES, type Theme } from "../../lib/theme";
+import { savedTheme, THEME_COOKIE, THEMES, type Theme } from "../../lib/theme";
 import { Slot } from "./Slot";
 
 const LABELS: Record<Theme, string> = { system: "System", light: "Light", dark: "Dark" };
@@ -11,21 +11,11 @@ function apply(theme: Theme) {
 }
 
 // The half-filled circle, and System · Light · Dark when it's open. The
-// choice is kept in a cookie so the server renders it with no flash; the
-// colours fade across.
-export function Appearance({
-	initial,
-	open,
-	onToggle,
-	onClose,
-}: {
-	initial: Theme;
-	open: boolean;
-	onToggle: () => void;
-	onClose: () => void;
-}) {
-	const [theme, setTheme] = useState(initial);
-	useEffect(() => setTheme(initial), [initial]);
+// choice is kept in a cookie (lib/theme.ts puts it on the page before it's
+// drawn); the colours fade across.
+export function Appearance({ open, onToggle, onClose }: { open: boolean; onToggle: () => void; onClose: () => void }) {
+	const [theme, setTheme] = useState<Theme>("system");
+	useEffect(() => setTheme(savedTheme()), []);
 
 	function choose(next: Theme) {
 		onClose();

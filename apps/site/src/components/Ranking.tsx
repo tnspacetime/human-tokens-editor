@@ -1,16 +1,16 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { currentWindow, live, useLive } from "../lib/live";
+import { bestOf, currentPeriod, rankingState, SHORT, useRankingState } from "../lib/ranking";
 import { QUALITIES } from "../lib/qualities";
-import type { Board, BoardEntry, BoardWindow } from "../lib/types";
+import type { Ranking, RankingEntry, RankingPeriod } from "../lib/types";
 import { QualityIcon } from "./QualityIcon";
-import { RollingNumber } from "./RollingNumber";
 
-// The live board at the top of the feed: what came in and what readers made
-// of it, over the last hour, 12 hours, day or week, with the top three
-// pieces for each quality, which open out into the top ten. Scroll past it and it folds into the island.
-export function LiveBoard({ board }: { board: Board }) {
-	const state = useLive();
+// The ranking at the top of the homepage: the posts readers chose most for
+// each quality, Today, This week or This month, worked out once an hour
+// (server/ranking.server.ts). The top three for each quality open out into
+// the top ten. Scroll past it and it folds into the island.
+export function RankingBoard({ ranking }: { ranking: Ranking }) {
+	const state = useRankingState();
 	const section = useRef<HTMLElement>(null);
 	const [expanded, setExpanded] = useState(false);
 
@@ -22,11 +22,11 @@ export function LiveBoard({ board }: { board: Board }) {
 		if (expanded && top < 0) section.current?.scrollIntoView({ behavior: "smooth", block: "start" });
 	}
 
-	// Hand the board to the island; take it back when leaving the feed.
+	// Hand the ranking to the island; take it back when leaving the homepage.
 	useEffect(() => {
-		live.set({ board, window: live.get().board ? live.get().window : board.initial });
-		return () => live.set({ board: null, docked: false, sheet: false });
-	}, [board]);
+		rankingState.set({ ranking, period: rankingState.get().ranking ? rankingState.get().period : ranking.initial });
+		return () => rankingState.set({ ranking: null, docked: false, sheet: false });
+	}, [ranking]);
 
 	// Docked once the board has gone up under the island.
 	useEffect(() => {
@@ -35,7 +35,7 @@ export function LiveBoard({ board }: { board: Board }) {
 		const observer = new IntersectionObserver(
 			([entry]) => {
 				const docked = !entry.isIntersecting && entry.boundingClientRect.top < 0;
-				if (docked !== live.get().docked) live.set({ docked, ...(docked ? {} : { sheet: false }) });
+				if (docked !== rankingState.get().docked) rankingState.set({ docked, ...(docked ? {} : { sheet: false }) });
 			},
 			{ rootMargin: "-72px 0px 0px 0px", threshold: 0 },
 		);
@@ -43,22 +43,17 @@ export function LiveBoard({ board }: { board: Board }) {
 		return () => observer.disconnect();
 	}, []);
 
-	const shown = currentWindow(state) ?? board.windows.find((w) => w.id === board.initial) ?? board.windows[0];
+	const shown = currentPeriod(state) ?? ranking.periods.find((p) => p.id === ranking.initial) ?? ranking.periods[0];
 	return (
-		<section ref={section} className="live" aria-labelledby="live-title">
+		<section ref={section} className="live" aria-labelledby="ranking-title">
 			<header className="section-head">
-				<h2 id="live-title">
-					<span className="live-dot" aria-hidden="true" />
-					Live
-				</h2>
-				<WindowSwitch board={board} selected={shown.id} />
+				<div className="ranking-title">
+					<h2 id="ranking-title">{bestOf(shown)}</h2>
+					<p>Ranked {ranking.cadence}</p>
+				</div>
+				{ranking.periods.length > 1 && <PeriodSwitch ranking={ranking} selected={shown.id} />}
 			</header>
 			<div className="live-panel">
-				<dl className="live-stats">
-					<Stat value={shown.reactions} label={shown.reactions === 1 ? "reaction" : "reactions"} />
-					<Stat value={shown.readers} label={shown.readers === 1 ? "reader reacting" : "readers reacting"} />
-					<Stat value={shown.pieces} label={shown.pieces === 1 ? "post published" : "posts published"} />
-				</dl>
 				<BoardLists id="board-lists" period={shown} expanded={expanded} />
 				<BoardToggle period={shown} expanded={expanded} onToggle={toggle} controls="board-lists" />
 			</div>
@@ -66,34 +61,23 @@ export function LiveBoard({ board }: { board: Board }) {
 	);
 }
 
-export function WindowSwitch({ board, selected }: { board: Board; selected: BoardWindow["id"] }) {
-	const index = board.windows.findIndex((w) => w.id === selected);
+export function PeriodSwitch({ ranking, selected }: { ranking: Ranking; selected: RankingPeriod["id"] }) {
+	const index = ranking.periods.findIndex((p) => p.id === selected);
 	return (
-		<div className="window-switch" role="radiogroup" aria-label="Time window" style={{ ["--at" as string]: index }}>
+		<div className="window-switch" role="radiogroup" aria-label="Period" style={{ ["--at" as string]: index }}>
 			<span className="window-thumb" aria-hidden="true" />
-			{board.windows.map((w) => (
+			{ranking.periods.map((p) => (
 				<button
-					key={w.id}
+					key={p.id}
 					type="button"
 					role="radio"
-					aria-checked={w.id === selected}
-					aria-label={w.label}
-					onClick={() => live.set({ window: w.id })}
+					aria-checked={p.id === selected}
+					aria-label={p.label}
+					onClick={() => rankingState.set({ period: p.id })}
 				>
-					{w.id}
+					{SHORT[p.id]}
 				</button>
 			))}
-		</div>
-	);
-}
-
-function Stat({ value, label }: { value: number; label: string }) {
-	return (
-		<div className="stat">
-			<dt>{label}</dt>
-			<dd>
-				<RollingNumber value={value} />
-			</dd>
 		</div>
 	);
 }
@@ -106,7 +90,7 @@ export function BoardToggle({
 	onToggle,
 	controls,
 }: {
-	period: BoardWindow;
+	period: RankingPeriod;
 	expanded: boolean;
 	onToggle: () => void;
 	controls: string;
@@ -135,7 +119,7 @@ export function BoardLists({
 	expanded = false,
 	id,
 }: {
-	period: BoardWindow;
+	period: RankingPeriod;
 	compact?: boolean;
 	expanded?: boolean;
 	id?: string;
@@ -150,7 +134,7 @@ export function BoardLists({
 			{QUALITIES.map((quality) => {
 				const entries = period.top[quality.id];
 				const most = entries[0]?.votes ?? 1;
-				const row = (entry: BoardEntry, rank: number, shown: boolean, delay: number) => (
+				const row = (entry: RankingEntry, rank: number, shown: boolean, delay: number) => (
 					<li key={entry.post.id} style={{ ["--rank" as string]: delay }}>
 						<Link to="/p/$id/$slug" params={{ id: entry.post.id, slug: entry.post.slug }}>
 							<span className="board-rank">{rank + 1}</span>

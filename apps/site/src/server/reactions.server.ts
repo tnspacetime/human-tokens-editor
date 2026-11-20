@@ -1,6 +1,5 @@
 import type { Quality } from "../lib/qualities";
 import type { User } from "./auth.server";
-import { forgetBoard } from "./board.server";
 import { db } from "./rows.server";
 
 /** Choose a quality for a piece, or un-choose it if this person already had. */
@@ -17,5 +16,4 @@ export async function toggleQuality(postId: string, quality: Quality, user: User
 			.bind(postId, user.id, quality, new Date().toISOString())
 			.run();
 	}
-	forgetBoard();
 }

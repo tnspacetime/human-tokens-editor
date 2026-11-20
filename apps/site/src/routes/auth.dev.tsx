@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { type FormEvent, useState } from "react";
 import { authClient } from "../lib/auth-client";
+import { markSigningIn } from "../lib/you";
 import { getDevSignIn } from "../server/site.functions";
 
 // DEVELOPMENT ONLY: stands in for Google and GitHub on localhost until real
@@ -32,6 +33,7 @@ function DevSignIn() {
 			setBusy(false);
 			return;
 		}
+		markSigningIn();
 		// A full load, so every part of the page sees you signed in.
 		window.location.assign(back?.startsWith("/") && !back.startsWith("//") ? back : "/");
 	}

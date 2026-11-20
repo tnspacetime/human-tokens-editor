@@ -1,13 +1,16 @@
-import { createRootRoute, HeadContent, Link, Outlet, Scripts } from "@tanstack/react-router";
+import { createRootRoute, HeadContent, Link, Outlet, Scripts, useRouter } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { BrandMark } from "../components/BrandMark";
 import { Island } from "../components/island/Island";
 import { SHARED_META, SITE } from "../lib/share";
-import { getViewer } from "../server/site.functions";
+import { THEME_SCRIPT } from "../lib/theme";
+import { getSignInOptions } from "../server/site.functions";
 import appCss from "../styles.css?url";
 
 export const Route = createRootRoute({
-	loader: () => getViewer(),
+	// The ways in, the same for everyone: built into every page, never asked again.
+	loader: () => getSignInOptions(),
+	staleTime: Number.POSITIVE_INFINITY,
 	head: () => ({
 		meta: [
 			{ charSet: "utf-8" },
@@ -40,10 +43,9 @@ export const Route = createRootRoute({
 });
 
 function Root() {
-	const viewer = Route.useLoaderData();
 	return (
 		<>
-			<Island viewer={viewer} />
+			<Island />
 			<Outlet />
 			<footer className="site-footer">
 				<BrandMark />
@@ -64,11 +66,15 @@ function Root() {
 }
 
 function RootDocument({ children }: { children: ReactNode }) {
-	// The reader's chosen theme, rendered on the server: no flash on load.
-	const theme = Route.useLoaderData()?.theme;
+	// The page is the same for everyone (Cloudflare keeps it), so the
+	// reader's theme is put on <html> by a tiny script before it paints.
+	// (It carries the page's nonce, src/start.ts; the browser hides a nonce
+	// once it's read, hence no warning on that.)
+	const nonce = useRouter().options.ssr?.nonce;
 	return (
-		<html lang="en" data-theme={theme && theme !== "system" ? theme : undefined}>
+		<html lang="en" suppressHydrationWarning>
 			<head>
+				<script nonce={nonce} suppressHydrationWarning dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
 				<HeadContent />
 				{/* Here, not in head(): the router keeps one meta tag per name, and there are two. */}
 				<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f5f5f7" />

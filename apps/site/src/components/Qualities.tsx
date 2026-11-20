@@ -1,35 +1,26 @@
-import { useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { failure } from "../lib/limits";
 import { describeQualities, QUALITIES, type Quality } from "../lib/qualities";
-import type { PostPage } from "../lib/types";
-import { toggleQualityFn } from "../server/site.functions";
+import { toggleReaction } from "../lib/post-view";
+import type { PostView } from "../lib/types";
 import { QualityIcon } from "./QualityIcon";
 import { SignInPrompt } from "./SignIn";
 
 // Inside the qualities sheet: the five ways a piece can read, as tiles to
 // pick (any that fit), each with how many readers chose it. Signed out, you
 // see the counts and are asked to sign in to pick.
-export function QualityChoices({ post }: { post: PostPage }) {
-	const router = useRouter();
-	// Your choices as you've just made them, shown at once; the page's own
-	// catch up once the site has them.
-	const [choosing, setChoosing] = useState<Partial<Record<Quality, boolean>>>({});
+export function QualityChoices({ post }: { post: PostView }) {
+	// Your choices show at once, here and in the island (lib/post-view.ts),
+	// and go back if the site says no.
 	const [error, setError] = useState<string | null>(null);
 	const summary = describeQualities(post.qualities);
 
 	async function toggle(quality: Quality) {
-		if (choosing[quality] !== undefined) return;
-		const chosen = !post.mine.includes(quality);
-		setChoosing((now) => ({ ...now, [quality]: chosen }));
 		setError(null);
 		try {
-			await toggleQualityFn({ data: { id: post.id, quality } });
-			await router.invalidate();
+			await toggleReaction(post.id, quality);
 		} catch (problem) {
 			setError(failure(problem, "That didn't save. Try again."));
-		} finally {
-			setChoosing(({ [quality]: _, ...rest }) => rest);
 		}
 	}
 
@@ -42,9 +33,8 @@ export function QualityChoices({ post }: { post: PostPage }) {
 			{!post.viewer && <SignInPrompt action="say how it read to you" />}
 			<div className="quality-buttons">
 				{QUALITIES.map((q) => {
-					const saved = post.mine.includes(q.id);
-					const chosen = choosing[q.id] ?? saved;
-					const count = (post.qualities[q.id] ?? 0) + (chosen === saved ? 0 : chosen ? 1 : -1);
+					const chosen = post.mine.includes(q.id);
+					const count = post.qualities[q.id] ?? 0;
 					return (
 						<button
 							key={q.id}

@@ -1,8 +1,9 @@
 import { auth } from "./auth.server";
 import { imageSources } from "@human-tokens/renderer";
 import { deriveFromMarkdown } from "./derive";
-import { forgetBoard } from "./board.server";
+import { renderMarkdown } from "./render";
 import { checkPictures, outsidePictures, pictureStatements, picturesIn, picturesOf, sweepPictures } from "./images.server";
+import { forget, pagesShowing, TAGS } from "./cache.server";
 import { db } from "./rows.server";
 
 // Publishing from Fold MD: who is asking (by the token Fold MD got when you
@@ -191,7 +192,7 @@ type PostRow = {
 	touched: number;
 };
 
-function fixableUntil(row: Pick<PostRow, "published_at" | "touched">, now = Date.now()): string | null {
+export function fixableUntil(row: Pick<PostRow, "published_at" | "touched">, now = Date.now()): string | null {
 	if (row.touched) return null;
 	const until = Date.parse(row.published_at) + FIX_WINDOW_MS;
 	return until > now ? new Date(until).toISOString() : null;
@@ -276,10 +277,10 @@ export async function publish(
 	// that lands in between still locks it.
 	const save = db()
 		.prepare(
-			`INSERT INTO posts (id, author_id, source_id, slug, title, excerpt, markdown, word_count, shape, opening, pledged_at, published_at, updated_at, responds_to, parts)
-			 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?11, ?11, ?13, ?14)
+			`INSERT INTO posts (id, author_id, source_id, slug, title, excerpt, markdown, word_count, shape, opening, pledged_at, published_at, updated_at, responds_to, parts, html)
+			 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?11, ?11, ?13, ?14, ?15)
 			 ON CONFLICT (id) DO UPDATE SET slug = ?4, title = ?5, excerpt = ?6, markdown = ?7, word_count = ?8,
-			   shape = ?9, opening = ?10, pledged_at = ?11, updated_at = ?11, parts = ?14
+			   shape = ?9, opening = ?10, pledged_at = ?11, updated_at = ?11, parts = ?14, html = ?15
 			 WHERE posts.author_id = ?2 AND posts.published_at > ?12
 			   AND NOT EXISTS (SELECT 1 FROM reactions WHERE post_id = posts.id
 			     AND user_id IS NOT (SELECT user_id FROM authors WHERE id = posts.author_id))
@@ -301,6 +302,8 @@ export async function publish(
 			new Date(Date.parse(now) - FIX_WINDOW_MS).toISOString(),
 			respondsTo,
 			parts,
+			// Rendered once here, not on every visit (render.ts).
+			renderMarkdown(markdown),
 		);
 	let results: D1Result[];
 	try {
@@ -326,9 +329,15 @@ export async function publish(
 	if (!results[0].meta.changes) throw new PublishError(existing ? 423 : 500, existing ? LOCKED : "The post didn't save. Try again.");
 
 	await sweepPictures(before.filter((h) => !pictures.includes(h)));
-	forgetBoard();
 	const row = await ownPost(author, id);
 	if (!row) throw new PublishError(500, "The post didn't save. Try again.");
+	// Other stored pages show its title: the post it responds to (which lists
+	// it) and, after a fix, the posts already responding to it. (Its own page
+	// is stored only 30 seconds while it can be fixed: no clearing needed.)
+	await forget(existing ? await pagesShowing(id) : respondsTo ? [TAGS.post(respondsTo)] : []);
+	// A new post: the lists show it once its fix window ends, so they're
+	// cleared then (a fix doesn't move that time).
+	if (!existing) await forget([TAGS.home, TAGS.archive, TAGS.author(author.handle)], new Date(Date.parse(now) + FIX_WINDOW_MS).toISOString());
 	return { ...toPublished(row, origin), created: !existing };
 }
 
@@ -338,7 +347,7 @@ export async function publish(
  * locked, so it stays what they responded to. The author's own don't count.
  */
 const NOT_THE_AUTHOR = "user_id IS NOT (SELECT user_id FROM authors WHERE id = p.author_id)";
-const TOUCHED = `(EXISTS (SELECT 1 FROM reactions WHERE post_id = p.id AND ${NOT_THE_AUTHOR})
+export const TOUCHED = `(EXISTS (SELECT 1 FROM reactions WHERE post_id = p.id AND ${NOT_THE_AUTHOR})
 	OR EXISTS (SELECT 1 FROM comments WHERE post_id = p.id AND ${NOT_THE_AUTHOR}))`;
 
 /** Any piece on the site, by anyone: what a response points at. */
@@ -423,9 +432,10 @@ export async function addPostscript(publisher: Publisher, id: string, input: Rec
 
 	const postscript = { id: randomId(10), body, createdAt: new Date().toISOString() };
 	await db()
-		.prepare("INSERT INTO postscripts (id, post_id, body, pledged_at, created_at) VALUES (?1, ?2, ?3, ?4, ?4)")
-		.bind(postscript.id, row.id, body, postscript.createdAt)
+		.prepare("INSERT INTO postscripts (id, post_id, body, pledged_at, created_at, html) VALUES (?1, ?2, ?3, ?4, ?4, ?5)")
+		.bind(postscript.id, row.id, body, postscript.createdAt, renderMarkdown(body))
 		.run();
+	await forget([TAGS.post(row.id)]);
 	return postscript;
 }
 
@@ -433,9 +443,10 @@ export async function addPostscript(publisher: Publisher, id: string, input: Rec
 export async function unpublish(publisher: Publisher, id: string): Promise<void> {
 	const author = requireAuthor(publisher);
 	const pictures = await picturesOf(postId(id));
+	const showing = await pagesShowing(postId(id));
 	const { meta } = await db().prepare("DELETE FROM posts WHERE id = ? AND author_id = ?").bind(postId(id), author.id).run();
 	if (!meta.changes) throw new PublishError(404, "This post isn't on the site.");
-	forgetBoard();
+	await forget([...showing, TAGS.home, TAGS.archive, TAGS.author(author.handle)]);
 	await sweepPictures(pictures);
 }
 

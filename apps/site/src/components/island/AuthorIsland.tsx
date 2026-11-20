@@ -25,7 +25,7 @@ export function AuthorIsland({ page }: { page: AuthorPage }) {
 	const close = useCallback(() => setOpen(false), []);
 	useDismiss(open, dock, close);
 
-	const pieces = page.pieces.length;
+	const pieces = page.posts;
 	const chosen = QUALITIES.filter((q) => (page.qualities[q.id] ?? 0) > 0);
 	const said = describeQualities(page.qualities);
 	const most = Math.max(1, ...QUALITIES.map((q) => page.qualities[q.id] ?? 0));
@@ -34,7 +34,6 @@ export function AuthorIsland({ page }: { page: AuthorPage }) {
 	const stats = [
 		{ value: pieces, label: count(pieces, "post", "posts") },
 		{ value: page.words, label: count(page.words, "word", "words") },
-		{ value: page.readers, label: count(page.readers, "reader reacted", "readers reacted") },
 		{ value: page.comments, label: count(page.comments, "comment", "comments") },
 	];
 
