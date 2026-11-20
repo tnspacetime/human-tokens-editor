@@ -127,6 +127,13 @@ struct EditorWindow: View {
             pageBar.model.onHeading = { [page] line in page.onJump?(line) }
             // Opened from a series (sidebar or page link): show that series.
             DispatchQueue.main.async { handleReveal() }
+            // The empty window Fold MD opened by itself gives its place to
+            // the first file you open (BlankWindow).
+            if fileURL == nil, NSDocumentController.shared.documents.count <= 1 {
+                BlankWindow.register(window) { blankHandoff() }
+            } else if fileURL != nil {
+                DispatchQueue.main.async { takeBlankWindow() }
+            }
         }
         .onChange(of: SeriesLibrary.shared.reveal?.token) { _, _ in handleReveal() }
         .onChange(of: seriesNavigation, initial: true) { _, navigation in
@@ -517,6 +524,7 @@ struct EditorWindow: View {
         let key = SeriesLibrary.key(url)
         let canClose = fileURL != nil || document.text.isEmpty
         if canClose, let current = window.window {
+            BlankWindow.release(current)
             WindowHandoff.pending[key] = WindowHandoff(
                 frame: current.frame, sidebarOpen: sidebarOpen, pageOpen: pageOpen,
                 writingWidth: writingWidth, pageWidth: pageWidth, originShift: originShift, from: current)
@@ -546,6 +554,30 @@ struct EditorWindow: View {
 
     /// Steps into the previous part's place: same frame, same panels, then
     /// closes its window. (The window was kept invisible until now.)
+    /// This window, empty and untitled, handing its place to a file: nil once you've typed in it.
+    private func blankHandoff() -> WindowHandoff? {
+        guard document.text.isEmpty, let current = window.window else { return nil }
+        return WindowHandoff(frame: current.frame, sidebarOpen: sidebarOpen, pageOpen: pageOpen,
+                             writingWidth: writingWidth, pageWidth: pageWidth, originShift: originShift, from: current)
+    }
+
+    /// A file's window, just opened: takes the blank window's place, if there's one to take.
+    private func takeBlankWindow(attempt: Int = 0) {
+        guard let fileURL else { return }
+        guard let current = window.window else {
+            if attempt < 20 { DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { takeBlankWindow(attempt: attempt + 1) } }
+            return
+        }
+        // A part opened from a series takes its window's place by its own handoff (openPart).
+        guard WindowHandoff.pending[SeriesLibrary.key(fileURL)] == nil else { return }
+        if let handoff = BlankWindow.take(for: current) {
+            take(handoff, in: current)
+        } else if BlankWindow.hidden === current {
+            // Hidden to take its place, which went meanwhile (you typed in it).
+            current.alphaValue = 1
+        }
+    }
+
     private func take(_ handoff: WindowHandoff, in current: NSWindow) {
         writingWidth = handoff.writingWidth
         pageWidth = handoff.pageWidth
@@ -1032,8 +1064,12 @@ struct WindowReader: NSViewRepresentable {
             reference.window = window
             // Taking over another window's place: stay invisible until moved
             // into position, so it doesn't flash up somewhere else first.
-            if let window, let fileURL, WindowHandoff.pending[SeriesLibrary.key(fileURL)] != nil {
+            guard let window, let fileURL else { return }
+            if WindowHandoff.pending[SeriesLibrary.key(fileURL)] != nil {
                 window.alphaValue = 0
+            } else if BlankWindow.waiting(for: window) {
+                window.alphaValue = 0
+                BlankWindow.hidden = window
             }
         }
     }
@@ -1050,6 +1086,47 @@ struct WindowHandoff {
     var pageWidth: CGFloat
     var originShift: [EditorWindow.Panel: CGFloat]
     weak var from: NSWindow?
+}
+
+/// The empty Untitled window Fold MD opens by itself when it has no other
+/// (at launch, or from the Dock with every window closed). As in TextEdit,
+/// the first file you open takes its place, in the same spot and with the
+/// same panels out, as long as you haven't typed in it. SwiftUI's document
+/// windows don't do this themselves: without it, the file opens in a second
+/// window beside the empty one.
+@MainActor
+enum BlankWindow {
+    private static var blank: (window: WindowReference, handoff: () -> WindowHandoff?)?
+    /// A window kept invisible until it has taken the blank window's place.
+    static weak var hidden: NSWindow?
+
+    static func register(_ window: WindowReference, handoff: @escaping () -> WindowHandoff?) {
+        blank = (window, handoff)
+    }
+
+    /// It's leaving some other way (a part opened from a series).
+    static func release(_ window: NSWindow) {
+        if blank?.window.window === window { blank = nil }
+    }
+
+    /// Would `window`, just opened, take its place?
+    static func waiting(for window: NSWindow) -> Bool { handoff(for: window) != nil }
+
+    /// Its place, for `window`; once only.
+    static func take(for window: NSWindow) -> WindowHandoff? {
+        guard let handoff = handoff(for: window) else { return nil }
+        blank = nil
+        return handoff
+    }
+
+    private static func handoff(for window: NSWindow) -> WindowHandoff? {
+        guard let blank, let other = blank.window.window, other !== window, other.isVisible,
+              other.attachedSheet == nil,
+              let document = NSDocumentController.shared.document(for: other),
+              document.fileURL == nil, !document.isDocumentEdited
+        else { return nil }
+        return blank.handoff()
+    }
 }
 
 // MARK: - Previews and the sheet handle
