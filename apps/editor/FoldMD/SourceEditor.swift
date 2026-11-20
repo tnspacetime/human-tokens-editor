@@ -238,7 +238,7 @@ struct SourceEditor: NSViewRepresentable {
         /// to fit keeps the cursor line in view instead.
         func pinTypingParagraph() {
             guard sheet.mode == .under, sheet.isActive,
-                  UserDefaults.standard.object(forKey: TypewriterScrollingToggle.key) as? Bool ?? true,
+                  TypewriterScrollingToggle.isOn,
                   let textView, let scrollView,
                   let layout = textView.layoutManager,
                   let container = textView.textContainer,

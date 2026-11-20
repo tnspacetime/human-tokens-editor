@@ -203,6 +203,35 @@ struct EditorWindow: View {
         .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.togglePage"))) { _ in
             toggle(.page)
         }
+        // Clicks the Scroll-under button's arrow, as a real click does
+        // ("md.fold.app.clickModeArrow"); logs the menu opening, and closes it.
+        // With "toggle" as the object, chooses Typewriter Scrolling in it instead of closing it.
+        .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.clickModeArrow"))) { note in
+            let choose = note.object as? String == "toggle"
+            guard let frame = window.window?.contentView?.superview else { return }
+            @MainActor func find(_ view: NSView) -> SheetModeControl.ModeSegments? {
+                (view as? SheetModeControl.ModeSegments) ?? view.subviews.lazy.compactMap(find).first
+            }
+            guard let control = find(frame), let menu = control.menu(forSegment: 0) else { testLog("modeArrow: no control"); return }
+            // Everything here runs on the main thread, inside the menu's tracking.
+            nonisolated(unsafe) let tracked = menu
+            let observer = NotificationCenter.default.addObserver(forName: NSMenu.didBeginTrackingNotification, object: menu, queue: nil) { _ in
+                MainActor.assumeIsolated {
+                    let items = tracked.items.map { "\($0.title)\($0.state == .on ? " ✓" : "")" }
+                    testLog("modeArrow: menu open \(items)")
+                }
+                let timer = Timer(timeInterval: choose ? 0.5 : 2, repeats: false) { _ in
+                    MainActor.assumeIsolated {
+                        if choose { tracked.performActionForItem(at: 0) }
+                        tracked.cancelTracking()
+                    }
+                }
+                RunLoop.main.add(timer, forMode: .eventTracking)
+            }
+            control.testClickArrow(onParagraph: note.object as? String == "paragraph")
+            NotificationCenter.default.removeObserver(observer)
+            testLog("modeArrow: after click, mode=\(mode.rawValue)")
+        }
         // Fold MD ▸ Check for Updates…, as if chosen ("md.fold.app.checkForUpdates").
         .onReceive(DistributedNotificationCenter.default().publisher(for: .init("md.fold.app.checkForUpdates"))) { _ in
             if window.window?.isKeyWindow == true { Updates.shared.checkNow() }
@@ -962,14 +991,12 @@ struct EditorWindow: View {
             ToolbarItem(placement: .navigation) { NewVersionButton(release: release) }
         }
         ToolbarItem {
-            Picker("Sheet mode", selection: $mode) {
-                Label("Scroll under", systemImage: "arrow.up.to.line").tag(DrawerMode.under)
-                Label("Current paragraph", systemImage: "scope").tag(DrawerMode.focus)
-            }
-            .pickerStyle(.segmented)
-            .labelStyle(.iconOnly)
-            .disabled(!sheetOpen)
-            .help("Scroll under: text you scroll past appears rendered. Current paragraph: renders what you're editing.")
+            SheetModeControl(mode: $mode, enabled: sheetOpen)
+        }
+        // Its own capsule, apart from the sheet and page buttons (macOS 26
+        // would otherwise join an AppKit control to its neighbours).
+        if #available(macOS 26.0, *) {
+            ToolbarSpacer(.fixed)
         }
         ToolbarItem {
             Button {
@@ -1028,6 +1055,124 @@ struct EditorWindow: View {
         // publishing surface is closed; it gives way as the surface slides
         // out, since the surface's strip has its own.
         PublishPillToolbarItem(flow: pageBar.model.publish, hidden: pageOpen || sliding == .page)
+    }
+}
+
+// MARK: - The sheet's mode
+
+/// The toolbar's two sheet modes, Scroll under and Current paragraph. Scroll
+/// under has a menu (its small arrow, or hold the button) with Typewriter
+/// Scrolling, ticked when it's on; its tooltip says so too. SwiftUI's picker
+/// can't give one segment a menu, so this is AppKit's segmented control.
+struct SheetModeControl: NSViewRepresentable {
+    @Binding var mode: DrawerMode
+    let enabled: Bool
+    @AppStorage(TypewriterScrollingToggle.key) private var typewriter = false
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    func makeNSView(context: Context) -> ModeSegments {
+        let control = ModeSegments(
+            images: [
+                NSImage(systemSymbolName: "arrow.up.to.line", accessibilityDescription: "Scroll under")!,
+                NSImage(systemSymbolName: "scope", accessibilityDescription: "Current paragraph")!,
+            ],
+            trackingMode: .selectOne,
+            target: context.coordinator,
+            action: #selector(Coordinator.picked(_:)))
+        control.segmentStyle = .separated
+        control.setWidth(44, forSegment: 0)
+        control.setWidth(32, forSegment: 1)
+
+        let menu = NSMenu()
+        let item = NSMenuItem(title: "Typewriter Scrolling", action: #selector(Coordinator.toggleTypewriter(_:)), keyEquivalent: "t")
+        item.keyEquivalentModifierMask = [.command, .option]
+        item.target = context.coordinator
+        menu.addItem(item)
+        let about = NSMenuItem(title: "Keeps the paragraph you're typing just below the sheet", action: nil, keyEquivalent: "")
+        about.isEnabled = false
+        menu.addItem(about)
+        control.setMenu(menu, forSegment: 0)
+        control.setShowsMenuIndicator(true, forSegment: 0)
+        context.coordinator.typewriterItem = item
+        return control
+    }
+
+    func updateNSView(_ control: ModeSegments, context: Context) {
+        context.coordinator.onPick = { mode = $0 }
+        control.selectedSegment = mode == .under ? 0 : 1
+        control.isEnabled = enabled
+        context.coordinator.typewriterItem?.state = typewriter ? .on : .off
+        control.setToolTip("Scroll under: text you scroll past appears rendered above. Typewriter Scrolling is \(typewriter ? "on" : "off"): click the arrow to change it.", forSegment: 0)
+        control.setToolTip("Current paragraph: the sheet renders the paragraph you're editing.", forSegment: 1)
+    }
+
+    /// AppKit shows a segment's menu only when you press and hold it: a
+    /// click on its arrow just selects the segment. Here the menu opens on a
+    /// click on the arrow, a click on Scroll under while it's already
+    /// chosen, or a right-click.
+    final class ModeSegments: NSSegmentedControl {
+        /// Which segment a point is in, and whether it's on segment 0's arrow
+        /// (its right end). Segments are as wide as set, in proportion.
+        private func hit(_ point: NSPoint) -> (segment: Int, arrow: Bool) {
+            let first = width(forSegment: 0), second = width(forSegment: 1)
+            let split = bounds.width * first / (first + second)
+            return point.x < split ? (0, point.x > split - 20) : (1, false)
+        }
+
+        override func mouseDown(with event: NSEvent) {
+            let (segment, arrow) = hit(convert(event.locationInWindow, from: nil))
+            if isEnabled, segment == 0, arrow || selectedSegment == 0 {
+                showMenu()
+            } else {
+                super.mouseDown(with: event)
+            }
+        }
+
+        override func rightMouseDown(with event: NSEvent) {
+            if isEnabled, hit(convert(event.locationInWindow, from: nil)).segment == 0 { showMenu() }
+        }
+
+        func showMenu() {
+            if selectedSegment != 0 {
+                selectedSegment = 0
+                sendAction(action, to: target)
+            }
+            guard let menu = menu(forSegment: 0) else { return }
+            menu.popUp(positioning: nil, at: NSPoint(x: 0, y: isFlipped ? bounds.maxY + 4 : bounds.minY - 4), in: self)
+        }
+
+        #if DEBUG
+        /// A click on the arrow, through the window as a real one goes ("md.fold.app.clickModeArrow").
+        func testClickArrow(onParagraph: Bool = false) {
+            guard let window else { return }
+            let first = width(forSegment: 0), second = width(forSegment: 1)
+            let split = bounds.width * first / (first + second)
+            let x = onParagraph ? (split + bounds.width) / 2 : split - 8
+            let inWindow = convert(NSPoint(x: x, y: bounds.midY), to: nil)
+            let event = { (type: NSEvent.EventType) in
+                NSEvent.mouseEvent(with: type, location: inWindow, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                                   windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)
+            }
+            // The mouse-up waits in the queue, for the control's own tracking to find.
+            if let up = event(.leftMouseUp) { NSApp.postEvent(up, atStart: false) }
+            if let down = event(.leftMouseDown) { window.sendEvent(down) }
+        }
+        #endif
+    }
+
+    @MainActor
+    final class Coordinator: NSObject {
+        var onPick: (DrawerMode) -> Void = { _ in }
+        weak var typewriterItem: NSMenuItem?
+
+        @objc func picked(_ control: NSSegmentedControl) {
+            onPick(control.selectedSegment == 0 ? .under : .focus)
+        }
+
+        @objc func toggleTypewriter(_ item: NSMenuItem) {
+            UserDefaults.standard.set(!TypewriterScrollingToggle.isOn, forKey: TypewriterScrollingToggle.key)
+        }
     }
 }
 
@@ -1258,12 +1403,14 @@ struct SheetHandle: View {
     }
 }
 
-/// View ▸ Typewriter Scrolling. While typing in scroll-under mode, keeps the
-/// paragraph you're writing just below the sheet, so everything before it is
-/// rendered above.
+/// View ▸ Typewriter Scrolling, also in the Scroll-under button's menu
+/// (SheetModeControl). While typing in scroll-under mode, keeps the paragraph
+/// you're writing just below the sheet, so everything before it is rendered
+/// above. Off unless you turn it on: it moves the text as you type.
 struct TypewriterScrollingToggle: View {
     static let key = "typing.pin"
-    @AppStorage(key) private var enabled = true
+    static var isOn: Bool { UserDefaults.standard.bool(forKey: key) }
+    @AppStorage(key) private var enabled = false
 
     var body: some View {
         Toggle("Typewriter Scrolling", isOn: $enabled)

@@ -72,7 +72,7 @@ enum ImageImporter {
             return document.deletingLastPathComponent().appending(path: "images", directoryHint: .isDirectory)
         }
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        return support.appending(path: "Fold MD/Unsaved Images", directoryHint: .isDirectory)
+        return support.appending(path: "\(AppFolder.name)/Unsaved Images", directoryHint: .isDirectory)
     }
 
     /// Pictures an untitled document linked in the app's own folder: once

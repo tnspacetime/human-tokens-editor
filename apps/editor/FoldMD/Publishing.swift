@@ -28,6 +28,19 @@ enum PublishSite {
     static let rules = base.appending(path: "rules")
 }
 
+/// The app's own folder in Application Support: "Fold MD", or "Fold MD Dev"
+/// for a debug build, so testing never touches your series or what you've
+/// published (a debug build publishes to the site on this Mac).
+enum AppFolder {
+    static let name: String = {
+        #if DEBUG
+        return "Fold MD Dev"
+        #else
+        return "Fold MD"
+        #endif
+    }()
+}
+
 // MARK: - The API
 
 /// The site's answers, as Fold MD reads them.
@@ -283,7 +296,9 @@ enum SiteAPI {
 /// The token Fold MD publishes with, in your login Keychain (one per site).
 @MainActor
 enum PublishToken {
-    private static let service = "md.fold.app.human-tokens"
+    /// Per app: "md.fold.app.human-tokens", or Fold MD Dev's own, so the two
+    /// never ask for each other's (the Keychain would ask for your password).
+    private static let service = "\(Bundle.main.bundleIdentifier ?? "md.fold.app").human-tokens"
     /// Read once per launch, so the Keychain isn't asked on every click.
     private static var cache: [String: String?] = [:]
 
@@ -356,7 +371,7 @@ struct PublishRecord: Codable, Equatable {
     /// Where Fold MD keeps what it published.
     static var folder: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appending(path: "Fold MD/published")
+            .appending(path: "\(AppFolder.name)/published")
     }
 
     /// Where a series' record lives: named after the series.

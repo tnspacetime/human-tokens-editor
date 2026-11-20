@@ -186,15 +186,15 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = FoldMD/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Fold MD";
+				INFOPLIST_KEY_CFBundleDisplayName = "Fold MD Dev";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = md.fold.app;
-				PRODUCT_NAME = "Fold MD";
+				PRODUCT_BUNDLE_IDENTIFIER = md.fold.app.dev;
+				PRODUCT_NAME = "Fold MD Dev";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 6.0;
 			};

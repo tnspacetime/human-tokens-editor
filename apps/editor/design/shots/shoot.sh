@@ -16,9 +16,9 @@ here=${0:A:h}
 demo=$here/../demo
 root=${here:h:h:h:h}
 out=$root/build/shots
-app="$root/build/DerivedData/Build/Products/Debug/Fold MD.app"
+app="$root/build/DerivedData/Build/Products/Debug/Fold MD Dev.app"
 log=$(getconf DARWIN_USER_TEMP_DIR)foldmd-probe.log
-library="$HOME/Library/Application Support/Fold MD/series.json"
+library="$HOME/Library/Application Support/Fold MD Dev/series.json"
 tester="Lena Hart"
 mkdir -p $out/bin $out/take $out/raw
 
@@ -27,12 +27,12 @@ swiftc -O -o $out/bin/backdrop $demo/backdrop.swift
 
 # Fold MD's settings and your series list for the shoot; yours come back
 # afterwards, whatever happens.
-defaults export md.fold.app $out/prefs-before.plist
+defaults export md.fold.app.dev $out/prefs-before.plist
 [[ -f $library ]] && cp $library $out/series-before.json
 restore() {
-  pkill -f "Debug/Fold MD.app/Contents/MacOS/Fold MD" || true
+  pkill -f "Debug/Fold MD Dev.app/Contents/MacOS/Fold MD Dev" || true
   sleep 0.5
-  defaults import md.fold.app $out/prefs-before.plist
+  defaults import md.fold.app.dev $out/prefs-before.plist
   if [[ -f $out/series-before.json ]]; then cp $out/series-before.json $library; else rm -f $library; fi
   node $here/connect.mjs remove "$tester" >/dev/null 2>&1 || true
   kill $backdrop 2>/dev/null || true
@@ -40,12 +40,12 @@ restore() {
 trap restore EXIT
 trap 'exit 1' INT TERM HUP
 echo '[]' > $library
-defaults write md.fold.app sheet.open -bool true
-defaults write md.fold.app sheet.height -float 330
-defaults write md.fold.app sheet.mode under
-defaults write md.fold.app appearance light
-defaults write md.fold.app typing.pin -bool true
-defaults write md.fold.app page.width.2 -float 760
+defaults write md.fold.app.dev sheet.open -bool true
+defaults write md.fold.app.dev sheet.height -float 330
+defaults write md.fold.app.dev sheet.mode under
+defaults write md.fold.app.dev appearance light
+defaults write md.fold.app.dev typing.pin -bool true
+defaults write md.fold.app.dev page.width.2 -float 760
 
 # A fresh copy of the document (no notes from last time), and of the series.
 rm -rf $out/take && mkdir -p $out/take && cp $demo/Basel.md $out/take/Basel.md

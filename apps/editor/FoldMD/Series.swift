@@ -64,7 +64,7 @@ final class SeriesLibrary {
 
     init(storeURL: URL? = nil) {
         self.storeURL = storeURL ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appending(path: "Fold MD/series.json")
+            .appending(path: "\(AppFolder.name)/series.json")
         load()
     }
 

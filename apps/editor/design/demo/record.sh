@@ -10,25 +10,25 @@ set -e
 here=${0:A:h}
 root=${here:h:h:h:h}
 out=$root/build/demo
-app="$root/build/DerivedData/Build/Products/Debug/Fold MD.app"
+app="$root/build/DerivedData/Build/Products/Debug/Fold MD Dev.app"
 mkdir -p $out/bin $out/take
 
 swiftc -O -o $out/bin/driver $here/driver.swift
 swiftc -O -o $out/bin/backdrop $here/backdrop.swift
 
 # Fold MD's settings for the take; yours come back afterwards.
-defaults export md.fold.app $out/prefs-before.plist
+defaults export md.fold.app.dev $out/prefs-before.plist
 restore() {
-  defaults import md.fold.app $out/prefs-before.plist
+  defaults import md.fold.app.dev $out/prefs-before.plist
   kill $backdrop 2>/dev/null || true
 }
 trap restore EXIT
-defaults write md.fold.app sheet.open -bool true
-defaults write md.fold.app sheet.height -float 330
-defaults write md.fold.app sheet.mode under
-defaults write md.fold.app appearance light
-defaults write md.fold.app typing.pin -bool true
-defaults write md.fold.app page.width.2 -float 760
+defaults write md.fold.app.dev sheet.open -bool true
+defaults write md.fold.app.dev sheet.height -float 330
+defaults write md.fold.app.dev sheet.mode under
+defaults write md.fold.app.dev appearance light
+defaults write md.fold.app.dev typing.pin -bool true
+defaults write md.fold.app.dev page.width.2 -float 760
 
 # A fresh copy of the document each take (no notes from the last one).
 rm -f $out/take/Basel.md $out/take/.Basel.md.notes
@@ -48,5 +48,5 @@ sleep 0.8
 $out/bin/driver play $here/Basel.md
 wait $recorder
 
-pkill -f "Debug/Fold MD.app/Contents/MacOS/Fold MD" || true
+pkill -f "Debug/Fold MD Dev.app/Contents/MacOS/Fold MD Dev" || true
 echo "recorded $out/take.mov"
