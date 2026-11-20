@@ -24,7 +24,7 @@ bun run db:reset   # create the local D1 database and load the sample posts
 bun run dev        # http://localhost:3100
 ```
 
-Nothing here talks to Cloudflare yet: the database and the stored pictures are local (in `apps/site/.wrangler`).
+`bun run dev` never touches the live site: its database and stored pictures are local copies (in `apps/site/.wrangler`).
 `db:reset` also signs everyone out.
 
 Every page tells search engines and link previews (iMessage, Slack, X…) its title, a line about it and its one address (`src/lib/share.ts`), with one share picture for the whole site.
@@ -33,7 +33,7 @@ The icons and that picture (`public/og.png`) are made from `brand/icon.html` and
 Feed readers get the newest posts, whole (with their P.S.es), at `/rss.xml`, and one author's at `/@<handle>/rss.xml`; every page links the site's feed, and an author's page links theirs.
 Search engines get every post, author and archive year at `/sitemap.xml`, which `robots.txt` names (`src/server/discovery.server.ts`).
 
-### Before it goes live
+### Kept safe
 
 - **Security headers** (`src/start.ts`): every response says `nosniff`, `Referrer-Policy: strict-origin-when-cross-origin` and `X-Frame-Options: DENY`, and every page has a Content-Security-Policy.
   In a production build a page runs only its own scripts, each stamped with a fresh nonce; `bun run dev` relaxes that for Vite's reloading.
@@ -65,7 +65,7 @@ To turn on Google and GitHub, copy `apps/site/.dev.vars.example` to `apps/site/.
    - Generate a client secret, and put both in `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET`.
 4. Restart `bun run dev`. The island's account panel now offers Google and GitHub.
 
-A GitHub OAuth app has one callback URL, so the live site will need its own app (`https://human-tokens.dev/api/auth/callback/github`); a Google client can list both redirect URIs.
+The live site has its own GitHub OAuth app, with the callback `https://human-tokens.dev/api/auth/callback/github`; the Google client lists both redirect URIs (`http://localhost:3100/…` and `https://human-tokens.dev/api/auth/callback/google`).
 Signing in with Google and GitHub under the same verified email leads to the same person.
 
 A real account becomes an author the first time it publishes from Fold MD (below).
@@ -115,6 +115,24 @@ How it works: Better Auth's [device authorization](https://www.better-auth.com/d
 Fold MD then calls `/api/fold/*` (`apps/site/src/routes/api.fold.$.ts`) with `Authorization: Bearer <token>`; that API ignores cookies, so no web page can publish in your name.
 During the fix window a file sends the same id with every publish, so publishing it again (a fix) changes its post instead of making a second one.
 
+## Deploy
+
+The live site is the Worker `human-tokens-site` on Cloudflare, served at `human-tokens.dev` only (`apps/site/wrangler.jsonc`), with its own D1 database and R2 bucket.
+Cloudflare sends `www.human-tokens.dev` and plain `http://` on to `https://human-tokens.dev`.
+
+```bash
+cd apps/site
+bun run db:migrate:live   # only after adding a migration: applies it to the live database
+bun run deploy            # builds, then uploads (always this, not `wrangler deploy` alone)
+```
+
+The live site's keys are kept by Cloudflare, not in a file: `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` (`https://human-tokens.dev`), `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET`.
+To change one: `npx wrangler secret put <NAME>` in `apps/site`, then paste the value.
+
 ## Run the editor
 
 See [`apps/editor`](apps/editor).
+
+## Licence
+
+[MIT](LICENSE): use, copy and change any of it freely, keeping the licence notice.
