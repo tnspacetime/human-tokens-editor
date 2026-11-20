@@ -42,11 +42,14 @@ fi
 out=$root/build/release
 rm -rf $out
 echo "Building Fold MD $version…"
+# For any Mac: Apple silicon and Intel, in one app.
 xcodebuild -project apps/editor/FoldMD.xcodeproj -scheme FoldMD -configuration Release \
-	-derivedDataPath $out/DerivedData build >$out.log 2>&1 || { echo "The build failed: $out.log" >&2; exit 1; }
+	-destination "generic/platform=macOS" -derivedDataPath $out/DerivedData build >$out.log 2>&1 || { echo "The build failed: $out.log" >&2; exit 1; }
 app="$out/DerivedData/Build/Products/Release/Fold MD.app"
 built=$(defaults read "$app/Contents/Info" CFBundleShortVersionString)
 [[ $built == $version ]] || { echo "Built $built, expected $version." >&2; exit 1; }
+archs=$(lipo -archs "$app/Contents/MacOS/Fold MD")
+[[ $archs == *arm64* && $archs == *x86_64* ]] || { echo "Built for $archs only, not every Mac." >&2; exit 1; }
 
 ditto -c -k --keepParent "$app" $out/Fold-MD.zip
 cat >$out/latest.json <<EOF
@@ -58,7 +61,7 @@ cat >$out/latest.json <<EOF
 EOF
 
 echo
-echo "Fold MD $version, for macOS $minimum or later, from commit ${head:0:7}"
+echo "Fold MD $version, for macOS $minimum or later ($archs), from commit ${head:0:7}"
 echo "  $(du -h $out/Fold-MD.zip | cut -f1)  $out/Fold-MD.zip"
 echo "  latest.json: $(tr -d '\n ' <$out/latest.json)"
 echo "  What's new: $notes"
