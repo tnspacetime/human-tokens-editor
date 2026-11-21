@@ -12,7 +12,6 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AtChar123handleChar125RouteImport } from './routes/@{$handle}'
 import { Route as ConnectRouteImport } from './routes/connect'
-import { Route as FoldMdRouteImport } from './routes/fold-md'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as RssDotxmlRouteImport } from './routes/rss[.]xml'
 import { Route as RulesRouteImport } from './routes/rules'
@@ -25,6 +24,7 @@ import { Route as AuthDevRouteImport } from './routes/auth.dev'
 import { Route as AuthErrorRouteImport } from './routes/auth.error'
 import { Route as ImgHashRouteImport } from './routes/img.$hash'
 import { Route as SitemapChar123partChar125DotxmlRouteImport } from './routes/sitemap.{$part}[.]xml'
+import { Route as WriteWebRouteImport } from './routes/write_.web'
 import { Route as ApiAuthSplatRouteImport } from './routes/api.auth.$'
 import { Route as ApiFoldSplatRouteImport } from './routes/api.fold.$'
 import { Route as ArchiveYearMonthRouteImport } from './routes/archive.$year_.$month'
@@ -43,11 +43,6 @@ const AtChar123handleChar125Route = AtChar123handleChar125RouteImport.update({
 const ConnectRoute = ConnectRouteImport.update({
   id: '/connect',
   path: '/connect',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const FoldMdRoute = FoldMdRouteImport.update({
-  id: '/fold-md',
-  path: '/fold-md',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacyRoute = PrivacyRouteImport.update({
@@ -112,6 +107,11 @@ const SitemapChar123partChar125DotxmlRoute =
     path: '/sitemap/{$part}.xml',
     getParentRoute: () => rootRouteImport,
   } as any)
+const WriteWebRoute = WriteWebRouteImport.update({
+  id: '/write_/web',
+  path: '/write/web',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -137,7 +137,6 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/@{$handle}': typeof AtChar123handleChar125Route
   '/connect': typeof ConnectRoute
-  '/fold-md': typeof FoldMdRoute
   '/privacy': typeof PrivacyRoute
   '/rss.xml': typeof RssDotxmlRoute
   '/rules': typeof RulesRoute
@@ -149,6 +148,7 @@ export interface FileRoutesByFullPath {
   '/auth/error': typeof AuthErrorRoute
   '/img/$hash': typeof ImgHashRoute
   '/sitemap/{$part}.xml': typeof SitemapChar123partChar125DotxmlRoute
+  '/write/web': typeof WriteWebRoute
   '/archive/': typeof ArchiveIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/fold/$': typeof ApiFoldSplatRoute
@@ -159,7 +159,6 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/@{$handle}': typeof AtChar123handleChar125Route
   '/connect': typeof ConnectRoute
-  '/fold-md': typeof FoldMdRoute
   '/privacy': typeof PrivacyRoute
   '/rss.xml': typeof RssDotxmlRoute
   '/rules': typeof RulesRoute
@@ -171,6 +170,7 @@ export interface FileRoutesByTo {
   '/auth/error': typeof AuthErrorRoute
   '/img/$hash': typeof ImgHashRoute
   '/sitemap/{$part}.xml': typeof SitemapChar123partChar125DotxmlRoute
+  '/write/web': typeof WriteWebRoute
   '/archive': typeof ArchiveIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/fold/$': typeof ApiFoldSplatRoute
@@ -182,7 +182,6 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/@{$handle}': typeof AtChar123handleChar125Route
   '/connect': typeof ConnectRoute
-  '/fold-md': typeof FoldMdRoute
   '/privacy': typeof PrivacyRoute
   '/rss.xml': typeof RssDotxmlRoute
   '/rules': typeof RulesRoute
@@ -194,6 +193,7 @@ export interface FileRoutesById {
   '/auth/error': typeof AuthErrorRoute
   '/img/$hash': typeof ImgHashRoute
   '/sitemap/{$part}.xml': typeof SitemapChar123partChar125DotxmlRoute
+  '/write_/web': typeof WriteWebRoute
   '/archive/': typeof ArchiveIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/fold/$': typeof ApiFoldSplatRoute
@@ -206,7 +206,6 @@ export interface FileRouteTypes {
     | '/'
     | '/@{$handle}'
     | '/connect'
-    | '/fold-md'
     | '/privacy'
     | '/rss.xml'
     | '/rules'
@@ -218,6 +217,7 @@ export interface FileRouteTypes {
     | '/auth/error'
     | '/img/$hash'
     | '/sitemap/{$part}.xml'
+    | '/write/web'
     | '/archive/'
     | '/api/auth/$'
     | '/api/fold/$'
@@ -228,7 +228,6 @@ export interface FileRouteTypes {
     | '/'
     | '/@{$handle}'
     | '/connect'
-    | '/fold-md'
     | '/privacy'
     | '/rss.xml'
     | '/rules'
@@ -240,6 +239,7 @@ export interface FileRouteTypes {
     | '/auth/error'
     | '/img/$hash'
     | '/sitemap/{$part}.xml'
+    | '/write/web'
     | '/archive'
     | '/api/auth/$'
     | '/api/fold/$'
@@ -250,7 +250,6 @@ export interface FileRouteTypes {
     | '/'
     | '/@{$handle}'
     | '/connect'
-    | '/fold-md'
     | '/privacy'
     | '/rss.xml'
     | '/rules'
@@ -262,6 +261,7 @@ export interface FileRouteTypes {
     | '/auth/error'
     | '/img/$hash'
     | '/sitemap/{$part}.xml'
+    | '/write_/web'
     | '/archive/'
     | '/api/auth/$'
     | '/api/fold/$'
@@ -273,7 +273,6 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AtChar123handleChar125Route: typeof AtChar123handleChar125Route
   ConnectRoute: typeof ConnectRoute
-  FoldMdRoute: typeof FoldMdRoute
   PrivacyRoute: typeof PrivacyRoute
   RssDotxmlRoute: typeof RssDotxmlRoute
   RulesRoute: typeof RulesRoute
@@ -285,6 +284,7 @@ export interface RootRouteChildren {
   AuthErrorRoute: typeof AuthErrorRoute
   ImgHashRoute: typeof ImgHashRoute
   SitemapChar123partChar125DotxmlRoute: typeof SitemapChar123partChar125DotxmlRoute
+  WriteWebRoute: typeof WriteWebRoute
   ArchiveIndexRoute: typeof ArchiveIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiFoldSplatRoute: typeof ApiFoldSplatRoute
@@ -313,13 +313,6 @@ declare module '@tanstack/react-router' {
       path: '/connect'
       fullPath: '/connect'
       preLoaderRoute: typeof ConnectRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/fold-md': {
-      id: '/fold-md'
-      path: '/fold-md'
-      fullPath: '/fold-md'
-      preLoaderRoute: typeof FoldMdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy': {
@@ -406,6 +399,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SitemapChar123partChar125DotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/write_/web': {
+      id: '/write_/web'
+      path: '/write/web'
+      fullPath: '/write/web'
+      preLoaderRoute: typeof WriteWebRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -441,7 +441,6 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AtChar123handleChar125Route: AtChar123handleChar125Route,
   ConnectRoute: ConnectRoute,
-  FoldMdRoute: FoldMdRoute,
   PrivacyRoute: PrivacyRoute,
   RssDotxmlRoute: RssDotxmlRoute,
   RulesRoute: RulesRoute,
@@ -453,6 +452,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthErrorRoute: AuthErrorRoute,
   ImgHashRoute: ImgHashRoute,
   SitemapChar123partChar125DotxmlRoute: SitemapChar123partChar125DotxmlRoute,
+  WriteWebRoute: WriteWebRoute,
   ArchiveIndexRoute: ArchiveIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiFoldSplatRoute: ApiFoldSplatRoute,

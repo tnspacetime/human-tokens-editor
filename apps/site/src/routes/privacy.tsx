@@ -36,7 +36,7 @@ const NOT = [
 	{ title: "No ads, no tracking, no analytics.", line: "Nothing about you is sold or shared with anyone." },
 	{
 		title: "Drafts stay in your browser.",
-		line: "What you write on the Write page is kept in your browser until you publish it. The site doesn't see it before then.",
+		line: "What you write in the browser is kept in your browser until you publish it. The site doesn't see it before then.",
 	},
 	{
 		title: "Google and GitHub only say who you are.",

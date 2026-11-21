@@ -256,7 +256,7 @@ function PublishStep({
 			{pictures > 0 && (
 				<p className="publish-warning">
 					{pictures === 1 ? "It has a picture" : `It has ${pictures} pictures`}: pictures can't go up from the browser
-					yet. Take {pictures === 1 ? "it" : "them"} out, or publish it from <Link to="/fold-md">Fold MD</Link>.
+					yet. Take {pictures === 1 ? "it" : "them"} out, or publish it from <Link to="/write">Fold MD</Link>.
 				</p>
 			)}
 			{blocked && <p className="publish-warning">{preview?.limitReached}</p>}

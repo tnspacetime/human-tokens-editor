@@ -16,7 +16,7 @@ import {
 
 // The publishing API Fold MD talks to, with `Authorization: Bearer <token>`
 // (the token it got when you connected it at /connect). The writer at
-// /write uses it too, with your sign-in cookie, which counts only from the
+// /write/web uses it too, with your sign-in cookie, which counts only from the
 // site's own pages (publisherFrom in publish.server.ts). JSON in and out;
 // a refusal is { error } with a sentence Fold MD shows as it is.
 //

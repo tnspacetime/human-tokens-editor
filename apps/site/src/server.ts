@@ -40,7 +40,7 @@ function neverKeptUnlessSaid(response: Response): Response {
  * no data of their own to say so (the root's sign-in options say nothing), so
  * it's said here, by address.
  */
-const FIXED_PAGES = new Set(["/rules", "/privacy", "/write"]);
+const FIXED_PAGES = new Set(["/rules", "/privacy", "/write", "/write/web"]);
 
 function keptIfFixed(request: Request, url: URL, response: Response): Response {
 	if (request.method !== "GET" || response.status !== 200 || !FIXED_PAGES.has(url.pathname) || url.search) return response;

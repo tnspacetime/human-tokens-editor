@@ -26,7 +26,7 @@ export type Publisher = { id: string; name: string; image: string | null; author
 
 /**
  * Who is publishing: Fold MD, from `Authorization: Bearer <token>`, or the
- * site's own writer (/write), from your sign-in cookie. A cookie counts only
+ * site's own writer (/write/web), from your sign-in cookie. A cookie counts only
  * when the request comes from one of the site's own pages: browsers always
  * send the page's Origin with a POST, PUT or DELETE, and another website
  * can't fake it, so no other page can publish in your name.

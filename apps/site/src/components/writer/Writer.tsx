@@ -9,7 +9,7 @@ import { createEditor, topLine } from "./editor";
 import { PublishFlow } from "./PublishFlow";
 import { FoldSheet, renderer } from "./sheet";
 
-// Fold MD in the browser (/write): the same writing surface, the same sheet
+// Fold MD in the browser (/write/web): the same writing surface, the same sheet
 // at the top in its two modes, and the published page, which here comes
 // down over everything instead of folding out to the right. Posts only;
 // series stay in Fold MD. The draft is kept in this browser until you
@@ -334,7 +334,7 @@ export default function Writer() {
 					{words.toLocaleString()} {words === 1 ? "word" : "words"}
 				</span>
 				<span aria-hidden="true"> · </span>
-				<Link to="/fold-md">Fold MD for Mac</Link>
+				<Link to="/write">Fold MD for Mac</Link>
 			</p>
 
 			<Preview open={previewOpen} text={draft.text} title={title} you={you} onClose={() => setPreviewOpen(false)} />
