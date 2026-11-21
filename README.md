@@ -3,11 +3,11 @@
 Writing by people, published at [human-tokens.dev](https://human-tokens.dev).
 No AI wrote or rewrote any of it.
 
-Posts are written and published from **Fold MD**, a quiet markdown editor for the Mac built on the Fold pattern: your words set as you write them, in a sheet that folds down over the page.
+Posts are written and published from **Fold MD**, a quiet markdown editor built on the Fold pattern: your words set as you write them, in a sheet that folds down over the page. It's a Mac app, and it's [in the browser](https://human-tokens.dev/write) too, for posts.
 
-[![Fold MD in use: writing maths in plain text, the sheet showing it set, and the published page folding out beside it](apps/site/public/video/fold-md-poster.webp)](https://human-tokens.dev/write)
+[![Fold MD in use: writing maths in plain text, the sheet showing it set, and the published page folding out beside it](apps/site/public/video/fold-md-poster.webp)](https://human-tokens.dev/fold-md)
 
-*▶ Fold MD in use, 46 seconds: [watch it on human-tokens.dev/write](https://human-tokens.dev/write).*
+*▶ Fold MD in use, 46 seconds: [watch it on human-tokens.dev/fold-md](https://human-tokens.dev/fold-md).*
 
 1. **Write in plain text.** Markdown, in a native Mac editor that stays out of your way. Your files stay on your Mac.
 2. **See it as it will read.** A sheet folds down with your words set: math, code and images. The published page folds out beside you.

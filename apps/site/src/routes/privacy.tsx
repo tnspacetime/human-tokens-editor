@@ -5,10 +5,11 @@ import { share } from "../lib/share";
 // What the site keeps about people, and why: linked from the footer and from
 // Google's sign-in screen (its consent screen needs a privacy policy). Keep it
 // true to the code: users, sessions and accounts (migrations/0004), device
-// codes (0005), the theme cookie (lib/theme.ts), cleanup.server.ts.
+// codes (0005), the theme cookie (lib/theme.ts), the writer's draft
+// (components/writer/draft.ts), cleanup.server.ts.
 
 const CONTACT = "human-tokens@googlegroups.com";
-const UPDATED = "20 November 2026";
+const UPDATED = "21 November 2026";
 
 const KEPT = [
 	{ title: "Reading needs nothing.", line: "Every post can be read without an account, and nothing here records what you read." },
@@ -33,6 +34,10 @@ const KEPT = [
 
 const NOT = [
 	{ title: "No ads, no tracking, no analytics.", line: "Nothing about you is sold or shared with anyone." },
+	{
+		title: "Drafts stay in your browser.",
+		line: "What you write on the Write page is kept in your browser until you publish it. The site doesn't see it before then.",
+	},
 	{
 		title: "Google and GitHub only say who you are.",
 		line: "The site asks them for your name, email address and picture, and never reads or posts anything there.",

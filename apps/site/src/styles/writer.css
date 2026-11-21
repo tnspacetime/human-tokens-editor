@@ -1,0 +1,660 @@
+/* ---------------------------------------------------------------- writer */
+
+/* /write: Fold MD in the browser (components/writer). It takes the whole
+   window like Fold MD's: the toolbar's capsules float under the island, the
+   sheet comes down from under them, and the editor fills the rest. Its
+   colours are Fold MD's own (FoldMD/Theme.swift, web/src/renderer.css),
+   the Mac's system colours, in light and dark. */
+
+html:has(main.writer-page),
+html:has(main.writer-page) body {
+	height: 100%;
+	overflow: hidden;
+	overscroll-behavior: none;
+}
+
+html:has(main.writer-page) .site-footer {
+	display: none;
+}
+
+.writer {
+	/* The Mac's colours, as Fold MD uses them. */
+	--w-bg: light-dark(#ffffff, #1e1e1e); /* the text view */
+	--w-sheet: light-dark(#f4f3ef, #19191b); /* the sheet (Theme.sheet) */
+	--w-ink: light-dark(rgba(0, 0, 0, 0.85), rgba(255, 255, 255, 0.86)); /* labelColor */
+	--w-secondary: light-dark(rgba(0, 0, 0, 0.5), rgba(255, 255, 255, 0.55));
+	--w-tertiary: light-dark(rgba(0, 0, 0, 0.26), rgba(255, 255, 255, 0.25)); /* the marks */
+	--w-teal: light-dark(#30b0c7, #40c8e0); /* systemTeal: maths */
+	--w-link: light-dark(#0068da, #419cff);
+	--w-select: light-dark(#b3d7ff, #3f638b);
+	--w-edge: light-dark(rgba(0, 0, 0, 0.1), rgba(255, 255, 255, 0.1));
+	--w-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, "Segoe UI", Roboto, sans-serif;
+	--w-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+	--w-column: 680px;
+
+	position: fixed;
+	inset: 0;
+	display: flex;
+	flex-direction: column;
+	background: var(--w-bg);
+	color: var(--w-ink);
+}
+
+/* ------------------------------------------------ the toolbar */
+
+/* Fold MD's toolbar: groups of symbols in glass capsules. */
+.writer-toolbar {
+	position: fixed;
+	top: 68px;
+	left: 0;
+	right: 0;
+	z-index: 19;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	gap: 8px;
+	padding: 0 16px;
+	pointer-events: none;
+}
+
+.writer-capsule,
+.writer-publish {
+	pointer-events: auto;
+	height: 38px;
+	border-radius: 999px;
+	background: var(--glass);
+	border: 1px solid var(--glass-edge);
+	box-shadow:
+		inset 0 1px 0 var(--glass-shine),
+		0 1px 2px var(--shade-1),
+		0 10px 26px -14px var(--shade-3);
+	-webkit-backdrop-filter: blur(24px) saturate(1.8);
+	backdrop-filter: blur(24px) saturate(1.8);
+}
+
+.writer-capsule {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	padding: 3px;
+}
+
+.writer-tool {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	height: 30px;
+	min-width: 36px;
+	padding: 0 9px;
+	justify-content: center;
+	border: 0;
+	border-radius: 999px;
+	background: none;
+	color: var(--w-secondary);
+	font: 500 13px/1 var(--w-font);
+	cursor: pointer;
+	transition:
+		background 0.2s ease,
+		color 0.2s ease,
+		transform 0.2s var(--ease);
+}
+
+.writer-tool:hover {
+	color: var(--w-ink);
+	background: var(--glass-chip);
+}
+
+.writer-tool[aria-pressed="true"] {
+	color: var(--w-ink);
+	background: var(--glass-chip);
+}
+
+.writer-tool:active,
+.writer-publish:active {
+	transform: scale(0.95);
+	transition-duration: 0.1s;
+}
+
+.writer-icon {
+	width: 16px;
+	height: 16px;
+	flex: none;
+	fill: none;
+	stroke: currentColor;
+	stroke-width: 1.5;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+}
+
+.writer-icon .icon-fill {
+	fill: currentColor;
+	stroke: none;
+	opacity: 0.45;
+}
+
+/* Names beside the sheet's two modes, where there's room. */
+.writer-tool-label {
+	display: none;
+}
+
+@media (min-width: 720px) {
+	.writer-tool-label {
+		display: inline;
+	}
+}
+
+/* Publish: the one coloured thing, like Fold MD's publish pill. */
+.writer-publish {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 0 15px 0 12px;
+	background: var(--accent);
+	border-color: transparent;
+	color: #fff;
+	font: 600 13px/1 var(--w-font);
+	cursor: pointer;
+	transition:
+		transform 0.2s var(--ease),
+		opacity 0.2s ease;
+}
+
+.writer-publish .writer-icon {
+	stroke-width: 1.8;
+}
+
+.writer-publish[data-done] {
+	background: var(--glass);
+	border-color: var(--glass-edge);
+	color: var(--w-ink);
+}
+
+.writer-publish:disabled {
+	opacity: 0.45;
+	cursor: default;
+}
+
+/* ------------------------------------------------ the sheet */
+
+/* The top strip, under the island and the toolbar, is the window's title
+   bar. The sheet lies over the top of the writing below it (--sheet-h,
+   set by Writer.tsx) and never moves it; in "paragraph" the writing starts
+   below the sheet's usual height (--sheet-room). */
+.writer::before {
+	content: "";
+	position: absolute;
+	top: 119px;
+	left: 0;
+	right: 0;
+	height: 1px;
+	background: var(--w-edge);
+}
+
+.writer-sheet {
+	position: absolute;
+	top: 120px;
+	left: 0;
+	right: 0;
+	z-index: 2;
+	height: var(--sheet-h, 0px);
+}
+
+.writer-sheet-scroller {
+	position: relative;
+	height: 100%;
+	box-shadow: 0 6px 16px -12px var(--shade-3);
+	overflow: hidden;
+	background: var(--w-sheet);
+}
+
+.writer-sheet[data-closed] .writer-sheet-scroller {
+	display: none;
+}
+
+/* Room above the set text, so its first block can sit at the bottom edge. */
+.writer-sheet-spacer {
+	height: 100vh;
+	display: flex;
+	align-items: flex-end;
+	justify-content: center;
+}
+
+.writer-sheet-spacer p {
+	margin: 0 0 14px;
+	color: var(--muted);
+	font: 12px/1 var(--w-font);
+	letter-spacing: 0.02em;
+}
+
+/* The set text: Fold MD's sheet column, in the site's reading face. */
+.writer-sheet-content {
+	max-width: var(--w-column);
+	margin: 0 auto;
+	padding: 0 28px 1px;
+	font: 18px/1.6 var(--font-reading);
+}
+
+.writer-sheet-content :is(h1, h2, h3, h4) {
+	font-weight: 600;
+}
+
+.writer-sheet-content blockquote {
+	font-style: italic;
+}
+
+.writer-sheet-content .blk {
+	display: flow-root;
+	transition: opacity 0.18s ease;
+	cursor: text;
+}
+
+.writer-sheet[data-mode="focus"] .writer-sheet-spacer {
+	display: none;
+}
+
+.writer-sheet[data-mode="focus"] .writer-sheet-content {
+	padding-top: 45vh;
+	padding-bottom: 45vh;
+}
+
+.writer-sheet[data-mode="focus"] .blk {
+	opacity: 0.28;
+}
+
+.writer-sheet[data-mode="focus"] .blk.current {
+	opacity: 1;
+}
+
+/* The sheet's edge, to pull it down or up (double-click: the usual height). */
+.writer-sheet:not([data-closed]) {
+	border-bottom: 1px solid var(--w-edge);
+}
+
+.writer-handle {
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	z-index: 2;
+	height: 12px;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	cursor: row-resize;
+	touch-action: none;
+}
+
+.writer-handle span {
+	width: 36px;
+	height: 4px;
+	border-radius: 2px;
+	background: var(--w-tertiary);
+	transition: background 0.2s ease;
+}
+
+.writer-handle:hover span {
+	background: var(--w-secondary);
+}
+
+.writer-sheet[data-closed] .writer-handle {
+	display: none;
+}
+
+/* ------------------------------------------------ the editor */
+
+.writer-editor {
+	position: absolute;
+	top: 120px;
+	left: 0;
+	right: 0;
+	bottom: 0;
+}
+
+.writer-editor .cm-editor {
+	height: 100%;
+	background: var(--w-bg);
+	color: var(--w-ink);
+	font: 16px/1.35 var(--w-font);
+}
+
+.writer-editor .cm-editor.cm-focused {
+	outline: none;
+}
+
+.writer-editor .cm-scroller {
+	font-family: inherit;
+	line-height: inherit;
+	overscroll-behavior: contain;
+}
+
+.writer-editor .cm-content {
+	box-sizing: border-box;
+	width: 100%;
+	max-width: var(--w-column);
+	margin: 0 auto;
+	padding: calc(var(--sheet-room, 0px) + 26px) 28px 45vh;
+	caret-color: var(--w-ink);
+}
+
+.writer-editor .cm-line {
+	padding: 0;
+}
+
+.writer-editor .cm-cursor {
+	border-left: 2px solid var(--w-ink);
+}
+
+.writer-editor .cm-selectionBackground,
+.writer-editor .cm-focused .cm-selectionBackground,
+.writer-editor .cm-content ::selection {
+	background: var(--w-select) !important;
+}
+
+.writer-editor .cm-placeholder {
+	color: var(--w-tertiary);
+	white-space: pre-wrap;
+}
+
+/* Fold MD's colours for Markdown (MarkdownHighlighter.swift). */
+.writer-editor .md-h {
+	font-weight: 700;
+}
+.writer-editor .md-h1 {
+	font-size: 27px;
+}
+.writer-editor .md-h2 {
+	font-size: 22px;
+}
+.writer-editor .md-h3 {
+	font-size: 19px;
+}
+.writer-editor .md-h4 {
+	font-size: 17px;
+}
+.writer-editor .md-mark {
+	color: var(--w-tertiary);
+}
+.writer-editor .md-strong {
+	font-weight: 700;
+}
+.writer-editor .md-em {
+	font-style: italic;
+}
+.writer-editor .md-strike {
+	text-decoration: line-through;
+}
+.writer-editor .md-code {
+	font-family: var(--w-mono);
+	font-size: 14px;
+}
+.writer-editor .md-math {
+	color: var(--w-teal);
+	font-family: var(--w-mono);
+	font-size: 14px;
+}
+.writer-editor .md-link {
+	color: var(--w-link);
+}
+.writer-editor .md-quote {
+	color: var(--w-secondary);
+}
+
+/* ------------------------------------------------ the foot */
+
+/* Where the draft is kept, always in sight. */
+.writer-status {
+	position: fixed;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	z-index: 3;
+	margin: 0;
+	padding: 18px 16px 14px;
+	text-align: center;
+	color: var(--w-secondary);
+	font: 12px/1.4 var(--w-font);
+	background: linear-gradient(transparent, var(--w-bg) 55%);
+	pointer-events: none;
+}
+
+.writer-status a {
+	color: inherit;
+	pointer-events: auto;
+}
+
+.writer-status a:hover {
+	color: var(--w-ink);
+}
+
+/* ------------------------------------------------ the preview */
+
+/* The post as readers will see it: comes down from the top over the
+   writer, instead of folding out to the right as in Fold MD. */
+.writer-preview {
+	position: fixed;
+	inset: 0;
+	z-index: 30;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	background: var(--sheet);
+	color: var(--ink);
+	transform: translateY(-102%);
+	box-shadow: 0 20px 60px -20px var(--shade-3);
+	/* Hidden only once it has slid away, so closing animates like opening. */
+	transition:
+		transform 0.5s var(--ease),
+		visibility 0s linear 0.5s;
+	visibility: hidden;
+}
+
+.writer-preview[data-open] {
+	transform: none;
+	visibility: visible;
+	transition:
+		transform 0.5s var(--ease),
+		visibility 0s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.writer-preview,
+	.writer-preview[data-open] {
+		transition: none;
+	}
+}
+
+.writer-preview-bar {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 12px 16px;
+	background: var(--glass);
+	border-bottom: 1px solid var(--line);
+	-webkit-backdrop-filter: blur(24px) saturate(1.8);
+	backdrop-filter: blur(24px) saturate(1.8);
+	color: var(--muted);
+	font: 600 13px/1 var(--sans);
+}
+
+.writer-preview-bar button {
+	height: 32px;
+	padding: 0 14px;
+	border: 0;
+	border-radius: 999px;
+	background: var(--ink);
+	color: var(--sheet);
+	font: 600 13px/1 var(--sans);
+	cursor: pointer;
+}
+
+.writer-preview-post {
+	padding-bottom: 120px;
+}
+
+/* ------------------------------------------------ publishing */
+
+.publish-form {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+}
+
+.publish-message,
+.publish-quiet {
+	margin: 0;
+	color: var(--muted);
+	font: 15px/1.45 var(--sans);
+}
+
+.publish-card {
+	padding: 14px 16px;
+	border-radius: 14px;
+	background: var(--fill);
+}
+
+.publish-card p {
+	margin: 0;
+}
+
+.publish-card-byline {
+	color: var(--muted);
+	font: 600 12px/1.3 var(--sans);
+}
+
+.publish-card-title {
+	margin-top: 6px !important;
+	font: 600 21px/1.2 var(--serif);
+}
+
+.publish-card-title.is-missing {
+	color: var(--muted);
+}
+
+.publish-card-opening {
+	margin-top: 6px !important;
+	color: var(--ink-soft);
+	font: 15px/1.4 var(--serif);
+	display: -webkit-box;
+	-webkit-line-clamp: 3;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
+.publish-warning {
+	margin: 0;
+	color: light-dark(#b25000, #ff9f0a);
+	font: 14px/1.4 var(--sans);
+}
+
+.publish-error {
+	margin: 0;
+	color: light-dark(#d70015, #ff6961);
+	font: 14px/1.4 var(--sans);
+}
+
+.publish-duplicate {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	padding: 12px 14px;
+	border-radius: 12px;
+	border: 1px solid var(--line);
+	font: 14px/1.4 var(--sans);
+}
+
+.publish-duplicate p {
+	margin: 0;
+}
+
+.publish-check {
+	display: flex;
+	gap: 10px;
+	align-items: flex-start;
+	font: 14px/1.4 var(--sans);
+	cursor: pointer;
+}
+
+.publish-check input {
+	margin: 2px 0 0;
+	width: 16px;
+	height: 16px;
+	accent-color: var(--accent);
+}
+
+.publish-pledge span {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.publish-pledge strong {
+	font-weight: 600;
+}
+
+.publish-pledge a {
+	color: var(--accent);
+	font-size: 13px;
+	text-decoration: none;
+}
+
+.publish-field {
+	display: grid;
+	grid-template-columns: 70px 1fr;
+	align-items: center;
+	gap: 10px;
+	font: 600 14px/1 var(--sans);
+}
+
+.publish-field input {
+	height: 38px;
+	padding: 0 12px;
+	border: 1px solid var(--line-strong);
+	border-radius: 10px;
+	background: var(--surface);
+	color: var(--ink);
+	font: 15px/1 var(--sans);
+}
+
+.publish-fine {
+	margin: -6px 0 0 80px;
+	color: var(--muted);
+	font: 12px/1.4 var(--sans);
+}
+
+.publish-buttons {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+	margin-top: 4px;
+}
+
+.publish-primary,
+.publish-secondary {
+	display: inline-flex;
+	align-items: center;
+	height: 38px;
+	padding: 0 18px;
+	border: 0;
+	border-radius: 999px;
+	font: 600 14px/1 var(--sans);
+	text-decoration: none;
+	cursor: pointer;
+}
+
+.publish-primary {
+	background: var(--accent);
+	color: #fff;
+}
+
+.publish-primary:disabled {
+	opacity: 0.4;
+	cursor: default;
+}
+
+.publish-secondary {
+	background: var(--fill);
+	color: var(--ink);
+}

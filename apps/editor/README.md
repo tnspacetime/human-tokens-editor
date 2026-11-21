@@ -12,7 +12,7 @@ Files are plain `.md` on disk. Series organise them without moving them, and ima
 
 ## What it does
 
-The demo and a screenshot of each feature are in the [main README](../../README.md#what-fold-md-does), and on the site's [Write page](https://human-tokens.dev/write).
+The demo and a screenshot of each feature are in the [main README](../../README.md#what-fold-md-does), and on the site's [Fold MD page](https://human-tokens.dev/fold-md).
 
 The demo video (`apps/site/public/video`) is recorded by `design/demo/record.sh`. The screenshots are taken from a debug build by `design/shots/shoot.sh` (it sets each one up through the app's own test hooks, and puts your settings back after) and sized for the web by `design/shots/make-web.sh`.
 

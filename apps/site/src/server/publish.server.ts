@@ -25,20 +25,35 @@ type Author = { id: string; handle: string; name: string };
 export type Publisher = { id: string; name: string; image: string | null; author: Author | null };
 
 /**
- * The person Fold MD publishes as, from `Authorization: Bearer <token>`.
- * Only the token counts: a browser's cookies are ignored here, so no other
- * page can publish in your name.
+ * Who is publishing: Fold MD, from `Authorization: Bearer <token>`, or the
+ * site's own writer (/write), from your sign-in cookie. A cookie counts only
+ * when the request comes from one of the site's own pages: browsers always
+ * send the page's Origin with a POST, PUT or DELETE, and another website
+ * can't fake it, so no other page can publish in your name.
  */
 export async function publisherFrom(request: Request): Promise<Publisher> {
 	const authorization = request.headers.get("authorization");
-	if (!authorization?.toLowerCase().startsWith("bearer ")) throw new PublishError(401, "Connect Fold MD to your account first.");
-	const session = await auth.api.getSession({ headers: new Headers({ authorization }) });
-	if (!session) throw new PublishError(401, "This connection has ended. Connect Fold MD again.");
+	let session: Awaited<ReturnType<typeof auth.api.getSession>>;
+	if (authorization?.toLowerCase().startsWith("bearer ")) {
+		session = await auth.api.getSession({ headers: new Headers({ authorization }) });
+		if (!session) throw new PublishError(401, "This connection has ended. Connect Fold MD again.");
+	} else if (fromThisSite(request)) {
+		session = await auth.api.getSession({ headers: new Headers({ cookie: request.headers.get("cookie") ?? "" }) });
+		if (!session) throw new PublishError(401, "Sign in to publish.");
+	} else {
+		throw new PublishError(401, "Connect Fold MD to your account first.");
+	}
 	const author = await db()
 		.prepare("SELECT id, handle, name FROM authors WHERE user_id = ?")
 		.bind(session.user.id)
 		.first<Author>();
 	return { id: session.user.id, name: session.user.name, image: session.user.image ?? null, author };
+}
+
+/** Sent by one of the site's own pages (see publisherFrom). */
+function fromThisSite(request: Request) {
+	const origin = request.headers.get("origin");
+	return origin !== null && origin === new URL(request.url).origin && request.headers.get("sec-fetch-site") !== "cross-site";
 }
 
 function requireAuthor(publisher: Publisher): Author {

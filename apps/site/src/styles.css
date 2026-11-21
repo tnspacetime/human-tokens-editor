@@ -9,6 +9,8 @@
    rules  the rules: a glass pill on the homepage, and their own page
    post   a piece, its qualities and comments
    author an author's page
+   write  Fold MD's page (/fold-md)
+   writer the writer in the browser (/write)
    auth   the dev sign-in, the sign-in error page, connecting Fold MD */
 @import "./styles/base.css";
 @import "./styles/island.css";
@@ -17,6 +19,7 @@
 @import "./styles/rules.css";
 @import "./styles/post.css";
 @import "./styles/write.css";
+@import "./styles/writer.css";
 @import "./styles/archive.css";
 @import "./styles/author.css";
 @import "./styles/auth.css";
