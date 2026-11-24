@@ -1,5 +1,6 @@
 import { QUALITIES, type Quality } from "../lib/qualities";
-import type { Ranking, RankingEntry, RankingPeriod } from "../lib/types";
+import { shorten, TRAIL_COUNT } from "../lib/trails";
+import type { Ranking, RankingPeriod, Trail, TrailPeriod, TrailPost, Trails } from "../lib/types";
 import { settledBefore } from "./feed.server";
 import { batches, db, marks } from "./rows.server";
 
@@ -13,7 +14,12 @@ import { batches, db, marks } from "./rows.server";
 // the `ranking` table: post ids and counts only. The All time board is
 // worked out once a day from each post's running totals (post_totals).
 // Pages read the stored boards and look up the titles, so a deleted post
-// drops out. Only settled posts are ranked (as on every list): one its
+// drops out.
+//
+// Trails are worked out with them, in the same runs and the same writes:
+// the replies readers chose most (all qualities together), each with the
+// posts it answers back to the opening one. This week and This month with
+// the hourly board, All time with the daily one. Only settled posts are ranked (as on every list): one its
 // author can still fix joins at the first work-out after it settles.
 
 /** "2026-11-20T13": an hour as reaction_hours keeps it. */
@@ -40,18 +46,69 @@ export const LIST_LENGTH = 10;
 export const oldestTallies = (now: number) => ({ hour: hourOf(now - 2 * DAY_MS), day: dayOf(now - 31 * DAY_MS) });
 
 type Lists = Partial<Record<RankingPeriod["id"], Record<Quality, [postId: string, votes: number][]>>>;
-type Stored = { workedOutAt: string; lists: Lists };
+/** A trail as stored: the reply, its votes, the posts shown (opening first, reply last), and how many are left out. */
+type StoredTrail = { votes: number; shown: string[]; more: number };
+type StoredTrails = Partial<Record<TrailPeriod, StoredTrail[]>>;
+type Stored = { workedOutAt: string; lists: Lists; trails: StoredTrails };
 
 /** The boards, as the `ranking` table keeps them. */
 type Board = "recent" | "all_time";
 
-async function store(board: Board, now: number, lists: Lists): Promise<Stored> {
-	const stored: Stored = { workedOutAt: new Date(now).toISOString(), lists };
+async function store(board: Board, now: number, lists: Lists, trails: StoredTrails): Promise<Stored> {
+	const stored: Stored = { workedOutAt: new Date(now).toISOString(), lists, trails };
 	await db()
-		.prepare("INSERT INTO ranking (board, worked_out_at, lists) VALUES (?1, ?2, ?3) ON CONFLICT (board) DO UPDATE SET worked_out_at = ?2, lists = ?3")
-		.bind(board, stored.workedOutAt, JSON.stringify(lists))
+		.prepare(
+			"INSERT INTO ranking (board, worked_out_at, lists, trails) VALUES (?1, ?2, ?3, ?4) ON CONFLICT (board) DO UPDATE SET worked_out_at = ?2, lists = ?3, trails = ?4",
+		)
+		.bind(board, stored.workedOutAt, JSON.stringify(lists), JSON.stringify(trails))
 		.run();
 	return stored;
+}
+
+/**
+ * How far back a trail is followed: a bound on the work for one trail, far
+ * past any real conversation. (Each post answers an earlier one, so a trail
+ * can't loop; this only caps its length.)
+ */
+const TRAIL_DEPTH = 1000;
+
+/**
+ * Each reply's trail: the posts it answers, back to the opening one. One
+ * query follows every reply's links at once, reading one post per step.
+ * A reply whose link was dropped (the post it answered was deleted) isn't
+ * a reply any more, and has no trail.
+ */
+async function followTrails(replies: string[]): Promise<Map<string, string[]>> {
+	const paths = new Map<string, string[]>();
+	if (replies.length === 0) return paths;
+	const { results } = await db()
+		.prepare(
+			`WITH RECURSIVE up (reply, id, depth) AS (
+			   SELECT id, id, 0 FROM posts WHERE id IN (${marks(replies)})
+			   UNION ALL
+			   SELECT up.reply, p.responds_to, up.depth + 1 FROM up JOIN posts p ON p.id = up.id
+			   WHERE p.responds_to IS NOT NULL AND up.depth < ?${replies.length + 1}
+			 )
+			 SELECT reply, id FROM up ORDER BY reply, depth DESC`,
+		)
+		.bind(...replies, TRAIL_DEPTH)
+		.all<{ reply: string; id: string }>();
+	for (const { reply, id } of results) {
+		const path = paths.get(reply);
+		if (path) path.push(id);
+		else paths.set(reply, [id]);
+	}
+	return paths;
+}
+
+/** The trails for the replies chosen, in their order: each one shortened to what's shown. */
+function trailsOf(chosen: { post_id: string; votes: number }[], paths: Map<string, string[]>): StoredTrail[] {
+	return chosen.flatMap(({ post_id, votes }) => {
+		const path = paths.get(post_id);
+		if (!path || path.length < 2) return [];
+		const { shown, more } = shorten(path);
+		return [{ votes, shown, more }];
+	});
 }
 
 const emptyLists = () => Object.fromEntries(QUALITIES.map((q) => [q.id, []])) as unknown as Record<Quality, [string, number][]>;
@@ -63,6 +120,27 @@ const emptyLists = () => Object.fromEntries(QUALITIES.map((q) => [q.id, []])) as
  */
 export async function workOutRanking(now = Date.now()): Promise<Stored> {
 	const settled = settledBefore(now);
+	const week = PERIODS.find((p) => p.id === "week")!;
+	const month = PERIODS.find((p) => p.id === "month")!;
+	// The replies chosen most, This week and This month: one pass over the
+	// month's daily tallies serves both (the week is the end of the month).
+	// Between equals, the one chosen most lately. CROSS JOIN keeps the
+	// tallies as the outer loop (the daily ones are only ever the last 31
+	// days, so this reads the month's activity) and looks each post up by its
+	// id: left to itself, the planner walks every post ever published.
+	const replies = db()
+		.prepare(
+			`WITH chosen AS (
+			   SELECT t.post_id, SUM(t.n) AS month, SUM(CASE WHEN t.day >= ?2 THEN t.n ELSE 0 END) AS week, MAX(t.day) AS last
+			   FROM reaction_days t CROSS JOIN posts p ON p.id = t.post_id AND p.published_at <= ?3 AND p.responds_to IS NOT NULL
+			   WHERE t.day >= ?1
+			   GROUP BY t.post_id
+			 )
+			 SELECT * FROM (SELECT 'week' AS period, post_id, week AS votes FROM chosen WHERE week > 0 ORDER BY week DESC, last DESC, post_id LIMIT ?4)
+			 UNION ALL
+			 SELECT * FROM (SELECT 'month' AS period, post_id, month AS votes FROM chosen WHERE month > 0 ORDER BY month DESC, last DESC, post_id LIMIT ?4)`,
+		)
+		.bind(month.from(now), week.from(now), settled, TRAIL_COUNT);
 	const statements = PERIODS.map(({ tallies, unit, from }) =>
 		db()
 			.prepare(
@@ -76,14 +154,20 @@ export async function workOutRanking(now = Date.now()): Promise<Stored> {
 			)
 			.bind(from(now), LIST_LENGTH, settled),
 	);
-	const results = await db().batch<{ post_id: string; quality: Quality; votes: number }>(statements);
+	const [chosen, ...results] = await db().batch([replies, ...statements]);
 	const lists: Lists = {};
 	PERIODS.forEach(({ id }, i) => {
 		const byQuality = emptyLists();
-		for (const row of results[i].results) byQuality[row.quality]?.push([row.post_id, row.votes]);
+		for (const row of results[i].results as { post_id: string; quality: Quality; votes: number }[]) byQuality[row.quality]?.push([row.post_id, row.votes]);
 		lists[id] = byQuality;
 	});
-	return store("recent", now, lists);
+	const rows = chosen.results as { period: "week" | "month"; post_id: string; votes: number }[];
+	const paths = await followTrails([...new Set(rows.map((row) => row.post_id))]);
+	const trails: StoredTrails = {
+		week: trailsOf(rows.filter((row) => row.period === "week"), paths),
+		month: trailsOf(rows.filter((row) => row.period === "month"), paths),
+	};
+	return store("recent", now, lists, trails);
 }
 
 /** How often the archive's All time board is worked out. */
@@ -96,8 +180,21 @@ const ALL_TIME_EVERY_MS = DAY_MS;
  */
 export async function workOutAllTime(now = Date.now()): Promise<Stored> {
 	const settled = settledBefore(now);
-	const results = await db().batch<{ post_id: string; votes: number }>(
-		QUALITIES.map((q) =>
+	// The replies chosen most, ever: each reply's running totals, all
+	// qualities together. Read through the replies' own index
+	// (posts_by_responds_to), not every post.
+	const all = QUALITIES.map((q) => `t.${q.id}`).join(" + ");
+	const replies = db()
+		.prepare(
+			`SELECT p.id AS post_id, ${all} AS votes
+			 FROM posts p INDEXED BY posts_by_responds_to JOIN post_totals t ON t.post_id = p.id
+			 WHERE p.responds_to IS NOT NULL AND p.published_at <= ?2 AND ${all} > 0
+			 ORDER BY votes DESC, p.id LIMIT ?1`,
+		)
+		.bind(TRAIL_COUNT, settled);
+	const [chosen, ...results] = await db().batch<{ post_id: string; votes: number }>([
+		replies,
+		...QUALITIES.map((q) =>
 			db()
 				.prepare(
 					`SELECT t.post_id, t.${q.id} AS votes FROM post_totals t JOIN posts p ON p.id = t.post_id AND p.published_at <= ?2
@@ -105,12 +202,13 @@ export async function workOutAllTime(now = Date.now()): Promise<Stored> {
 				)
 				.bind(LIST_LENGTH, settled),
 		),
-	);
+	]);
 	const byQuality = emptyLists();
 	QUALITIES.forEach((q, i) => {
 		byQuality[q.id] = results[i].results.map((row) => [row.post_id, row.votes]);
 	});
-	return store("all_time", now, { all: byQuality });
+	const paths = await followTrails(chosen.results.map((row) => row.post_id));
+	return store("all_time", now, { all: byQuality }, { all: trailsOf(chosen.results, paths) });
 }
 
 /** Run every hour: the All time board when a day has passed since it was last worked out (or it never was). */
@@ -124,22 +222,12 @@ export async function workOutAllTimeIfDue(now = Date.now()) {
 /** A stored board with its posts' titles. Worked out on the spot only if it never has been (just after deploying). */
 async function loadBoard(board: Board): Promise<Ranking> {
 	const row = await db().prepare("SELECT worked_out_at, lists FROM ranking WHERE board = ?").bind(board).first<{ worked_out_at: string; lists: string }>();
-	const stored: Stored = row
+	const stored: Pick<Stored, "workedOutAt" | "lists"> = row
 		? { workedOutAt: row.worked_out_at, lists: JSON.parse(row.lists) }
 		: await (board === "recent" ? workOutRanking() : workOutAllTime());
 
-	// The posts every list names (at most 150), in one query per 100.
-	const ids = [...new Set(Object.values(stored.lists).flatMap((byQuality) => Object.values(byQuality ?? {}).flat().map(([id]) => id)))];
-	const posts = new Map<string, RankingEntry["post"]>();
-	const found = await Promise.all(
-		batches(ids).map((some) =>
-			db()
-				.prepare(`SELECT p.id, p.slug, p.title, a.name AS author FROM posts p JOIN authors a ON a.id = p.author_id WHERE p.id IN (${marks(some)})`)
-				.bind(...some)
-				.all<RankingEntry["post"]>(),
-		),
-	);
-	for (const { results } of found) for (const post of results) posts.set(post.id, post);
+	// The posts every list names (at most 150).
+	const posts = await postsByIds([...new Set(Object.values(stored.lists).flatMap((byQuality) => Object.values(byQuality ?? {}).flat().map(([id]) => id)))]);
 
 	const shown = board === "recent" ? PERIODS : [{ id: "all" as const, label: "All time" }];
 	const periods: RankingPeriod[] = shown.map(({ id, label }) => ({
@@ -167,3 +255,47 @@ export const loadRanking = () => loadBoard("recent");
 
 /** The archive's board: All time (worked out daily). */
 export const loadAllTime = () => loadBoard("all_time");
+
+/** Titles and authors for these posts, in one query per 100. */
+async function postsByIds(ids: string[]): Promise<Map<string, TrailPost>> {
+	const posts = new Map<string, TrailPost>();
+	const found = await Promise.all(
+		batches(ids).map((some) =>
+			db()
+				.prepare(`SELECT p.id, p.slug, p.title, a.name AS author FROM posts p JOIN authors a ON a.id = p.author_id WHERE p.id IN (${marks(some)})`)
+				.bind(...some)
+				.all<TrailPost>(),
+		),
+	);
+	for (const { results } of found) for (const post of results) posts.set(post.id, post);
+	return posts;
+}
+
+/**
+ * The homepage's trails: This week and This month from the hourly board,
+ * All time from the daily one, with their posts' titles (at most 60 posts).
+ * A board not worked out with its trails yet (just after deploying) is
+ * worked out on the spot. A trail missing one of its posts (deleted since)
+ * is left out until the next work-out.
+ */
+export async function loadTrails(): Promise<Trails> {
+	const { results } = await db()
+		.prepare("SELECT board, trails FROM ranking WHERE board IN ('recent', 'all_time')")
+		.all<{ board: Board; trails: string | null }>();
+	const kept = new Map(results.map((row) => [row.board, row.trails]));
+	const read = async (board: Board): Promise<StoredTrails> => {
+		const trails = kept.get(board);
+		if (trails) return JSON.parse(trails);
+		return (await (board === "recent" ? workOutRanking() : workOutAllTime())).trails;
+	};
+	const [recent, allTime] = await Promise.all([read("recent"), read("all_time")]);
+	const stored: Record<TrailPeriod, StoredTrail[]> = { week: recent.week ?? [], month: recent.month ?? [], all: allTime.all ?? [] };
+
+	const posts = await postsByIds([...new Set(Object.values(stored).flatMap((trails) => trails.flatMap((trail) => trail.shown)))]);
+	const withPosts = (trails: StoredTrail[]): Trail[] =>
+		trails.flatMap(({ votes, shown, more }) => {
+			const found = shown.map((id) => posts.get(id));
+			return found.every((post) => post) ? [{ votes, posts: found as TrailPost[], more }] : [];
+		});
+	return { week: withPosts(stored.week), month: withPosts(stored.month), all: withPosts(stored.all) };
+}

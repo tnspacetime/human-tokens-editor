@@ -9,7 +9,7 @@ import { authorIdFor, deleteOwnPost, loadAuthorPage, loadAuthorPosts } from "./a
 import { listFeed } from "./feed.server";
 import { loadComments, loadPost, loadPostLive, loadPostYou } from "./posts.server";
 import { ARCHIVE_KEEP, HOME_KEEP, keepAuthor, keepPost, LIVE_KEEP_SECONDS } from "../lib/keep";
-import { loadRanking } from "./ranking.server";
+import { loadRanking, loadTrails } from "./ranking.server";
 import { forget, keepResponse, pagesShowing, TAGS } from "./cache.server";
 import { toggleQuality } from "./reactions.server";
 import { currentUser, requireUser, signInOptions } from "./auth.server";
@@ -39,10 +39,14 @@ const postId = (value: unknown) => {
 /** Text from an address, checked by the handler: a bad one is "not found", not an error. */
 const fromAddress = (value: unknown) => (typeof value === "string" ? value.slice(0, 200) : "");
 
-/** The ranking as last worked out (hourly), stored like the homepage. */
+/**
+ * The homepage's boards as last worked out (hourly): the ranking, and the
+ * trails. One request, stored like the homepage.
+ */
 export const getRanking = createServerFn({ method: "GET" }).handler(async () => {
 	keepResponse(HOME_KEEP);
-	return loadRanking();
+	const [ranking, trails] = await Promise.all([loadRanking(), loadTrails()]);
+	return { ranking, trails };
 });
 
 /**

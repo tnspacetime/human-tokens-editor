@@ -1,19 +1,20 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useRouterState } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { RankingBoard } from "../components/Ranking";
 import { PostTile } from "../components/PostCard";
 import { RulesPill } from "../components/Rules";
+import { TrailsBoard } from "../components/Trails";
 import { tileSizes } from "../components/tileSizes";
 import { useFeedMotion } from "../components/useFeedMotion";
 import { useDeleted } from "../lib/deleted";
 import { share } from "../lib/share";
-import type { FeedItem } from "../lib/types";
+import type { FeedItem, Trails as TrailsData } from "../lib/types";
 import { getFeed, getHome, getRanking, HOME_COUNT, HOME_PAGE } from "../server/site.functions";
 
 export const Route = createFileRoute("/")({
 	loader: async () => {
-		const [home, ranking] = await Promise.all([getHome(), getRanking()]);
-		return { home, ranking };
+		const [home, { ranking, trails }] = await Promise.all([getHome(), getRanking()]);
+		return { home, ranking, trails };
 	},
 	head: () => share({ path: "/" }),
 	component: Feed,
@@ -35,7 +36,7 @@ const AHEAD = "0px 0px 1600px 0px";
 // counts on its tiles are at most that old. Everything older lives in the archive, which the flow hands over
 // to at its end; dates are the archive's business.
 function Feed() {
-	const { home, ranking } = Route.useLoaderData();
+	const { home, ranking, trails } = Route.useLoaderData();
 	const first = home.items[0]?.id ?? "";
 	const resumed = kept?.first === first ? kept : null;
 	const [posts, setPosts] = useState<FeedItem[]>(resumed?.posts ?? home.items);
@@ -99,6 +100,7 @@ function Feed() {
 			<h1 className="visually-hidden">Human Tokens</h1>
 			<RulesPill />
 			<RankingBoard ranking={ranking} />
+			<Trails trails={trails} />
 			<header className="section-head">
 				<h2>Latest</h2>
 				<p>Every word written by a person. No AI wrote or rewrote any of it.</p>
@@ -142,4 +144,19 @@ function Feed() {
 			)}
 		</main>
 	);
+}
+
+/**
+ * The trails; on the local site, ?trails=full, few, quiet or none shows
+ * made-up ones instead, to see the board's look in each case. They're
+ * loaded only there: the site everyone else gets doesn't include them.
+ */
+function Trails({ trails }: { trails: TrailsData }) {
+	const fake = useRouterState({ select: (state) => (state.location.search as { trails?: string }).trails });
+	const [cases, setCases] = useState<Record<string, TrailsData> | null>(null);
+	useEffect(() => {
+		if (import.meta.env.DEV && fake) import("../lib/trails.fake").then((made) => setCases(made.FAKE_CASES));
+	}, [fake]);
+	const shown = (fake && cases?.[fake]) || trails;
+	return <TrailsBoard key={shown === trails ? "real" : fake} trails={shown} />;
 }

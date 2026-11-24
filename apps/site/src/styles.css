@@ -6,6 +6,7 @@
    island the glass capsule at the top
    feed   section headings and the tiles, with their drawn covers
    live   the hourly ranking, its ticker and sheet in the island
+   trails the replies readers chose most, with what they answer
    rules  the rules: a glass pill on the homepage, and their own page
    post   a piece, its qualities and comments
    author an author's page
@@ -16,6 +17,7 @@
 @import "./styles/island.css";
 @import "./styles/feed.css";
 @import "./styles/live.css";
+@import "./styles/trails.css";
 @import "./styles/rules.css";
 @import "./styles/post.css";
 @import "./styles/write.css";

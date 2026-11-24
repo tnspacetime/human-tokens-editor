@@ -138,5 +138,19 @@ export type RankingPeriod = {
 	top: Record<Quality, RankingEntry[]>;
 };
 
+export type TrailPost = { id: string; slug: string; title: string; author: string };
+
+/**
+ * A reply readers chose, with the posts it answers: the opening post first,
+ * the reply last (lib/trails.ts, shorten). `more`: how many posts are left
+ * out after the opening one, in a long conversation.
+ */
+export type Trail = { votes: number; posts: TrailPost[]; more: number };
+
+export type TrailPeriod = "week" | "month" | "all";
+
+/** The trails for each period, most chosen reply first. */
+export type Trails = Record<TrailPeriod, Trail[]>;
+
 /** A board as last worked out: every period, which one to open on, and how often it's worked out. */
 export type Ranking = { periods: RankingPeriod[]; initial: RankingPeriod["id"]; workedOutAt: string; cadence: "hourly" | "daily" };
