@@ -117,39 +117,47 @@ const emptyLists = () => Object.fromEntries(QUALITIES.map((q) => [q.id, []])) as
  * The homepage's board (hourly). For each period, one query adds up the
  * tallies and keeps the top ten per quality (most chosen first; between
  * equals, the one chosen most lately), so only those rows come back.
+ *
+ * Each reads only its period's tallies, by their key (hour or day first),
+ * and adds them up per post before looking each post up once by its id
+ * (to leave out those still being fixed). The period is worked out on its
+ * own first (MATERIALIZED): joined straight to posts, the planner would
+ * walk every post ever published instead.
  */
 export async function workOutRanking(now = Date.now()): Promise<Stored> {
 	const settled = settledBefore(now);
 	const week = PERIODS.find((p) => p.id === "week")!;
 	const month = PERIODS.find((p) => p.id === "month")!;
 	// The replies chosen most, This week and This month: one pass over the
-	// month's daily tallies serves both (the week is the end of the month).
-	// Between equals, the one chosen most lately. CROSS JOIN keeps the
-	// tallies as the outer loop (the daily ones are only ever the last 31
-	// days, so this reads the month's activity) and looks each post up by its
-	// id: left to itself, the planner walks every post ever published.
+	// month's daily tallies serves both (the week is the end of the month),
+	// added up per post first, then each post looked up once to keep the
+	// replies. Between equals, the one chosen most lately.
 	const replies = db()
 		.prepare(
-			`WITH chosen AS (
-			   SELECT t.post_id, SUM(t.n) AS month, SUM(CASE WHEN t.day >= ?2 THEN t.n ELSE 0 END) AS week, MAX(t.day) AS last
-			   FROM reaction_days t CROSS JOIN posts p ON p.id = t.post_id AND p.published_at <= ?3 AND p.responds_to IS NOT NULL
-			   WHERE t.day >= ?1
-			   GROUP BY t.post_id
+			`WITH chosen AS MATERIALIZED (
+			   SELECT post_id, SUM(n) AS month, SUM(CASE WHEN day >= ?2 THEN n ELSE 0 END) AS week, MAX(day) AS last
+			   FROM reaction_days WHERE day >= ?1 GROUP BY post_id
+			 ),
+			 replies AS MATERIALIZED (
+			   SELECT c.* FROM chosen c JOIN posts p ON p.id = c.post_id AND p.published_at <= ?3 AND p.responds_to IS NOT NULL
 			 )
-			 SELECT * FROM (SELECT 'week' AS period, post_id, week AS votes FROM chosen WHERE week > 0 ORDER BY week DESC, last DESC, post_id LIMIT ?4)
+			 SELECT * FROM (SELECT 'week' AS period, post_id, week AS votes FROM replies WHERE week > 0 ORDER BY week DESC, last DESC, post_id LIMIT ?4)
 			 UNION ALL
-			 SELECT * FROM (SELECT 'month' AS period, post_id, month AS votes FROM chosen WHERE month > 0 ORDER BY month DESC, last DESC, post_id LIMIT ?4)`,
+			 SELECT * FROM (SELECT 'month' AS period, post_id, month AS votes FROM replies WHERE month > 0 ORDER BY month DESC, last DESC, post_id LIMIT ?4)`,
 		)
 		.bind(month.from(now), week.from(now), settled, TRAIL_COUNT);
 	const statements = PERIODS.map(({ tallies, unit, from }) =>
 		db()
 			.prepare(
-				`SELECT post_id, quality, votes FROM (
-				   SELECT t.post_id, t.quality, SUM(t.n) AS votes,
-				     ROW_NUMBER() OVER (PARTITION BY t.quality ORDER BY SUM(t.n) DESC, MAX(t.${unit}) DESC, t.post_id) AS place
-				   FROM ${tallies} t JOIN posts p ON p.id = t.post_id AND p.published_at <= ?3
-				   WHERE t.${unit} >= ?1
-				   GROUP BY t.post_id, t.quality HAVING SUM(t.n) > 0
+				`WITH period AS MATERIALIZED (
+				   SELECT post_id, quality, SUM(n) AS votes, MAX(${unit}) AS last
+				   FROM ${tallies} WHERE ${unit} >= ?1
+				   GROUP BY post_id, quality HAVING SUM(n) > 0
+				 )
+				 SELECT post_id, quality, votes FROM (
+				   SELECT t.post_id, t.quality, t.votes,
+				     ROW_NUMBER() OVER (PARTITION BY t.quality ORDER BY t.votes DESC, t.last DESC, t.post_id) AS place
+				   FROM period t JOIN posts p ON p.id = t.post_id AND p.published_at <= ?3
 				 ) WHERE place <= ?2 ORDER BY quality, place`,
 			)
 			.bind(from(now), LIST_LENGTH, settled),
